@@ -20,8 +20,10 @@
     "types": [
       "vitest/globals"
     ],
-    "ignoreDeprecations": ["6.0"],
-    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@/*": ["./*"]
+    },
     "plugins": [
       {
         "name": "next"
