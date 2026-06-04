@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    
+    <!-- Sparkle Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="128" height="128" rx="32" fill="url(#bgGrad)" />
+
+  <!-- Magic Sparkles / Stars -->
+  <g fill="#ffffff" filter="url(#glow)">
+    <!-- Main Sparkle -->
+    <path d="M64,24 Q64,52 36,52 Q64,52 64,80 Q64,52 92,52 Q64,52 64,24 Z" />
+    
+    <!-- Small Sparkle Top-Right -->
+    <path d="M96,24 Q96,36 84,36 Q96,36 96,48 Q96,36 108,36 Q96,36 96,24 Z" transform="scale(0.6) translate(64, 10)" />
+
+    <!-- Small Sparkle Bottom-Left -->
+    <path d="M32,80 Q32,92 20,92 Q32,92 32,104 Q32,92 44,92 Q32,92 32,80 Z" transform="scale(0.5) translate(-10, 80)" />
+  </g>
+  
+  <!-- Sleek Magic Wand handle intersecting the sparkle -->
+  <path d="M34,102 L52,84" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+  <path d="M30,106 C28,108 24,108 22,106 C20,104 20,100 22,98 L26,94" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+</svg>
