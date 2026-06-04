@@ -107,7 +107,7 @@ export function detectPrompt(text: string): DetectionResult {
   );
   signals.push({
     name: 'goal',
-    weight: 0.12,
+    weight: 0.20,
     present: hasGoal
   });
 
@@ -144,7 +144,7 @@ export function detectPrompt(text: string): DetectionResult {
 
   // Threshold: need at least 0.3 confidence to consider it a prompt
   // This avoids false positives on normal chat
-  const isPrompt = confidence >= 0.30;
+  const isPrompt = confidence >= 0.25;
 
   return {
     isPrompt,

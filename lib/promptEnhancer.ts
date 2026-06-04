@@ -262,7 +262,7 @@ function improveSuccessCriteria(prompt: string): string {
   );
 
   // If vague about what good looks like
-  if (!hasSuccessCriteria && prompt.length < 100) {
+  if (!hasSuccessCriteria && prompt.length < 350) {
     return prompt + ' How will we know this is successful?';
   }
 

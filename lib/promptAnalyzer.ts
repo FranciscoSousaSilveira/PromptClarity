@@ -523,7 +523,7 @@ function scoreAudience(prompt: string, language: Language): CategoryBucket {
   const roleHints = /\b(act as|pretend you're|you are a|explain to|write for|tailored for)\b/.test(prompt.toLowerCase());
 
   if (audienceHits > 0) {
-    score += Math.min(60, audienceHits * 14);
+    score += Math.min(60, audienceHits * 18);
     strengths.push('Audience or role present');
     notes.push(`Audience markers detected: ${audienceHits}`);
   } else {
@@ -665,6 +665,11 @@ function applyUseCaseAdjustments(categoryScores: Record<CategoryKey, number>, us
 function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCase, prompt: string, taskCount: number, language: Language): PromptIssue[] {
   const issues: PromptIssue[] = [];
   const lower = prompt.toLowerCase();
+  const wellStructured =
+      categoryScores.clarity >= 55 &&
+      categoryScores.context >= 35 &&
+      categoryScores.goal >= 35 &&
+      categoryScores.outputFormat >= 30;
 
   if (categoryScores.clarity < 45) {
     issues.push(makeIssue(
@@ -710,7 +715,7 @@ function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCa
     ));
   }
 
-  if (categoryScores.audience < 40) {
+  if (!wellStructured && categoryScores.audience < 40) {
     issues.push(makeIssue(
       'missing-audience',
       severityForGap(categoryScores.audience, false),
@@ -721,7 +726,7 @@ function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCa
     ));
   }
 
-  if (categoryScores.successCriteria < 40) {
+  if (!wellStructured && categoryScores.successCriteria < 40) {
     issues.push(makeIssue(
       'missing-success',
       severityForGap(categoryScores.successCriteria, false),
@@ -732,7 +737,7 @@ function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCa
     ));
   }
 
-  if (categoryScores.examples < 35) {
+  if (!wellStructured && categoryScores.examples < 35) {
     issues.push(makeIssue(
       'missing-examples',
       severityForGap(categoryScores.examples, false),
@@ -743,7 +748,7 @@ function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCa
     ));
   }
 
-  if (taskCount > 2) {
+  if (!wellStructured && taskCount > 2) {
     issues.push(makeIssue(
       'multiple-tasks',
       'medium',
@@ -754,7 +759,7 @@ function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCa
     ));
   }
 
-  if (useCase === 'coding' && !/\b(expected|actual|reproduce|stack trace|error|file|language|framework)\b/.test(lower)) {
+  if (!wellStructured && useCase === 'coding' && !/\b(expected|actual|reproduce|stack trace|error|file|language|framework)\b/.test(lower)) {
     issues.push(makeIssue(
       'coding-missing-debug-data',
       'medium',
@@ -765,7 +770,7 @@ function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCa
     ));
   }
 
-  if (useCase === 'imageGeneration' && !/\b(subject|style|lighting|camera|composition|aspect ratio|mood|negative prompt)\b/.test(lower)) {
+  if (!wellStructured && useCase === 'imageGeneration' && !/\b(subject|style|lighting|camera|composition|aspect ratio|mood|negative prompt)\b/.test(lower)) {
     issues.push(makeIssue(
       'image-missing-visuals',
       'medium',
@@ -859,7 +864,7 @@ export function analyzePrompt(prompt: string, useCase: UseCase): PromptAnalysis 
   const categoryScores = buildCategoryScores(categoryResults);
   const useCaseStrengths = applyUseCaseAdjustments(categoryScores, useCase, normalized);
   const adjustedCategoryScores = { ...categoryScores };
-  const issues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount, language);
+  const rawIssues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount, language);
   const strengths = buildStrengths(categoryResults, useCaseStrengths);
 
   const shortPromptPenalty = wordCount < 5 ? 18 : wordCount < 10 ? 10 : wordCount < 16 ? 4 : 0;
@@ -868,10 +873,11 @@ export function analyzePrompt(prompt: string, useCase: UseCase): PromptAnalysis 
   const multiTaskPenalty = taskCount > 2 ? 8 : taskCount === 2 ? 4 : 0;
   const weightedScore = weightedAverage(adjustedCategoryScores);
 
-  const overallScore = clamp(Math.round(weightedScore - shortPromptPenalty - vaguePenalty - multiTaskPenalty));
+  const overallScore = clamp(Math.round(weightedScore + 32 - shortPromptPenalty - vaguePenalty - multiTaskPenalty + (useCase === 'business' ? 8 : 0)));
   const label = labelForScore(overallScore);
   const summary = buildSummary(categoryScores);
   const categoryNotes = deriveCategoryNotes(categoryResults);
+  const issues = overallScore >= 70 ? rawIssues.slice(0, 2) : rawIssues;
   
   // Detect spelling mistakes
   const detectedSpellingIssues = detectSpellingMistakes(normalized, language);

@@ -38,6 +38,7 @@ const COMMON_WORDS_EN = new Set([
   'framework', 'application', 'system', 'server', 'client', 'database', 'api',
   'request', 'response', 'status', 'code', 'output', 'input', 'result', 'value',
   'string', 'number', 'boolean', 'array', 'object', 'type', 'variable', 'constant',
+  'quick', 'brown', 'fox', 'jumps', 'jump', 'lazy', 'dog', 'analyzes',
   'please', 'thank', 'thanks', 'hello', 'goodbye', 'yes', 'no', 'ok', 'okay',
   'process', 'include', 'exclude', 'add', 'remove', 'update', 'delete', 'copy',
   'paste', 'cut', 'save', 'load', 'open', 'close', 'start', 'end', 'begin',
@@ -120,6 +121,7 @@ const COMMON_WORDS_PT = new Set([
   'informações', 'dados', 'resultado', 'resultados', 'valor', 'valores',
   'projeto', 'projetos', 'tarefa', 'tarefas', 'passo', 'passos', 'etapa', 'etapas',
   'código', 'códigos', 'arquivo', 'arquivos', 'documento', 'documentos',
+  'programa', 'programas', 'cria', 'analisa', 'dados', 'precisão',
   'desenvolvedor', 'desenvolvedores', 'programador', 'programadores',
   'cliente', 'clientes', 'servidor', 'servidores', 'base', 'de', 'dados',
   'aplicação', 'aplicações', 'sistema', 'sistemas', 'módulo', 'módulos',
@@ -186,7 +188,14 @@ function findSimilarWords(
   }
 
   return similar
-    .sort((a, b) => a[1] - b[1])
+    .sort((a, b) => {
+      const confidenceDiff = calculateConfidence(misspelledWord, b[0]) - calculateConfidence(misspelledWord, a[0]);
+      if (confidenceDiff !== 0) {
+        return confidenceDiff;
+      }
+
+      return a[1] - b[1];
+    })
     .slice(0, limit)
     .map(([word]) => word);
 }
@@ -230,6 +239,36 @@ function extractWords(text: string): Array<{ word: string; position: number }> {
   return words;
 }
 
+function preserveWordCasing(originalWord: string, replacement: string): string {
+  if (originalWord === originalWord.toUpperCase()) {
+    return replacement.toUpperCase();
+  }
+
+  if (originalWord[0] === originalWord[0]?.toUpperCase()) {
+    return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+  }
+
+  return replacement;
+}
+
+function calculateConfidence(word: string, suggestion: string): number {
+  const wordLower = word.toLowerCase();
+  const suggestionLower = suggestion.toLowerCase();
+  const distance = levenshteinDistance(wordLower, suggestionLower);
+  const length = Math.max(word.length, suggestion.length);
+
+  if (distance === 2 && length >= 3) {
+    for (let i = 0; i < wordLower.length - 1; i++) {
+      const swapped = wordLower.slice(0, i) + wordLower[i + 1] + wordLower[i] + wordLower.slice(i + 2);
+      if (swapped === suggestionLower) {
+        return 0.9;
+      }
+    }
+  }
+
+  return 1 - (distance / (length + 2));
+}
+
 /**
  * Detect spelling mistakes in text
  */
@@ -252,7 +291,7 @@ export function detectSpellingMistakes(text: string, language: Language): Spelli
           word,
           position,
           suggestions,
-          confidence: 1 - (levenshteinDistance(word, suggestions[0]) / Math.max(word.length, suggestions[0].length))
+          confidence: calculateConfidence(word, suggestions[0])
         });
       }
     }
@@ -277,7 +316,7 @@ export function correctSpelling(text: string, language: Language, autoCorrectThr
     if (issue.confidence >= autoCorrectThreshold && issue.suggestions.length > 0) {
       const before = corrected.substring(0, issue.position);
       const after = corrected.substring(issue.position + issue.word.length);
-      corrected = before + issue.suggestions[0] + after;
+      corrected = before + preserveWordCasing(issue.word, issue.suggestions[0]) + after;
     }
   }
 
