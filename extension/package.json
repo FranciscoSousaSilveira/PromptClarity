@@ -1,0 +1,76 @@
+{
+  "name": "prompt-enhancement",
+  "displayName": "Prompt Enhancement",
+  "description": "AI-powered prompt enhancement popup for VS Code Chat - detects prompts and suggests improvements",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Copilot"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "prompt-enhancement.togglePopup",
+        "title": "Enhance Prompt",
+        "description": "Analyze selected text and show an improved version in a popup"
+      },
+      {
+        "command": "prompt-enhancement.analyzeAndCopy",
+        "title": "Analyze & Copy Enhanced Prompt",
+        "description": "Analyze the last text and copy the improved version"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "prompt-enhancement.togglePopup",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "prompt-enhancement.togglePopup",
+          "group": "1_modification",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {},
+  "publisher": "grammarly-prompts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grammarlydev/grammarly-prompts"
+  },
+  "bugs": {
+    "url": "https://github.com/grammarlydev/grammarly-prompts/issues"
+  },
+  "homepage": "https://github.com/grammarlydev/grammarly-prompts",
+  "keywords": [
+    "prompt",
+    "ai",
+    "enhancement",
+    "copilot",
+    "chat"
+  ]
+}
