@@ -5,11 +5,10 @@
 
 import * as vscode from 'vscode';
 import { analyzeForPopup, shouldShowHint } from '../lib/promptIntegration';
-import { type UseCase } from '../types/prompt';
 
 let popupPanel: vscode.WebviewPanel | undefined;
 let lastAnalyzedText: string = '';
-let debounceTimer: NodeJS.Timeout | undefined;
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Prompt Enhancement extension activated');
@@ -58,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Listen for text changes in chat/editor (automatic hinting)
   const onDidChangeTextDocument = vscode.workspace.onDidChangeTextDocument((event) => {
-    debounceAnalysis(event.document.getText(event.contentChanges[0]?.range), context);
+    debounceAnalysis(event.document.getText(), context);
   });
 
   context.subscriptions.push(togglePopup, analyzeAndCopy, onDidChangeTextDocument);
@@ -112,11 +111,15 @@ function showPopup(text: string, context: vscode.ExtensionContext) {
   popupPanel.webview.onDidReceiveMessage((message) => {
     switch (message.command) {
       case 'copy':
-        vscode.env.clipboard.writeText(result.improvedPrompt);
-        vscode.window.showInformationMessage('Copied to clipboard!');
+        if (result.improvedPrompt) {
+          vscode.env.clipboard.writeText(result.improvedPrompt);
+          vscode.window.showInformationMessage('Copied to clipboard!');
+        }
         break;
       case 'insert':
-        insertTextInEditor(result.improvedPrompt);
+        if (result.improvedPrompt) {
+          insertTextInEditor(result.improvedPrompt);
+        }
         break;
       case 'close':
         if (popupPanel) {
