@@ -7,7 +7,7 @@
     "build": "next build",
     "build:chrome": "node build-extension.js",
     "build:vscode": "npm --prefix extension run build",
-    "model:pull": "ollama pull qwen2.5:3b",
+    "model:pull": "ollama pull qwen2.5:1.5b",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest"

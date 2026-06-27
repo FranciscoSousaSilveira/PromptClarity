@@ -7,7 +7,7 @@ Rewriting is performed by a local open-source model through Ollama. The prompt i
 ## Local AI setup
 
 1. Install [Ollama](https://ollama.com/download) for your operating system.
-2. From the repository root, run `npm run model:pull` once. This downloads `qwen2.5:3b` (roughly 2 GB).
+2. From the repository root, run `npm run model:pull` once. This downloads `qwen2.5:1.5b` (roughly 1 GB).
 3. Run `npm run dev` and leave that terminal open while using the extension. This starts the local bridge at `http://127.0.0.1:3000/api/rewrite`.
 4. Build and reload the Chrome extension as described below.
 
@@ -15,7 +15,7 @@ You can check the bridge by opening `http://127.0.0.1:3000/api/rewrite`. A succe
 
 The first rewrite after starting Ollama is slower because the model must be loaded into memory. The server keeps it warm for 30 minutes so later rewrites are substantially faster.
 
-To use another Ollama model, start the app with `OLLAMA_MODEL` set to its Ollama name. You can also change the Ollama server address with `OLLAMA_URL`.
+To favor quality over speed, start the app with `OLLAMA_MODEL=qwen2.5:3b`. You can use any other Ollama model in the same way, and change the Ollama server address with `OLLAMA_URL`.
 
 ## Install locally
 
@@ -38,6 +38,6 @@ Supported sites include ChatGPT, Claude, Gemini, Microsoft Copilot, Perplexity, 
 
 ## Troubleshooting
 
-- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.2.3`, reload it, and refresh the Gemini/ChatGPT tab.
+- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.2.4`, reload it, and refresh the Gemini/ChatGPT tab.
 - If no icon appears, focus the message composer and type at least a short instruction such as `Explain this in three bullets`.
-- If the card says that the model did not respond, run `ollama serve`, confirm that `qwen2.5:3b` appears in `ollama list`, and keep `npm run dev` running. Use **Try again** after restoring the connection.
+- If the card says that the model did not respond, run `ollama serve`, confirm that `qwen2.5:1.5b` appears in `ollama list`, and keep `npm run dev` running. Use **Try again** after restoring the connection.

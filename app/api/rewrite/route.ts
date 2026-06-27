@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:1.5b';
 const MODEL_WARM_FOR_MS = 25 * 60 * 1_000;
 let lastModelWarmAt = 0;
 let modelWarmRequest: Promise<boolean> | null = null;
@@ -120,11 +120,18 @@ export async function POST(request: NextRequest) {
   if (prompt.length < 2) return json({ error: 'Prompt is required' }, 400);
   if (prompt.length > 12_000) return json({ error: 'Prompt is too long' }, 413);
 
+  const maxOutputTokens = prompt.length < 500
+    ? 144
+    : prompt.length < 1_500
+      ? 240
+      : 400;
+
   const systemPrompt = [
     'Rewrite the user draft into a polished, ready-to-send prompt. Return only that prompt: no introduction, quotes, markdown fence, explanation, or answer.',
     'Preserve its language and intent; use European Portuguese when applicable. Correct spelling, grammar, punctuation, unclear wording, and obvious abbreviations.',
     'Preserve specialist terms, brands, titles, acronyms, institutions, and names from the rule-based candidate. Never replace an uncertain term with another concept.',
     'Improve meaningfully, not just cosmetically: add only safely inferred structure, constraints, decision criteria, or output guidance. Never invent facts or preferences.',
+    'For an original draft under 500 characters, keep the improved prompt under 100 words.',
     'Convert “AI slop” or detection wording into concrete quality requirements: natural specific prose, varied sentences, no clichés, repetition, or generic filler. Do not promise undetectability.',
     'For long reports, clarify structure, visual presentation, tone, opening, transitions, conclusion, and CTA. Prefer natural prose over Role/Context/Task sections.',
     `Use case: ${useCase}.`
@@ -142,7 +149,7 @@ export async function POST(request: NextRequest) {
           temperature: 0.2,
           top_p: 0.9,
           num_ctx: 2048,
-          num_predict: 320
+          num_predict: maxOutputTokens
         },
         messages: [
           { role: 'system', content: systemPrompt },
@@ -163,9 +170,22 @@ export async function POST(request: NextRequest) {
       return json({ error: 'Ollama request failed', detail: detail.slice(0, 300) }, 502);
     }
 
-    const result = await ollamaResponse.json() as { message?: { content?: string } };
+    const result = await ollamaResponse.json() as {
+      message?: { content?: string };
+      total_duration?: number;
+      prompt_eval_count?: number;
+      eval_count?: number;
+    };
     const rewrittenPrompt = result.message?.content?.trim();
     if (!rewrittenPrompt) return json({ error: 'Ollama returned an empty response' }, 502);
+
+    console.info('[prompt-enhancer] local rewrite completed', {
+      model: OLLAMA_MODEL,
+      durationMs: result.total_duration ? Math.round(result.total_duration / 1_000_000) : undefined,
+      inputTokens: result.prompt_eval_count,
+      outputTokens: result.eval_count,
+      outputLimit: maxOutputTokens
+    });
 
     return json({ rewrittenPrompt, model: OLLAMA_MODEL });
   } catch (error) {

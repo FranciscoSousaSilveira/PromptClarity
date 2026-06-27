@@ -278,9 +278,9 @@ export class PromptEnhancerUI {
             <span></span>
             <span></span>
           </div>
-          <div class="model-loading-title">A melhorar a tua prompt…</div>
+          <div class="model-loading-title">Improving your prompt…</div>
           <div class="model-loading-text">
-            O modelo local está a corrigir e a reorganizar o texto. Só poderás copiar ou inserir quando a versão final estiver pronta.
+            The local model is correcting and restructuring the text. Copy and insert will become available when the final version is ready.
           </div>
           <div class="model-loading-dots" aria-hidden="true">
             <i></i><i></i><i></i>
@@ -296,11 +296,11 @@ export class PromptEnhancerUI {
         ${headerHTML}
         <div class="model-error-state" role="alert">
           <div class="model-error-icon" aria-hidden="true">!</div>
-          <div class="model-loading-title">O modelo não respondeu</div>
+          <div class="model-loading-title">The model did not respond</div>
           <div class="model-loading-text">
-            A versão provisória não será disponibilizada para colar. Confirma que o Ollama e o servidor local estão ativos e tenta novamente.
+            The temporary rules draft cannot be pasted. Check that Ollama and the local server are running, then try again.
           </div>
-          <button class="model-retry-btn" id="pe-retry-btn" type="button">Tentar novamente</button>
+          <button class="model-retry-btn" id="pe-retry-btn" type="button">Try again</button>
         </div>
       `;
       this.bindPopupEvents(content);
