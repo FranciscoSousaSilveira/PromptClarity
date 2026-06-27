@@ -1,5 +1,6 @@
 import { analyzeForPopup, shouldShowHint, type PopupContent } from '../../lib/promptIntegration';
 import { analyzePrompt } from '../../lib/promptAnalyzer';
+import { rewritePromptWithModel } from '../../lib/modelPromptRewriter';
 import type { UseCase } from '../../types/prompt';
 import { PromptEnhancerUI } from './ui';
 
@@ -17,6 +18,7 @@ class PromptEnhancerExtension {
   private analysisTimer: ReturnType<typeof setTimeout> | null = null;
   private lastAnalyzedSignature = '';
   private dismissedSignature = '';
+  private analysisRequestId = 0;
 
   private static readonly AUTO_ANALYZE_DELAY = 900;
 
@@ -265,7 +267,7 @@ class PromptEnhancerExtension {
     this.activeElement?.focus();
   }
 
-  private runAnalysis(force: boolean) {
+  private async runAnalysis(force: boolean) {
     if (!this.activeElement) return;
 
     const capturedText = this.getInputText(this.activeElement).trim();
@@ -274,7 +276,7 @@ class PromptEnhancerExtension {
     const rect = this.activeElement.getBoundingClientRect();
 
     // Call local library analyzer
-    const content: PopupContent = analyzeForPopup({
+    let content: PopupContent = analyzeForPopup({
       text,
       useCase: this.currentUseCase
     });
@@ -283,13 +285,51 @@ class PromptEnhancerExtension {
     // can still force an enhancement for a short or unusual prompt.
     if (!content.isPrompt || !content.analysis) {
       if (!force) return;
-      const forceContent = this.forceAnalysisFallback(text);
-      this.lastAnalyzedSignature = this.textSignature(text);
-      this.ui.showPopup(rect, forceContent, this.currentUseCase, this.autoEnhanceEnabled);
-    } else {
-      this.lastAnalyzedSignature = this.textSignature(text);
-      this.ui.showPopup(rect, content, this.currentUseCase, this.autoEnhanceEnabled);
+      content = this.forceAnalysisFallback(text);
     }
+
+    if (!content.analysis || !content.improvedPrompt) return;
+
+    const signature = this.textSignature(text);
+    const requestId = ++this.analysisRequestId;
+    this.lastAnalyzedSignature = signature;
+    this.ui.showPopup(
+      rect,
+      { ...content, rewriteSource: 'rules', rewriteStatus: 'loading' },
+      this.currentUseCase,
+      this.autoEnhanceEnabled
+    );
+
+    const modelResult = await rewritePromptWithModel({
+      prompt: text,
+      useCase: this.currentUseCase,
+      fallbackPrompt: content.improvedPrompt
+    });
+
+    // Ignore stale answers when the user typed, changed use case, or closed the card.
+    if (
+      requestId !== this.analysisRequestId ||
+      !this.activeElement ||
+      this.textSignature(this.getInputText(this.activeElement).trim()) !== this.textSignature(capturedText) ||
+      !this.ui.isPopupVisible()
+    ) {
+      return;
+    }
+
+    const updatedAnalysis = {
+      ...content.analysis,
+      rewrittenPrompt: modelResult.rewrittenPrompt
+    };
+    this.ui.showPopup(rect, {
+      ...content,
+      analysis: updatedAnalysis,
+      improvedPrompt: modelResult.rewrittenPrompt,
+      copyableText: modelResult.rewrittenPrompt,
+      rewriteSource: modelResult.source,
+      rewriteStatus: modelResult.source === 'model' ? 'ready' : 'fallback',
+      modelName: modelResult.model,
+      modelError: modelResult.error
+    }, this.currentUseCase, this.autoEnhanceEnabled);
   }
 
   private forceAnalysisFallback(text: string): PopupContent {

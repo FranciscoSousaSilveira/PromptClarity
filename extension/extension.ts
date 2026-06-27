@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'crypto';
 import { analyzeForPopup, shouldShowHint } from '../lib/promptIntegration';
+import { rewritePromptWithModel } from '../lib/modelPromptRewriter';
 
 let popupPanel: vscode.WebviewPanel | undefined;
 let lastAnalyzedText: string = '';
@@ -31,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      showPopup(selectedText, context);
+      await showPopup(selectedText, context);
     }
   );
 
@@ -45,10 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const result = analyzeForPopup({
-        text: textToAnalyze,
-        useCase: 'general'
-      });
+      const result = await analyzeWithLocalModel(textToAnalyze);
 
       if (result.copyableText) {
         await vscode.env.clipboard.writeText(result.copyableText);
@@ -69,12 +67,30 @@ export function activate(context: vscode.ExtensionContext) {
 /**
  * Shows the popup with improved prompt
  */
-function showPopup(text: string, context: vscode.ExtensionContext) {
-  lastAnalyzedText = text;
-  const result = analyzeForPopup({
-    text,
-    useCase: 'general'
+async function analyzeWithLocalModel(text: string) {
+  const result = analyzeForPopup({ text, useCase: 'general' });
+  if (!result.analysis || !result.improvedPrompt) return result;
+
+  const modelResult = await rewritePromptWithModel({
+    prompt: text,
+    useCase: 'general',
+    fallbackPrompt: result.improvedPrompt
   });
+
+  return {
+    ...result,
+    analysis: { ...result.analysis, rewrittenPrompt: modelResult.rewrittenPrompt },
+    improvedPrompt: modelResult.rewrittenPrompt,
+    copyableText: modelResult.rewrittenPrompt,
+    rewriteSource: modelResult.source,
+    modelName: modelResult.model,
+    modelError: modelResult.error
+  };
+}
+
+async function showPopup(text: string, context: vscode.ExtensionContext) {
+  lastAnalyzedText = text;
+  const result = await analyzeWithLocalModel(text);
 
   if (!result.isPrompt || !result.improvedPrompt) {
     vscode.window.showInformationMessage('Text does not appear to be a prompt');

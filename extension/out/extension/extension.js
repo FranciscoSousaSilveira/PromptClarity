@@ -42,6 +42,7 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const crypto_1 = require("crypto");
 const promptIntegration_1 = require("../lib/promptIntegration");
+const modelPromptRewriter_1 = require("../lib/modelPromptRewriter");
 let popupPanel;
 let lastAnalyzedText = '';
 let currentImprovedPrompt = '';
@@ -60,7 +61,7 @@ function activate(context) {
             vscode.window.showInformationMessage('Please select text to enhance');
             return;
         }
-        showPopup(selectedText, context);
+        await showPopup(selectedText, context);
     });
     // Command: Analyze and copy to clipboard
     const analyzeAndCopy = vscode.commands.registerCommand('prompt-enhancement.analyzeAndCopy', async (text) => {
@@ -69,10 +70,7 @@ function activate(context) {
             vscode.window.showWarningMessage('No text to analyze');
             return;
         }
-        const result = (0, promptIntegration_1.analyzeForPopup)({
-            text: textToAnalyze,
-            useCase: 'general'
-        });
+        const result = await analyzeWithLocalModel(textToAnalyze);
         if (result.copyableText) {
             await vscode.env.clipboard.writeText(result.copyableText);
             vscode.window.showInformationMessage('Improved prompt copied to clipboard');
@@ -89,12 +87,28 @@ function activate(context) {
 /**
  * Shows the popup with improved prompt
  */
-function showPopup(text, context) {
-    lastAnalyzedText = text;
-    const result = (0, promptIntegration_1.analyzeForPopup)({
-        text,
-        useCase: 'general'
+async function analyzeWithLocalModel(text) {
+    const result = (0, promptIntegration_1.analyzeForPopup)({ text, useCase: 'general' });
+    if (!result.analysis || !result.improvedPrompt)
+        return result;
+    const modelResult = await (0, modelPromptRewriter_1.rewritePromptWithModel)({
+        prompt: text,
+        useCase: 'general',
+        fallbackPrompt: result.improvedPrompt
     });
+    return {
+        ...result,
+        analysis: { ...result.analysis, rewrittenPrompt: modelResult.rewrittenPrompt },
+        improvedPrompt: modelResult.rewrittenPrompt,
+        copyableText: modelResult.rewrittenPrompt,
+        rewriteSource: modelResult.source,
+        modelName: modelResult.model,
+        modelError: modelResult.error
+    };
+}
+async function showPopup(text, context) {
+    lastAnalyzedText = text;
+    const result = await analyzeWithLocalModel(text);
     if (!result.isPrompt || !result.improvedPrompt) {
         vscode.window.showInformationMessage('Text does not appear to be a prompt');
         return;

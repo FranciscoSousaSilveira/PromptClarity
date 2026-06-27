@@ -14,7 +14,10 @@ const ACTION_VERBS = [
     'refactor', 'simplify', 'summarize', 'compare', 'convert',
     'translate', 'rewrite', 'check', 'suggest', 'recommend',
     'find', 'search', 'list', 'show', 'describe', 'tell',
-    'teach', 'explain', 'demonstrate', 'provide', 'give'
+    'teach', 'explain', 'demonstrate', 'provide', 'give',
+    'explica', 'explicar', 'escreve', 'escrever', 'cria', 'criar',
+    'analisa', 'analisar', 'resume', 'resumir', 'compara', 'comparar',
+    'melhora', 'melhorar', 'corrige', 'corrigir', 'mostra', 'lista'
 ];
 const CONSTRAINT_INDICATORS = [
     'must', 'should', 'dont', 'should not', 'avoid',
@@ -45,6 +48,13 @@ function detectPrompt(text) {
     const lower = text.toLowerCase();
     const words = tokenize(lower);
     const signals = [];
+    const hasDirectQuestion = /^(who|what|when|where|why|how|quem|qual|quando|onde|como|por que|porque|o que)\b/i.test(lower.trim()) ||
+        /\b(what|which|qual|que)\b.{0,120}\b(or|ou|vs|versus)\b/i.test(lower);
+    signals.push({
+        name: 'direct_question',
+        weight: 0.36,
+        present: hasDirectQuestion
+    });
     // Signal 1: Starts with or contains action verb (strong indicator)
     const hasActionVerb = ACTION_VERBS.some(verb => new RegExp(`\\b${verb}\\b`).test(lower));
     signals.push({
@@ -90,7 +100,7 @@ function detectPrompt(text) {
         present: goodLength
     });
     // Signal 7: Question mark or colon (might indicate instruction/request)
-    const hasQuestion = /\?|:$/.test(text);
+    const hasQuestion = /\?|:$/.test(text) || hasDirectQuestion;
     signals.push({
         name: 'question_or_colon',
         weight: 0.05,

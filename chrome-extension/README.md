@@ -1,8 +1,19 @@
 # Prompt Grammarly for Chrome
 
-The extension reviews prompt drafts directly inside supported AI chat apps. After you pause typing, it opens a local suggestion card with a score, focused feedback, and a structured rewrite.
+The extension reviews prompt drafts directly inside supported AI chat apps. After you pause typing, it opens a suggestion card with a score, focused feedback, and a natural ready-to-send rewrite.
 
-Nothing is sent to an external API. The draft stays in the current browser tab and is processed by the bundled deterministic rules.
+Rewriting is performed by a local open-source model through Ollama. The prompt is sent only to the local Next.js service on your computer, which forwards it to local Ollama. If either service is unavailable, the bundled deterministic rules take over automatically.
+
+## Local AI setup
+
+1. Install [Ollama](https://ollama.com/download) for your operating system.
+2. From the repository root, run `npm run model:pull` once. This downloads `qwen2.5:3b` (roughly 2 GB).
+3. Run `npm run dev` and leave that terminal open while using the extension. This starts the local bridge at `http://127.0.0.1:3000/api/rewrite`.
+4. Build and reload the Chrome extension as described below.
+
+You can check the bridge by opening `http://127.0.0.1:3000/api/rewrite`. A successful response reports whether Ollama and the configured model are available.
+
+To use another Ollama model, start the app with `OLLAMA_MODEL` set to its Ollama name. You can also change the Ollama server address with `OLLAMA_URL`.
 
 ## Install locally
 
@@ -25,5 +36,6 @@ Supported sites include ChatGPT, Claude, Gemini, Microsoft Copilot, Perplexity, 
 
 ## Troubleshooting
 
-- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.1.5`, reload it, and refresh the Gemini/ChatGPT tab.
+- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.2.0`, reload it, and refresh the Gemini/ChatGPT tab.
 - If no icon appears, focus the message composer and type at least a short instruction such as `Explain this in three bullets`.
+- If the card says **Local AI offline**, run `ollama serve`, confirm that `qwen2.5:3b` appears in `ollama list`, and keep `npm run dev` running. The rules fallback remains usable while you fix the connection.

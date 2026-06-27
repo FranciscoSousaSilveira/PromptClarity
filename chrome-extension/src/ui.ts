@@ -240,6 +240,14 @@ export class PromptEnhancerUI {
     if (!this.popup) return;
 
     // Header HTML
+    const subtitle = content.rewriteStatus === 'loading'
+      ? 'Improving with local AI…'
+      : content.rewriteSource === 'model'
+        ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
+        : content.rewriteStatus === 'fallback'
+          ? 'Local AI offline · rules fallback used'
+          : 'Draft reviewed locally';
+
     let headerHTML = `
       <div class="popup-header">
         <div class="popup-title-area">
@@ -250,7 +258,7 @@ export class PromptEnhancerUI {
           </div>
           <div>
             <div class="popup-title">Prompt Grammarly</div>
-            <div class="popup-subtitle">Draft reviewed locally</div>
+            <div class="popup-subtitle">${subtitle}</div>
           </div>
         </div>
         <button class="popup-close-btn" id="pe-close-btn" aria-label="Close suggestion">

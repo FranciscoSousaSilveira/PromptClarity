@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyzePrompt } from '../lib/promptAnalyzer';
+import { rewritePromptWithModel } from '../lib/modelPromptRewriter';
 import { starterTemplates } from '../lib/templates';
 import { CategoryScores } from '../components/CategoryScores';
 import { IssueList } from '../components/IssueList';
@@ -26,6 +27,8 @@ export default function HomePage() {
   const [copyError, setCopyError] = useState<string | null>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement>(null);
+  const latestPromptRef = useRef(prompt);
+  latestPromptRef.current = prompt;
 
   const characterCount = useMemo(() => prompt.length, [prompt]);
   const shortPromptWarning = prompt.trim().length > 0 && prompt.trim().length < 18
@@ -89,7 +92,7 @@ export default function HomePage() {
     return hints;
   }, [prompt]);
 
-  function handleAnalyze() {
+  async function handleAnalyze() {
     const trimmed = prompt.trim();
 
     if (trimmed.length === 0) {
@@ -102,6 +105,17 @@ export default function HomePage() {
     setAnalysis(nextAnalysis);
     setAnalyzedPrompt(trimmed);
     setAnalyzedUseCase(useCase);
+
+    const modelResult = await rewritePromptWithModel({
+      prompt: trimmed,
+      useCase,
+      fallbackPrompt: nextAnalysis.rewrittenPrompt
+    }, { endpoint: '/api/rewrite' });
+
+    // Do not replace a newer analysis if the user edited the prompt meanwhile.
+    if (latestPromptRef.current.trim() === trimmed) {
+      setAnalysis({ ...nextAnalysis, rewrittenPrompt: modelResult.rewrittenPrompt });
+    }
   }
 
   async function handleCopy(format: CopyFormat) {
@@ -195,9 +209,9 @@ export default function HomePage() {
             Analyze a rough prompt, see what is missing, and rewrite it into a stronger version before you send it to an LLM.
           </p>
           <div className="hero-badges">
-            <span>Deterministic analysis</span>
+            <span>Local AI rewriting</span>
             <span>No API keys required</span>
-            <span>Public-safe and self-contained</span>
+            <span>Rules fallback included</span>
           </div>
         </div>
       </section>

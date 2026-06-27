@@ -14,6 +14,10 @@ export interface PopupContent {
     analysis?: PromptAnalysis;
     improvedPrompt?: string;
     copyableText?: string;
+    rewriteSource?: 'model' | 'rules';
+    rewriteStatus?: 'loading' | 'ready' | 'fallback';
+    modelName?: string;
+    modelError?: string;
 }
 /**
  * Main entry point for the VS Code popup.
