@@ -211,6 +211,18 @@ describe('prompt analyzer', () => {
       expect(analysis.rewrittenPrompt).toContain('[');
       expect(analysis.rewrittenPrompt).toContain(']');
     });
+
+    it('produces a coherent business rewrite without contradictory feedback', () => {
+      const prompt = 'Write an email to a client about a delayed project';
+      const analysis = analyzePrompt(prompt, 'general');
+
+      expect(analysis.spellingIssues).toEqual([]);
+      expect(analysis.correctedPrompt).toBe(prompt);
+      expect(analysis.issues.some((issue) => issue.id === 'missing-format')).toBe(false);
+      expect(analysis.issues.some((issue) => issue.id === 'missing-audience')).toBe(false);
+      expect(analysis.rewrittenPrompt).toContain('ready-to-send email');
+      expect(analysis.rewrittenPrompt).not.toMatch(/At as|wwrite|sstring|tstable/);
+    });
   });
 
   describe('original test cases', () => {

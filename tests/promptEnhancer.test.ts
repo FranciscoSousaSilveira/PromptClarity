@@ -154,7 +154,7 @@ describe('Prompt Enhancer', () => {
     };
 
     const enhanced = enhancePromptQuality(prompt, scores);
-    expect(enhanced).toContain('Create') || expect(enhanced).toContain('function');
+    expect(enhanced.includes('Create') || enhanced.includes('function')).toBe(true);
   });
 
   it('handles empty category scores', () => {

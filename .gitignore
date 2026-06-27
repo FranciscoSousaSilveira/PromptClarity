@@ -4,3 +4,13 @@ coverage
 dist
 *.log
 *.tsbuildinfo
+
+# TypeScript source lives in lib/ and types/. Builds belong in dist/ or extension/out/.
+lib/*.js
+lib/*.js.map
+lib/*.d.ts
+lib/*.d.ts.map
+types/*.js
+types/*.js.map
+types/*.d.ts
+types/*.d.ts.map

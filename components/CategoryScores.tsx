@@ -35,7 +35,14 @@ export function CategoryScores({ scores }: CategoryScoresProps) {
                 <span>{CATEGORY_LABELS[category]}</span>
                 <strong>{score}</strong>
               </div>
-              <div className="meter">
+              <div
+                className="meter"
+                role="progressbar"
+                aria-label={CATEGORY_LABELS[category]}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={score}
+              >
                 <span className="meter-fill" style={{ width: `${score}%` }} />
               </div>
             </div>

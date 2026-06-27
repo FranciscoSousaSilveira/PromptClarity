@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyzePrompt } from '../lib/promptAnalyzer';
 import { starterTemplates } from '../lib/templates';
 import { CategoryScores } from '../components/CategoryScores';
@@ -23,7 +23,9 @@ export default function HomePage() {
   const [analyzedUseCase, setAnalyzedUseCase] = useState<UseCase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedFormat, setCopiedFormat] = useState<CopyFormat | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const copyMenuRef = useRef<HTMLDivElement>(null);
 
   const characterCount = useMemo(() => prompt.length, [prompt]);
   const shortPromptWarning = prompt.trim().length > 0 && prompt.trim().length < 18
@@ -42,6 +44,28 @@ export default function HomePage() {
       setShowCopyMenu(false);
     }
   }, [analysisIsCurrent]);
+
+  useEffect(() => {
+    if (!showCopyMenu) return;
+
+    function closeMenu(event: KeyboardEvent | MouseEvent) {
+      if (event instanceof KeyboardEvent && event.key === 'Escape') {
+        setShowCopyMenu(false);
+        return;
+      }
+
+      if (event instanceof MouseEvent && !copyMenuRef.current?.contains(event.target as Node)) {
+        setShowCopyMenu(false);
+      }
+    }
+
+    document.addEventListener('keydown', closeMenu);
+    document.addEventListener('mousedown', closeMenu);
+    return () => {
+      document.removeEventListener('keydown', closeMenu);
+      document.removeEventListener('mousedown', closeMenu);
+    };
+  }, [showCopyMenu]);
 
   useEffect(() => {
     if (analysis && !analysisIsCurrent) {
@@ -113,10 +137,30 @@ export default function HomePage() {
       return;
     }
 
-    await navigator.clipboard.writeText(text);
-    setCopiedFormat(format);
-    setShowCopyMenu(false);
-    window.setTimeout(() => setCopiedFormat(null), 1600);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('Copy command was rejected');
+      }
+
+      setCopyError(null);
+      setCopiedFormat(format);
+      setShowCopyMenu(false);
+      window.setTimeout(() => setCopiedFormat(null), 1600);
+    } catch {
+      setCopyError('Could not access the clipboard. Select the improved prompt and copy it manually.');
+      setShowCopyMenu(false);
+    }
   }
 
   function handleTemplateSelect(template: PromptTemplate) {
@@ -134,6 +178,7 @@ export default function HomePage() {
     setUseCase('general');
     setError(null);
     setCopiedFormat(null);
+    setCopyError(null);
     setShowCopyMenu(false);
     setAnalysis(null);
     setAnalyzedPrompt(null);
@@ -190,7 +235,6 @@ export default function HomePage() {
             <UseCaseSelector value={useCase} options={USE_CASE_OPTIONS} onChange={setUseCase} />
           </section>
 
-          <TemplateGallery templates={starterTemplates} onSelect={handleTemplateSelect} activeUseCase={useCase} />
         </div>
 
         <div className="results-column">
@@ -203,56 +247,15 @@ export default function HomePage() {
             <section className="panel empty-results-panel">
               <p className="eyebrow">No analysis yet</p>
               <h3>Paste a prompt and click Analyze</h3>
-              <p>
-                The results area stays empty until you analyze a real prompt, so the editor and analysis always stay in sync.
-              </p>
+              <ol className="empty-steps">
+                <li>Choose the closest use case.</li>
+                <li>Paste the prompt you plan to send.</li>
+                <li>Review the score and copy the rewrite.</li>
+              </ol>
             </section>
           )}
         </div>
       </section>
-
-      {analysis && analysisIsCurrent && (
-        <section className="analysis-grid">
-          <SuggestionList suggestions={analysis.strengths} />
-          <IssueList issues={analysis.issues} />
-        </section>
-      )}
-
-      {analysis && analysisIsCurrent && analysis.spellingIssues.length > 0 && (
-        <section className="panel">
-          <SpellingIssuesList issues={analysis.spellingIssues} />
-        </section>
-      )}
-
-      {analysis && analysisIsCurrent && analysis.correctedPrompt !== currentPrompt && (
-        <section className="panel corrected-panel">
-          <div className="panel-header compact">
-            <div>
-              <p className="eyebrow">✓ Enhanced Version</p>
-              <h3>Corrected & quality-improved {analysis.overallScore < 70 ? '(targeting 70%+)' : ''}</h3>
-            </div>
-          </div>
-          <article className="corrected-card">
-            <pre>{analysis.correctedPrompt}</pre>
-          </article>
-        </section>
-      )}
-
-      {analysis && analysisIsCurrent && analysis.issues.length > 0 && (
-        <section className="panel focus-panel">
-          <div className="panel-header compact">
-            <p className="eyebrow">Focus areas</p>
-            <h3>What to improve first</h3>
-          </div>
-          <ol className="focus-list">
-            {analysis.issues.slice(0, 3).map((issue) => (
-              <li key={issue.id}>
-                <strong>{issue.title}:</strong> {issue.suggestion}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
 
       {analysis && analysisIsCurrent && (
         <section className="panel comparison-panel">
@@ -261,21 +264,25 @@ export default function HomePage() {
               <p className="eyebrow">Before / After</p>
               <h3>See the structured rewrite</h3>
             </div>
-            <div className="copy-menu-wrapper">
+            <div className="copy-menu-wrapper" ref={copyMenuRef}>
               <button
                 type="button"
                 className="secondary-button"
                 onClick={() => setShowCopyMenu(!showCopyMenu)}
                 disabled={!analysisIsCurrent}
                 aria-disabled={!analysisIsCurrent}
+                aria-haspopup="menu"
+                aria-expanded={showCopyMenu}
+                aria-controls="copy-format-menu"
               >
                 {copiedFormat ? 'Copied!' : 'Copy'}
               </button>
               {showCopyMenu && analysisIsCurrent && (
-                <div className="copy-menu">
+                <div className="copy-menu" id="copy-format-menu" role="menu">
                   <button
                     type="button"
                     className="copy-menu-item"
+                    role="menuitem"
                     onClick={() => handleCopy('improved')}
                   >
                     Improved prompt
@@ -283,6 +290,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     className="copy-menu-item"
+                    role="menuitem"
                     onClick={() => handleCopy('analysis')}
                   >
                     Analysis report
@@ -290,6 +298,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     className="copy-menu-item"
+                    role="menuitem"
                     onClick={() => handleCopy('json')}
                   >
                     As JSON
@@ -309,8 +318,32 @@ export default function HomePage() {
               <pre>{analysis.rewrittenPrompt || 'Click "Analyze" to generate the improved prompt.'}</pre>
             </article>
           </div>
+          <p className={`copy-feedback ${copyError ? 'is-error' : ''}`} role="status" aria-live="polite">
+            {copyError ?? (copiedFormat ? 'Copied to clipboard.' : '')}
+          </p>
         </section>
       )}
+
+      {analysis && analysisIsCurrent && (
+        <section className="analysis-grid">
+          <IssueList issues={analysis.issues} />
+          <SuggestionList suggestions={analysis.strengths} />
+        </section>
+      )}
+
+      {analysis && analysisIsCurrent && analysis.spellingIssues.length > 0 && (
+        <section className="panel spelling-panel-wrapper">
+          <SpellingIssuesList issues={analysis.spellingIssues} />
+          {analysis.correctedPrompt !== currentPrompt && (
+            <div className="spelling-correction">
+              <p className="eyebrow">Spelling-corrected original</p>
+              <pre>{analysis.correctedPrompt}</pre>
+            </div>
+          )}
+        </section>
+      )}
+
+      <TemplateGallery templates={starterTemplates} onSelect={handleTemplateSelect} activeUseCase={useCase} />
     </main>
   );
 }

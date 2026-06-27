@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.rewritePrompt = rewritePrompt;
-const spellChecker_1 = require("./spellChecker");
 const PORTUGUESE_MARKERS = [
     'que', 'de', 'para', 'com', 'por', 'uma', 'está', 'preciso', 'você', 'me',
     'como', 'sem', 'mais', 'já', 'também', 'ainda', 'sobre', 'depois', 'durante',
@@ -22,6 +21,24 @@ function isBlank(value) {
 }
 function formatSection(label, content) {
     return `${label}: ${content}`;
+}
+function inferUseCase(useCase, prompt) {
+    if (useCase !== 'general')
+        return useCase;
+    const lower = prompt.toLowerCase();
+    if (/\b(email|memo|proposal|sales|marketing|client|customer|stakeholder)\b/.test(lower))
+        return 'business';
+    if (/\b(code|bug|debug|function|api|typescript|javascript|python|react|next\.js)\b/.test(lower))
+        return 'coding';
+    if (/\b(study|learn|teach|explain|beginner|student|quiz|practice)\b/.test(lower))
+        return 'studying';
+    if (/\b(research|evidence|sources?|compare|study|paper|citations?)\b/.test(lower))
+        return 'research';
+    if (/\b(image|photo|illustration|portrait|landscape|lighting|composition)\b/.test(lower))
+        return 'imageGeneration';
+    if (/\b(write|rewrite|edit|draft|proofread|article|story)\b/.test(lower))
+        return 'writing';
+    return 'general';
 }
 function roleForUseCase(useCase, prompt) {
     const lower = prompt.toLowerCase();
@@ -77,9 +94,6 @@ function roleForUseCase(useCase, prompt) {
         default:
             return 'a helpful expert who writes concise, high-signal answers';
     }
-}
-function formatList(items) {
-    return items.map((item) => `- ${item}`).join('\n');
 }
 function outputFormatForUseCase(useCase, analysis, prompt) {
     const suggested = analysis.categoryScores.outputFormat >= 70;
@@ -189,11 +203,17 @@ function buildContext(prompt, analysis) {
         return '[Add relevant background, constraints, and any important context here]';
     }
     if (analysis.categoryScores.context >= 70) {
-        return trimmed;
+        return 'Use the background and factual details supplied in the task below.';
     }
-    return `${trimmed}\n\n[Add: relevant background, who the output is for, and any prior work]`;
+    return '[Add relevant background, the recipient or audience, and any facts that must remain accurate]';
 }
-function buildConstraints(analysis) {
+function buildConstraints(analysis, useCase) {
+    if (useCase === 'business') {
+        const requirements = ['Use only confirmed facts; do not invent dates, commitments, or outcomes.'];
+        if (analysis.categoryScores.constraints < 70)
+            requirements.push('Tone and length: [specify if important]');
+        return requirements.join(' ');
+    }
     const hints = [];
     if (analysis.categoryScores.constraints < 70) {
         hints.push('[Add limits, requirements, style preferences, or boundaries]');
@@ -206,51 +226,40 @@ function buildConstraints(analysis) {
     }
     return hints.join(' ');
 }
-function buildStrengths(analysis) {
-    if (analysis.strengths.length === 0) {
-        return '[No strong signals were detected yet]';
-    }
-    return formatList(analysis.strengths);
-}
-function qualityBarForUseCase(useCase, analysis, prompt) {
-    const baseline = 'Stay specific, avoid filler, and answer only what the prompt asks.';
-    const lower = prompt.toLowerCase();
-    if (analysis.issues.length === 0) {
-        return `${baseline} Preserve the original intent and keep the response polished.`;
-    }
+function successCriteriaForUseCase(useCase) {
     switch (useCase) {
-        case 'coding':
-            return `${baseline} Prioritize correctness, reproducibility, and actionable debugging steps.${/error|bug|crash/.test(lower) ? ' Include error messages and fixes.' : ''}`;
-        case 'writing':
-            return `${baseline} Match the requested tone${/tone|formal|casual/.test(lower) ? ' and audience' : ''}. Avoid filler.`;
-        case 'studying':
-            return `${baseline} Explain at the right level and include a quick comprehension check or practice questions.`;
-        case 'research':
-            return `${baseline} Favor credible evidence, named sources${/paper|study|academic/.test(lower) ? ', and publication years' : ''}, and clear tradeoffs.`;
         case 'business':
-            return `${baseline} Keep it concise, outcome-oriented${/cta|call to action|conversion/.test(lower) ? ', with a clear CTA' : ''}.`;
+            return 'The result is ready to send, preserves the facts provided, and makes the next action clear.';
+        case 'coding':
+            return 'The answer is correct, reproducible, and includes enough detail to verify the result.';
+        case 'writing':
+            return 'The draft matches the requested audience, tone, and purpose without unnecessary filler.';
+        case 'studying':
+            return 'The explanation is accurate at the requested level and makes understanding easy to check.';
+        case 'research':
+            return 'Claims are clearly separated from evidence, with limitations and sources identified.';
         case 'imageGeneration':
-            return `${baseline} Include concrete visual details (subject, style, composition, lighting, mood${/aspect|ratio|16:9|4:3/.test(lower) ? ', aspect ratio' : ''}).`;
+            return 'The prompt gives concrete visual direction while preserving the requested subject and mood.';
         case 'general':
         default:
-            return `${baseline} Make the response easy to act on and easy to verify.`;
+            return 'The response directly solves the task, states necessary assumptions, and is easy to verify.';
     }
 }
 function rewritePrompt(prompt, useCase, analysis) {
+    const effectiveUseCase = inferUseCase(useCase, prompt);
     const language = detectLanguage(prompt);
+    const labels = language === 'pt'
+        ? { role: 'Papel', context: 'Contexto', task: 'Tarefa', constraints: 'Requisitos', output: 'Formato de saída', success: 'Critérios de sucesso', assumptions: 'Antes de responder, indica apenas as suposições estritamente necessárias.' }
+        : { role: 'Role', context: 'Context', task: 'Task', constraints: 'Constraints', output: 'Output format', success: 'Success criteria', assumptions: 'Before answering, state only the assumptions that are strictly necessary.' };
     const sections = [
-        formatSection('Role', `Act as ${roleForUseCase(useCase, prompt)}.`),
-        formatSection('Context', buildContext(prompt, analysis)),
-        formatSection('Task', buildTask(prompt, analysis, useCase)),
-        formatSection('Constraints', buildConstraints(analysis)),
-        formatSection('Output format', outputFormatForUseCase(useCase, analysis, prompt)),
-        formatSection('Quality bar', qualityBarForUseCase(useCase, analysis, prompt)),
-        formatSection('Strengths to preserve', buildStrengths(analysis)),
-        'Before answering, state any assumptions you are making.'
+        formatSection(labels.role, `Act as ${roleForUseCase(effectiveUseCase, prompt)}.`),
+        formatSection(labels.context, buildContext(prompt, analysis)),
+        formatSection(labels.task, buildTask(prompt, analysis, effectiveUseCase)),
+        formatSection(labels.constraints, buildConstraints(analysis, effectiveUseCase)),
+        formatSection(labels.output, outputFormatForUseCase(effectiveUseCase, analysis, prompt)),
+        formatSection(labels.success, successCriteriaForUseCase(effectiveUseCase)),
+        labels.assumptions
     ];
-    let rewritten = sections.join('\n\n');
-    // Apply spelling corrections based on detected language
-    rewritten = (0, spellChecker_1.correctSpelling)(rewritten, language, 0.80);
-    return rewritten;
+    return sections.join('\n\n');
 }
 //# sourceMappingURL=promptRewriter.js.map

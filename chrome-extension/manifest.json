@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Prompt Enhancer",
   "version": "1.0.0",
-  "description": "Floating bubble to automatically analyze and improve your prompts inside Gemini, ChatGPT, Claude, and all other text boxes.",
+  "description": "Floating bubble to locally analyze and improve prompts in supported AI chat apps.",
   "permissions": [
     "activeTab",
     "clipboardWrite",
@@ -19,7 +19,14 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://www.perplexity.ai/*"
+      ],
       "js": ["dist/content.js"],
       "run_at": "document_end"
     }

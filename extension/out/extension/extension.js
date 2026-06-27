@@ -40,9 +40,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const crypto_1 = require("crypto");
 const promptIntegration_1 = require("../lib/promptIntegration");
 let popupPanel;
 let lastAnalyzedText = '';
+let currentImprovedPrompt = '';
 let debounceTimer;
 function activate(context) {
     console.log('Prompt Enhancement extension activated');
@@ -78,7 +80,9 @@ function activate(context) {
     });
     // Listen for text changes in chat/editor (automatic hinting)
     const onDidChangeTextDocument = vscode.workspace.onDidChangeTextDocument((event) => {
-        debounceAnalysis(event.document.getText(), context);
+        const text = getRelevantEditorText(event);
+        if (text)
+            debounceAnalysis(text);
     });
     context.subscriptions.push(togglePopup, analyzeAndCopy, onDidChangeTextDocument);
 }
@@ -95,6 +99,7 @@ function showPopup(text, context) {
         vscode.window.showInformationMessage('Text does not appear to be a prompt');
         return;
     }
+    currentImprovedPrompt = result.improvedPrompt;
     if (popupPanel) {
         popupPanel.reveal(vscode.ViewColumn.Beside);
         popupPanel.webview.postMessage({
@@ -112,17 +117,17 @@ function showPopup(text, context) {
         localResourceRoots: [context.extensionUri]
     });
     popupPanel.webview.html = getWebviewContent(text, result.improvedPrompt, result.detectionConfidence, popupPanel.webview);
-    popupPanel.webview.onDidReceiveMessage((message) => {
+    popupPanel.webview.onDidReceiveMessage(async (message) => {
         switch (message.command) {
             case 'copy':
-                if (result.improvedPrompt) {
-                    vscode.env.clipboard.writeText(result.improvedPrompt);
+                if (currentImprovedPrompt) {
+                    await vscode.env.clipboard.writeText(currentImprovedPrompt);
                     vscode.window.showInformationMessage('Copied to clipboard!');
                 }
                 break;
             case 'insert':
-                if (result.improvedPrompt) {
-                    insertTextInEditor(result.improvedPrompt);
+                if (currentImprovedPrompt) {
+                    insertTextInEditor(currentImprovedPrompt);
                 }
                 break;
             case 'close':
@@ -140,7 +145,17 @@ function showPopup(text, context) {
 /**
  * Debounced analysis for automatic hints
  */
-function debounceAnalysis(text, context) {
+function getRelevantEditorText(event) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document !== event.document)
+        return '';
+    if (!editor.selection.isEmpty) {
+        return editor.document.getText(editor.selection).slice(0, 2000);
+    }
+    const currentLine = editor.document.lineAt(editor.selection.active.line).text.trim();
+    return currentLine.slice(0, 2000);
+}
+function debounceAnalysis(text) {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
         if ((0, promptIntegration_1.shouldShowHint)(text)) {
@@ -169,13 +184,15 @@ function insertTextInEditor(text) {
  * Generates the HTML for the webview popup
  */
 function getWebviewContent(original, improved, confidence, webview) {
+    const nonce = (0, crypto_1.randomBytes)(16).toString('base64');
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
     <title>Enhance Prompt</title>
-    <style>
+    <style nonce="${nonce}">
         * {
             margin: 0;
             padding: 0;
@@ -293,32 +310,44 @@ function getWebviewContent(original, improved, confidence, webview) {
     <div class="container">
         <div class="header">
             <span class="title">✨ Enhanced Prompt</span>
-            <span class="confidence">${confidence}% confident</span>
+            <span class="confidence" id="confidence-value">${confidence}% confident</span>
         </div>
         
         <div class="section">
             <div class="section-label">Original</div>
-            <div class="text-box">${escapeHtml(original)}</div>
+            <div class="text-box" id="original-text">${escapeHtml(original)}</div>
         </div>
         
         <div class="section">
             <div class="section-label">Improved</div>
-            <div class="text-box">${escapeHtml(improved)}</div>
+            <div class="text-box" id="improved-text">${escapeHtml(improved)}</div>
             <div class="hint">Copy and paste the improved prompt in your chat.</div>
         </div>
         
         <div class="actions">
-            <button class="btn-primary" onclick="copy()">
+            <button class="btn-primary" id="copy-button">
                 📋 Copy Improved
             </button>
-            <button class="btn-secondary" onclick="close()">
+            <button class="btn-secondary" id="insert-button">
+                Insert
+            </button>
+            <button class="btn-secondary" id="close-button">
                 Close
             </button>
         </div>
     </div>
     
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
+
+        window.addEventListener('message', (event) => {
+            const message = event.data;
+            if (message.type !== 'update') return;
+
+            document.getElementById('original-text').textContent = message.original;
+            document.getElementById('improved-text').textContent = message.improved;
+            document.getElementById('confidence-value').textContent = message.confidence + '% confident';
+        });
         
         function copy() {
             vscode.postMessage({ command: 'copy' });
@@ -331,6 +360,10 @@ function getWebviewContent(original, improved, confidence, webview) {
         function close() {
             vscode.postMessage({ command: 'close' });
         }
+
+        document.getElementById('copy-button').addEventListener('click', copy);
+        document.getElementById('insert-button').addEventListener('click', insert);
+        document.getElementById('close-button').addEventListener('click', close);
     </script>
 </body>
 </html>`;
@@ -346,6 +379,8 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, (char) => map[char]);
 }
 function deactivate() {
+    clearTimeout(debounceTimer);
+    currentImprovedPrompt = '';
     if (popupPanel) {
         popupPanel.dispose();
     }

@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzePrompt = analyzePrompt;
 const promptRewriter_1 = require("./promptRewriter");
 const spellChecker_1 = require("./spellChecker");
-const promptEnhancer_1 = require("./promptEnhancer");
 // Language detection: Common Portuguese words not in English
 const PORTUGUESE_MARKERS = ['que', 'de', 'para', 'com', 'por', 'uma', 'está', 'preciso', 'explique', 'me', 'você', 'escreva', 'crie', 'faça', 'gere', 'quer'];
 function detectLanguage(prompt) {
@@ -220,11 +219,12 @@ function buildSummary(categoryScores) {
     const entries = Object.entries(categoryScores);
     const strongest = entries.filter(([, score]) => score >= 70).map(([key]) => key);
     const weakest = entries.filter(([, score]) => score < 55).map(([key]) => key);
+    const readable = (key) => key.replace(/([A-Z])/g, ' $1').toLowerCase();
     if (strongest.length === 0 && weakest.length > 0) {
-        return `The prompt needs stronger structure, especially around ${weakest.slice(0, 3).map((key) => key.replace(/([A-Z])/g, ' $1')).join(', ')}.`;
+        return `The prompt needs stronger structure, especially around ${weakest.slice(0, 3).map(readable).join(', ')}.`;
     }
     if (strongest.length > 0 && weakest.length > 0) {
-        return `Strongest signals are in ${strongest.slice(0, 3).join(', ')}, but the prompt still needs work in ${weakest.slice(0, 3).join(', ')}.`;
+        return `Strongest signals are in ${strongest.slice(0, 3).map(readable).join(', ')}, but the prompt still needs work in ${weakest.slice(0, 3).map(readable).join(', ')}.`;
     }
     return 'The prompt has good coverage across the main prompt-quality dimensions.';
 }
@@ -296,7 +296,6 @@ function scoreContext(prompt, useCase, language) {
     }
     if (audienceHits > 0) {
         score += 20;
-        strengths.push('Audience signal detected');
     }
     else {
         gaps.push('No target audience was mentioned');
@@ -387,7 +386,7 @@ function scoreOutputFormat(prompt, useCase, language) {
     const formatHits = countKeywordHits(prompt, formatTerms);
     const hasFormatLanguage = /\b(show me|in a|as a|format|layout|structure|template|sections?)\b/.test(prompt.toLowerCase());
     if (formatHits > 0) {
-        score += Math.min(60, formatHits * 14);
+        score += Math.min(75, 50 + (formatHits - 1) * 10);
         strengths.push('Output format specified');
         notes.push(`Format markers detected: ${formatHits}`);
     }
@@ -439,7 +438,7 @@ function scoreAudience(prompt, language) {
     const audienceHits = countKeywordHits(prompt, audienceTerms);
     const roleHints = /\b(act as|pretend you're|you are a|explain to|write for|tailored for)\b/.test(prompt.toLowerCase());
     if (audienceHits > 0) {
-        score += Math.min(60, audienceHits * 18);
+        score += Math.min(75, 50 + (audienceHits - 1) * 10);
         strengths.push('Audience or role present');
         notes.push(`Audience markers detected: ${audienceHits}`);
     }
@@ -607,12 +606,41 @@ function buildIssues(categoryScores, useCase, prompt, taskCount, language) {
     }
     return issues;
 }
-function buildStrengths(categoryResults, useCaseStrengths) {
+function buildStrengths(categoryResults, useCaseStrengths, categoryScores) {
     const strengths = new Set();
-    Object.values(categoryResults).forEach((bucket) => {
-        bucket.strengths.forEach((strength) => strengths.add(strength));
+    const minimumStrengthScore = {
+        clarity: 45,
+        context: 45,
+        goal: 40,
+        constraints: 40,
+        outputFormat: 45,
+        examples: 35,
+        audience: 40,
+        successCriteria: 40
+    };
+    Object.entries(categoryResults).forEach(([category, bucket]) => {
+        if (categoryScores[category] >= minimumStrengthScore[category]) {
+            bucket.strengths.forEach((strength) => strengths.add(strength));
+        }
     });
-    useCaseStrengths.forEach((strength) => strengths.add(strength));
+    const useCaseStrengthIsSupported = (strength) => {
+        if (strength.includes('audience') || strength.includes('Learning level'))
+            return categoryScores.audience >= 40;
+        if (strength.includes('Tone'))
+            return categoryScores.constraints >= 40;
+        if (strength.includes('Practice'))
+            return categoryScores.successCriteria >= 40;
+        if (strength.includes('Business objective'))
+            return categoryScores.goal >= 40 && categoryScores.audience >= 40;
+        if (strength.includes('Visual direction'))
+            return categoryScores.outputFormat >= 45;
+        if (strength.includes('Research scope'))
+            return categoryScores.context >= 45;
+        if (strength.includes('Coding stack') || strength.includes('Debugging'))
+            return categoryScores.context >= 45;
+        return true;
+    };
+    useCaseStrengths.filter(useCaseStrengthIsSupported).forEach((strength) => strengths.add(strength));
     if (strengths.size === 0) {
         strengths.add('The prompt is short and easy to revise');
     }
@@ -667,7 +695,7 @@ function analyzePrompt(prompt, useCase) {
     const useCaseStrengths = applyUseCaseAdjustments(categoryScores, useCase, normalized);
     const adjustedCategoryScores = { ...categoryScores };
     const rawIssues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount, language);
-    const strengths = buildStrengths(categoryResults, useCaseStrengths);
+    const strengths = buildStrengths(categoryResults, useCaseStrengths, adjustedCategoryScores);
     const shortPromptPenalty = wordCount < 5 ? 18 : wordCount < 10 ? 10 : wordCount < 16 ? 4 : 0;
     const vagueTerms = getKeywords(language, 'vague');
     const vaguePenalty = countKeywordHits(normalized, vagueTerms) * 4;
@@ -675,7 +703,7 @@ function analyzePrompt(prompt, useCase) {
     const weightedScore = weightedAverage(adjustedCategoryScores);
     const overallScore = clamp(Math.round(weightedScore + 32 - shortPromptPenalty - vaguePenalty - multiTaskPenalty + (useCase === 'business' ? 8 : 0)));
     const label = labelForScore(overallScore);
-    const summary = buildSummary(categoryScores);
+    const summary = buildSummary(adjustedCategoryScores);
     const categoryNotes = deriveCategoryNotes(categoryResults);
     const issues = overallScore >= 70 ? rawIssues.slice(0, 2) : rawIssues;
     // Detect spelling mistakes
@@ -685,12 +713,9 @@ function analyzePrompt(prompt, useCase) {
         suggestions: issue.suggestions,
         confidence: Math.round(issue.confidence * 100)
     }));
-    // Generate corrected version: spelling fixes + quality improvements to reach 70%+
-    let correctedPrompt = (0, spellChecker_1.correctSpelling)(normalized, language, 0.75);
-    // If score is below 70, apply quality enhancements
-    if (overallScore < 70) {
-        correctedPrompt = (0, promptEnhancer_1.enhancePromptQuality)(correctedPrompt, adjustedCategoryScores);
-    }
+    // Keep this field literal: it is only the original text with safe spelling fixes.
+    // The structured improvement is generated separately by rewritePrompt.
+    const correctedPrompt = (0, spellChecker_1.correctSpelling)(normalized, language, 0.88);
     const core = {
         overallScore,
         label,

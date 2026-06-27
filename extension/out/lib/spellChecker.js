@@ -43,8 +43,15 @@ const COMMON_WORDS_EN = new Set([
     'submit', 'cancel', 'confirm', 'proceed', 'continue', 'stop', 'pause', 'resume',
     'implement', 'deploy', 'release', 'publish', 'commit', 'merge', 'branch',
     'repository', 'version', 'release', 'stable', 'beta', 'alpha', 'production',
-    'development', 'testing', 'staging', 'environment', 'configuration', 'setting'
+    'development', 'testing', 'staging', 'environment', 'configuration', 'setting',
+    'email', 'subject', 'tone', 'audience', 'manager', 'customer', 'marketing',
+    'delayed', 'delay', 'deadline', 'progress', 'quarter', 'feedback', 'professional',
+    'concise', 'summary', 'report', 'table', 'list', 'client', 'expert', 'answer',
+    'context', 'background', 'constraints', 'criteria', 'specific', 'relevant'
 ]);
+// A small dictionary cannot safely classify every unknown word as a typo.
+// Only surface suggestions that are close enough to be credible corrections.
+const MIN_SUGGESTION_CONFIDENCE = 0.8;
 /**
  * Common European Portuguese words (500+ most common words)
  */
@@ -254,13 +261,16 @@ function detectSpellingMistakes(text, language) {
             continue;
         if (isLikelyMisspelled(word, commonWords)) {
             const suggestions = findSimilarWords(word, commonWords);
-            if (suggestions.length > 0) {
+            const confidence = suggestions.length > 0
+                ? calculateConfidence(word, suggestions[0])
+                : 0;
+            if (suggestions.length > 0 && confidence >= MIN_SUGGESTION_CONFIDENCE) {
                 seen.add(word.toLowerCase());
                 issues.push({
                     word,
                     position,
                     suggestions,
-                    confidence: calculateConfidence(word, suggestions[0])
+                    confidence
                 });
             }
         }
@@ -272,17 +282,15 @@ function detectSpellingMistakes(text, language) {
  * Correct spelling in text by replacing misspelled words with suggestions
  */
 function correctSpelling(text, language, autoCorrectThreshold = 0.85) {
-    const issues = detectSpellingMistakes(text, language);
+    const issues = detectSpellingMistakes(text, language)
+        .filter((issue) => issue.confidence >= autoCorrectThreshold && issue.suggestions.length > 0)
+        .sort((a, b) => b.position - a.position);
     let corrected = text;
-    // Apply corrections from end to start to preserve positions
-    for (let i = issues.length - 1; i >= 0; i--) {
-        const issue = issues[i];
-        // Only auto-correct if confidence is high
-        if (issue.confidence >= autoCorrectThreshold && issue.suggestions.length > 0) {
-            const before = corrected.substring(0, issue.position);
-            const after = corrected.substring(issue.position + issue.word.length);
-            corrected = before + preserveWordCasing(issue.word, issue.suggestions[0]) + after;
-        }
+    // Apply corrections from the end of the string so earlier positions never shift.
+    for (const issue of issues) {
+        const before = corrected.substring(0, issue.position);
+        const after = corrected.substring(issue.position + issue.word.length);
+        corrected = before + preserveWordCasing(issue.word, issue.suggestions[0]) + after;
     }
     return corrected;
 }

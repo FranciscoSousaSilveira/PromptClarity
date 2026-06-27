@@ -16,7 +16,7 @@ export function ScoreCard({ score, label, summary }: ScoreCardProps) {
 
   return (
     <section className={`panel score-card ${getScoreClass(score)}`}>
-      <div className="score-ring" style={{ ['--score' as never]: score }}>
+      <div className="score-ring" style={{ ['--score' as never]: score }} role="img" aria-label={`Overall score: ${score} out of 100, ${label}`}>
         <div>
           <span className="score-value">{score}</span>
           <span className="score-out-of">/ 100</span>

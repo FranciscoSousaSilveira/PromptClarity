@@ -23,6 +23,13 @@ describe('Spell Checker - English', () => {
     expect(issues.length).toBe(0);
   });
 
+  it('does not flag ordinary product and business vocabulary', () => {
+    const text = 'Write an email to a client about a delayed project';
+    const issues = detectSpellingMistakes(text, 'en');
+
+    expect(issues).toEqual([]);
+  });
+
   it('provides correction suggestions for misspelled words', () => {
     const text = 'teh quick brwn fox';
     const issues = detectSpellingMistakes(text, 'en');
@@ -37,6 +44,9 @@ describe('Spell Checker - English', () => {
     const corrected = correctSpelling(text, 'en', 0.80);
     
     expect(corrected).toContain('the');
+    expect(corrected).toContain('quick');
+    expect(corrected).toContain('brown');
+    expect(corrected).toBe('the quick brown fox');
   });
 
   it('handles mixed case correctly', () => {
@@ -108,12 +118,12 @@ describe('Spell Checker - Portuguese', () => {
   });
 
   it('provides correction suggestions for Portuguese misspellings', () => {
-    const text = 'aná o código';
+    const text = 'prgrma de código';
     const issues = detectSpellingMistakes(text, 'pt');
     
-    const issue = issues.find(i => i.word === 'aná');
+    const issue = issues.find(i => i.word === 'prgrma');
     expect(issue).toBeDefined();
-    expect(issue!.suggestions.length).toBeGreaterThan(0);
+    expect(issue!.suggestions).toContain('programa');
   });
 
   it('corrects Portuguese spelling', () => {

@@ -10,8 +10,8 @@ class PromptEnhancerExtension {
   private ui = new PromptEnhancerUI();
   private activeElement: HTMLTextAreaElement | HTMLInputElement | HTMLElement | null = null;
   private currentUseCase: UseCase = 'general';
-  private checkInterval: any = null;
   private resizeObserver: ResizeObserver | null = null;
+  private positionFrame: number | null = null;
 
   constructor() {}
 
@@ -114,6 +114,14 @@ class PromptEnhancerExtension {
   private handleCopy(text: string) {
     navigator.clipboard.writeText(text).catch((err) => {
       console.error('Failed to copy to clipboard:', err);
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
     });
   }
 
@@ -212,12 +220,19 @@ class PromptEnhancerExtension {
   }
 
   private setupPositionTracking() {
-    // Periodically update positions of elements in case of scroll or layouts shifting
-    this.checkInterval = setInterval(() => {
-      if (this.activeElement && document.activeElement === this.activeElement) {
-        this.updateUI();
-      }
-    }, 500);
+    const scheduleUpdate = () => {
+      if (this.positionFrame !== null) return;
+
+      this.positionFrame = window.requestAnimationFrame(() => {
+        this.positionFrame = null;
+        if (this.activeElement && document.activeElement === this.activeElement) {
+          this.updateUI();
+        }
+      });
+    };
+
+    window.addEventListener('scroll', scheduleUpdate, { capture: true, passive: true });
+    window.addEventListener('resize', scheduleUpdate, { passive: true });
   }
 
   private updateUI() {
