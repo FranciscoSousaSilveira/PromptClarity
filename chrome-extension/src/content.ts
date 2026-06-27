@@ -1,6 +1,6 @@
 import { analyzeForPopup, shouldShowHint, type PopupContent } from '../../lib/promptIntegration';
 import { analyzePrompt } from '../../lib/promptAnalyzer';
-import { rewritePromptWithModel } from '../../lib/modelPromptRewriter';
+import { DEFAULT_REWRITE_ENDPOINT, rewritePromptWithModel } from '../../lib/modelPromptRewriter';
 import type { UseCase } from '../../types/prompt';
 import { PromptEnhancerUI } from './ui';
 
@@ -55,6 +55,10 @@ class PromptEnhancerExtension {
 
     // Track scroll and resize events so the controls stay attached to dynamic chat inputs.
     this.setupPositionTracking();
+
+    // Load the local model in the background before the first suggestion. This
+    // removes most of the cold-start delay without blocking the page or UI.
+    fetch(`${DEFAULT_REWRITE_ENDPOINT}?warm=1`).catch(() => undefined);
   }
 
   private handleFocusIn(e: FocusEvent) {

@@ -269,6 +269,44 @@ export class PromptEnhancerUI {
       </div>
     `;
 
+    if (content.rewriteStatus === 'loading') {
+      this.popup.innerHTML = `
+        ${headerHTML}
+        <div class="model-loading-state" role="status" aria-live="polite">
+          <div class="model-loading-spinner" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="model-loading-title">A melhorar a tua prompt…</div>
+          <div class="model-loading-text">
+            O modelo local está a corrigir e a reorganizar o texto. Só poderás copiar ou inserir quando a versão final estiver pronta.
+          </div>
+          <div class="model-loading-dots" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </div>
+        </div>
+      `;
+      this.bindPopupEvents(content);
+      return;
+    }
+
+    if (content.rewriteStatus === 'fallback') {
+      this.popup.innerHTML = `
+        ${headerHTML}
+        <div class="model-error-state" role="alert">
+          <div class="model-error-icon" aria-hidden="true">!</div>
+          <div class="model-loading-title">O modelo não respondeu</div>
+          <div class="model-loading-text">
+            A versão provisória não será disponibilizada para colar. Confirma que o Ollama e o servidor local estão ativos e tenta novamente.
+          </div>
+          <button class="model-retry-btn" id="pe-retry-btn" type="button">Tentar novamente</button>
+        </div>
+      `;
+      this.bindPopupEvents(content);
+      return;
+    }
+
     if (!content.isPrompt || !content.analysis) {
       // Empty/Initial State
       this.popup.innerHTML = `
@@ -407,6 +445,13 @@ export class PromptEnhancerUI {
     closeBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.hidePopup();
+    });
+
+    const retryBtn = this.popup.querySelector('#pe-retry-btn');
+    retryBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.hidePopup(false);
+      window.dispatchEvent(new CustomEvent('prompt-enhance-click'));
     });
 
     // Use Case Dropdown

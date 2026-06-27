@@ -326,6 +326,15 @@ function polishNaturalPrompt(prompt: string, language: Language): string {
   if (language === 'pt') {
     polished = polished
       .replace(/\bexplica\s+me\b/gi, 'Explica-me')
+      .replace(/\bnng\b/gi, 'ninguém')
+      .replace(/\bn\s+(?=quero|deve|pode|fica|seja|tem|é\b)/gi, 'não ')
+      .replace(/\btp\b[,.]?\s*/gi, '')
+      .replace(/\brelatorio\b/gi, 'relatório')
+      .replace(/\bpaginas\b/gi, 'páginas')
+      .replace(/\bcomecar\b/gi, 'começar')
+      .replace(/\bsmallville\b/gi, 'Smallville')
+      .replace(/\bcta\b/gi, 'CTA')
+      .replace(/\bai\b/gi, 'IA')
       .replace(/\bmechatronica\b/gi, 'Mecatrónica')
       .replace(/\bmecatronica\b/gi, 'Mecatrónica')
       .replace(/\bsff\b/gi, '')

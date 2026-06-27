@@ -6,6 +6,9 @@ export const dynamic = 'force-dynamic';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+const MODEL_WARM_FOR_MS = 25 * 60 * 1_000;
+let lastModelWarmAt = 0;
+let modelWarmRequest: Promise<boolean> | null = null;
 const ALLOWED_USE_CASES = new Set<UseCase>([
   'general',
   'coding',
@@ -26,20 +29,69 @@ function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: corsHeaders });
 }
 
+function normalizePortugueseShorthand(value: string): string {
+  return value
+    .replace(/\bnng\b/gi, 'ninguém')
+    .replace(/\bn\s+(?=quero|deve|pode|fica|seja|tem|é\b)/gi, 'não ')
+    .replace(/\btp\b[,.]?\s*/gi, '')
+    .replace(/\brelatorio\b/gi, 'relatório')
+    .replace(/\bpaginas\b/gi, 'páginas')
+    .replace(/\bcomecar\b/gi, 'começar')
+    .replace(/\bsmallville\b/gi, 'Smallville')
+    .replace(/\bcta\b/gi, 'CTA')
+    .replace(/\bai\b/gi, 'IA');
+}
+
+async function warmLocalModel(): Promise<boolean> {
+  if (Date.now() - lastModelWarmAt < MODEL_WARM_FOR_MS) return true;
+  if (modelWarmRequest) return modelWarmRequest;
+
+  modelWarmRequest = (async () => {
+    try {
+      const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          prompt: '',
+          stream: false,
+          keep_alive: '30m'
+        }),
+        cache: 'no-store'
+      });
+      if (!response.ok) return false;
+      lastModelWarmAt = Date.now();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      modelWarmRequest = null;
+    }
+  })();
+
+  return modelWarmRequest;
+}
+
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const response = await fetch(`${OLLAMA_URL}/api/tags`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
 
     const data = await response.json() as { models?: Array<{ name?: string }> };
+    const installed = data.models?.some(item => item.name?.startsWith(OLLAMA_MODEL)) || false;
+    const warmed = installed && request.nextUrl.searchParams.get('warm') === '1'
+      ? await warmLocalModel()
+      : undefined;
+
     return json({
       available: true,
       model: OLLAMA_MODEL,
-      installed: data.models?.some(item => item.name?.startsWith(OLLAMA_MODEL)) || false
+      installed,
+      ...(warmed === undefined ? {} : { warmed })
     });
   } catch {
     return json({ available: false, model: OLLAMA_MODEL, installed: false }, 503);
@@ -56,6 +108,7 @@ export async function POST(request: NextRequest) {
   }
 
   const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+  const normalizedPrompt = normalizePortugueseShorthand(prompt);
   const ruleBasedDraft = typeof body.ruleBasedDraft === 'string'
     ? body.ruleBasedDraft.trim().slice(0, 12_000)
     : '';
@@ -68,20 +121,13 @@ export async function POST(request: NextRequest) {
   if (prompt.length > 12_000) return json({ error: 'Prompt is too long' }, 413);
 
   const systemPrompt = [
-    'You improve user prompts before they are sent to another AI.',
-    'Return only the improved prompt, with no introduction, quotation marks, markdown fence, explanation, or answer to the prompt.',
-    'Preserve the user’s language and intent. Correct spelling, grammar, punctuation, and unclear wording.',
-    'Add only useful context, constraints, and output guidance that can be inferred safely.',
-    'Do more than proofreading: make the request meaningfully more useful while keeping it concise.',
-    'For a short factual question, request a clear overview, the most relevant facts, and why the subject matters.',
-    'For a comparison or decision, name the options correctly and request concrete decision criteria and trade-offs.',
-    'Treat acronyms, institutions, product names, and course names found in the rule-based candidate as intentional unless clearly impossible.',
-    'Never ask for your own preference or opinion; improve what the user should ask the next AI.',
-    'When the user writes in Portuguese, use natural European Portuguese.',
-    'Never invent personal facts, requirements, dates, sources, or preferences.',
-    'Prefer a natural ready-to-send request. Use Role/Context/Task sections only when the original task is genuinely complex.',
-    `The selected use case is: ${useCase}.`,
-    'Example: "quem e o jfk" becomes "Explica quem foi John F. Kennedy, destacando os principais acontecimentos da sua presidência, o seu impacto histórico e as circunstâncias da sua morte. Apresenta a resposta de forma clara e concisa."'
+    'Rewrite the user draft into a polished, ready-to-send prompt. Return only that prompt: no introduction, quotes, markdown fence, explanation, or answer.',
+    'Preserve its language and intent; use European Portuguese when applicable. Correct spelling, grammar, punctuation, unclear wording, and obvious abbreviations.',
+    'Preserve specialist terms, brands, titles, acronyms, institutions, and names from the rule-based candidate. Never replace an uncertain term with another concept.',
+    'Improve meaningfully, not just cosmetically: add only safely inferred structure, constraints, decision criteria, or output guidance. Never invent facts or preferences.',
+    'Convert “AI slop” or detection wording into concrete quality requirements: natural specific prose, varied sentences, no clichés, repetition, or generic filler. Do not promise undetectability.',
+    'For long reports, clarify structure, visual presentation, tone, opening, transitions, conclusion, and CTA. Prefer natural prose over Role/Context/Task sections.',
+    `Use case: ${useCase}.`
   ].join(' ');
 
   try {
@@ -91,18 +137,25 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         stream: false,
-        options: { temperature: 0.2, top_p: 0.9 },
+        keep_alive: '30m',
+        options: {
+          temperature: 0.2,
+          top_p: 0.9,
+          num_ctx: 2048,
+          num_predict: 320
+        },
         messages: [
           { role: 'system', content: systemPrompt },
           {
             role: 'user',
             content: ruleBasedDraft
-              ? `Original draft:\n${prompt}\n\nRule-based candidate (use it to preserve the interpreted intent, then improve its wording):\n${ruleBasedDraft}`
-              : prompt
+              ? `Original draft:\n${normalizedPrompt}\n\nRule-based candidate (use it to preserve the interpreted intent, then improve its wording):\n${ruleBasedDraft}`
+              : normalizedPrompt
           }
         ]
       }),
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: request.signal
     });
 
     if (!ollamaResponse.ok) {

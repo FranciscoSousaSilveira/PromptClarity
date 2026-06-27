@@ -27,7 +27,7 @@ async function rewritePromptWithModel(request, options = {}) {
     const endpoint = options.endpoint || exports.DEFAULT_REWRITE_ENDPOINT;
     // Small local models can take longer on their first request while weights
     // are loaded into memory. Subsequent requests are normally much faster.
-    const timeoutMs = options.timeoutMs ?? 60000;
+    const timeoutMs = options.timeoutMs ?? 120000;
     const fetchImpl = options.fetchImpl || fetch;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);

@@ -19,6 +19,22 @@ describe('rewritePromptWithModel', () => {
     expect(result.model).toBe('qwen2.5:3b');
   });
 
+  it('expands common Portuguese shorthand left in a model response', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      rewrittenPrompt: 'Cria um relatorio de 10 paginas sobre smallville; n quero texto genérico e nng deve encontrar repetições. Termina com um cta.'
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const result = await rewritePromptWithModel({
+      prompt: 'relatorio smallville',
+      fallbackPrompt: 'fallback'
+    }, { fetchImpl: fetchImpl as typeof fetch });
+
+    expect(result.rewrittenPrompt).toContain('relatório de 10 páginas sobre Smallville');
+    expect(result.rewrittenPrompt).toContain('não quero');
+    expect(result.rewrittenPrompt).toContain('ninguém');
+    expect(result.rewrittenPrompt).toContain('CTA');
+  });
+
   it('uses the rules fallback when the service is offline', async () => {
     const fetchImpl = vi.fn(async () => { throw new Error('connection refused'); });
 

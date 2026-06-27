@@ -31,6 +31,17 @@ function cleanModelOutput(value: string): string {
   const wrappingQuote = cleaned.match(/^["“](.*)["”]$/s);
   if (wrappingQuote) cleaned = wrappingQuote[1].trim();
 
+  cleaned = cleaned
+    .replace(/\bnng\b/gi, 'ninguém')
+    .replace(/\bn\s+(?=quero|deve|pode|fica|seja|tem|é\b)/gi, 'não ')
+    .replace(/\btp\b[,.]?\s*/gi, '')
+    .replace(/\brelatorio\b/gi, 'relatório')
+    .replace(/\bpaginas\b/gi, 'páginas')
+    .replace(/\bcomecar\b/gi, 'começar')
+    .replace(/\bsmallville\b/gi, 'Smallville')
+    .replace(/\bcta\b/gi, 'CTA')
+    .replace(/\bai\b/gi, 'IA');
+
   return cleaned;
 }
 
@@ -51,7 +62,7 @@ export async function rewritePromptWithModel(
   const endpoint = options.endpoint || DEFAULT_REWRITE_ENDPOINT;
   // Small local models can take longer on their first request while weights
   // are loaded into memory. Subsequent requests are normally much faster.
-  const timeoutMs = options.timeoutMs ?? 60_000;
+  const timeoutMs = options.timeoutMs ?? 120_000;
   const fetchImpl = options.fetchImpl || fetch;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

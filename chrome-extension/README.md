@@ -2,7 +2,7 @@
 
 The extension reviews prompt drafts directly inside supported AI chat apps. After you pause typing, it opens a suggestion card with a score, focused feedback, and a natural ready-to-send rewrite.
 
-Rewriting is performed by a local open-source model through Ollama. The prompt is sent only to the local Next.js service on your computer, which forwards it to local Ollama. If either service is unavailable, the bundled deterministic rules take over automatically.
+Rewriting is performed by a local open-source model through Ollama. The prompt is sent only to the local Next.js service on your computer, which forwards it to local Ollama. Deterministic rules prepare a private draft internally, but the Chrome extension only enables copy and insert after the model returns a final answer.
 
 ## Local AI setup
 
@@ -12,6 +12,8 @@ Rewriting is performed by a local open-source model through Ollama. The prompt i
 4. Build and reload the Chrome extension as described below.
 
 You can check the bridge by opening `http://127.0.0.1:3000/api/rewrite`. A successful response reports whether Ollama and the configured model are available.
+
+The first rewrite after starting Ollama is slower because the model must be loaded into memory. The server keeps it warm for 30 minutes so later rewrites are substantially faster.
 
 To use another Ollama model, start the app with `OLLAMA_MODEL` set to its Ollama name. You can also change the Ollama server address with `OLLAMA_URL`.
 
@@ -36,6 +38,6 @@ Supported sites include ChatGPT, Claude, Gemini, Microsoft Copilot, Perplexity, 
 
 ## Troubleshooting
 
-- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.2.0`, reload it, and refresh the Gemini/ChatGPT tab.
+- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.2.3`, reload it, and refresh the Gemini/ChatGPT tab.
 - If no icon appears, focus the message composer and type at least a short instruction such as `Explain this in three bullets`.
-- If the card says **Local AI offline**, run `ollama serve`, confirm that `qwen2.5:3b` appears in `ollama list`, and keep `npm run dev` running. The rules fallback remains usable while you fix the connection.
+- If the card says that the model did not respond, run `ollama serve`, confirm that `qwen2.5:3b` appears in `ollama list`, and keep `npm run dev` running. Use **Try again** after restoring the connection.

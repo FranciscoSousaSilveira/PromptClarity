@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Prompt Enhancer",
-  "version": "1.2.0",
+  "version": "1.2.3",
   "description": "Floating bubble to locally analyze and improve prompts in supported AI chat apps.",
   "permissions": [
     "activeTab",

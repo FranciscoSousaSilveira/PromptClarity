@@ -272,6 +272,20 @@ describe('prompt analyzer', () => {
   });
 
   describe('original test cases', () => {
+    it('cleans common Portuguese shorthand in the rules fallback', () => {
+      const analysis = analyzePrompt(
+        'Quero um relatorio de 10 paginas sobre smallville tp clean, n quero AI slop e nng deve ver repetições. Tem que comecar bem e terminar com um cta.',
+        'writing'
+      );
+
+      expect(analysis.rewrittenPrompt).toContain('relatório de 10 páginas sobre Smallville');
+      expect(analysis.rewrittenPrompt).toContain('não quero IA slop');
+      expect(analysis.rewrittenPrompt).toContain('ninguém');
+      expect(analysis.rewrittenPrompt).toContain('começar');
+      expect(analysis.rewrittenPrompt).toContain('CTA');
+      expect(analysis.rewrittenPrompt).not.toMatch(/\btp\b|\bnng\b/);
+    });
+
     it('flags a vague prompt as weak', () => {
       const analysis = analyzePrompt('Make this better.', 'general');
 
