@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Prompt Enhancer",
-  "version": "1.0.0",
+  "version": "1.1.4",
   "description": "Floating bubble to locally analyze and improve prompts in supported AI chat apps.",
   "permissions": [
     "activeTab",
@@ -25,7 +25,12 @@
         "https://claude.ai/*",
         "https://gemini.google.com/*",
         "https://copilot.microsoft.com/*",
-        "https://www.perplexity.ai/*"
+        "https://www.perplexity.ai/*",
+        "https://chat.deepseek.com/*",
+        "https://grok.com/*",
+        "https://chat.mistral.ai/*",
+        "https://poe.com/*",
+        "https://www.meta.ai/*"
       ],
       "js": ["dist/content.js"],
       "run_at": "document_end"

@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:chrome": "node build-extension.js",
+    "build:vscode": "npm --prefix extension run build",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest"

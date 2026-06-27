@@ -1,4 +1,5 @@
 import type { PromptAnalysisCore, UseCase } from '../types/prompt';
+import { correctSpelling } from './spellChecker';
 
 type Language = 'en' | 'pt';
 
@@ -10,6 +11,13 @@ const PORTUGUESE_MARKERS = [
 
 function detectLanguage(prompt: string): Language {
   const lower = prompt.toLowerCase();
+  if (
+    /^(quem|qual|onde|quando|como|por que|porque|o que)\b/.test(lower.trim()) ||
+    /\b(que|qual)\b.{0,120}\bou\b/.test(lower)
+  ) {
+    return 'pt';
+  }
+
   let portugueseMarkerCount = 0;
 
   for (const marker of PORTUGUESE_MARKERS) {
@@ -256,18 +264,173 @@ function successCriteriaForUseCase(useCase: UseCase): string {
   }
 }
 
+function normalizeComparisonOption(value: string, language: Language): string {
+  const cleaned = value.trim().replace(/^[\s:,-]+|[\s?!.,]+$/g, '');
+  const key = cleaned.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  if (/^(aero|aeroespacial|aeronautica|engenharia aeroespacial)$/.test(key)) {
+    return language === 'pt' ? 'Engenharia Aeroespacial' : 'Aerospace Engineering';
+  }
+  if (/^(mecha|mechatronisc|mechatronics|mecatronica|engenharia mecatronica)$/.test(key)) {
+    return language === 'pt' ? 'Engenharia Mecatrónica' : 'Mechatronics Engineering';
+  }
+
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+function rewriteShortComparison(prompt: string, useCase: UseCase, language: Language): string | null {
+  const trimmed = prompt.trim().replace(/\s+/g, ' ');
+  if (trimmed.split(/\s+/).length > 30) return null;
+
+  const segments = trimmed.split('?').map((segment) => segment.trim()).filter(Boolean);
+  const optionPattern = /^(.{2,50}?)\s+(ou|or|vs\.?|versus)\s+(.{2,50})$/i;
+  const match = segments.map((segment) => segment.match(optionPattern)).find(Boolean);
+  if (!match) return null;
+
+  const comparisonLanguage: Language = match[2].toLowerCase() === 'ou' ? 'pt' : language;
+  const firstOption = normalizeComparisonOption(match[1], comparisonLanguage);
+  const secondOption = normalizeComparisonOption(match[3], comparisonLanguage);
+
+  if (comparisonLanguage === 'pt') {
+    return `Compara ${firstOption} e ${secondOption} para perceber qual oferece mais e melhores oportunidades profissionais. Avalia empregabilidade, diversidade de setores, procura no mercado, progressão de carreira, mobilidade internacional e facilidade de transição entre áreas. Considera o mercado de [país ou região] e distingue oportunidades no início da carreira e a médio prazo. Apresenta uma tabela com vantagens e limitações de cada opção e termina com uma recomendação condicionada aos interesses e objetivos do estudante. Indica claramente quando a conclusão depender da localização ou de dados atuais.`;
+  }
+
+  const evidence = useCase === 'research'
+    ? 'Use current evidence where possible and state when the conclusion depends on location or changing market data.'
+    : 'State the assumptions that materially affect the comparison.';
+  return `Compare ${firstOption} and ${secondOption} to determine which option creates broader career opportunities. Evaluate employability, range of industries, market demand, career progression, international mobility, and ease of moving between fields. Present a table of advantages and limitations, then give a recommendation based on the person's interests and goals. ${evidence}`;
+}
+
+function roleForUseCasePt(useCase: UseCase): string {
+  switch (useCase) {
+    case 'coding': return 'um engenheiro de software sénior, rigoroso na análise e na implementação';
+    case 'writing': return 'um editor experiente, atento ao tom, ao público e à estrutura';
+    case 'studying': return 'um tutor paciente que explica com clareza e confirma a compreensão';
+    case 'research': return 'um analista de investigação que compara evidência, fontes e limitações';
+    case 'business': return 'um estratega de negócios prático, focado em decisões e resultados';
+    case 'imageGeneration': return 'um especialista em prompts visuais, composição, luz e estilo';
+    case 'general':
+    default: return 'um especialista prestável que produz respostas claras, específicas e úteis';
+  }
+}
+
+function outputFormatForUseCasePt(useCase: UseCase, prompt: string): string {
+  const lower = prompt.toLowerCase();
+  if (/\b(email|e-mail)\b/.test(lower)) return 'Escreve um email completo e pronto a enviar, incluindo assunto.';
+
+  switch (useCase) {
+    case 'coding': return 'Usa as secções Resumo, Causa, Solução com código e Próximos passos.';
+    case 'writing': return 'Entrega diretamente o texto final e, se for útil, uma nota curta sobre as escolhas feitas.';
+    case 'studying': return 'Combina explicação, exemplos e perguntas rápidas para confirmar a compreensão.';
+    case 'research': return 'Usa uma visão geral, análise da evidência, limitações e conclusão.';
+    case 'business': return 'Usa um formato conciso e orientado à ação, adequado ao objetivo pedido.';
+    case 'imageGeneration': return 'Cria um prompt visual compacto com assunto, estilo, composição, iluminação, ambiente e proporção.';
+    case 'general':
+    default: return 'Escolhe o formato mais útil para a tarefa: pontos, tabela, passos ou resposta curta.';
+  }
+}
+
+function successCriteriaForUseCasePt(useCase: UseCase): string {
+  switch (useCase) {
+    case 'coding': return 'A resposta é correta, reproduzível e permite verificar o resultado.';
+    case 'writing': return 'O texto corresponde ao público, tom e objetivo, sem conteúdo desnecessário.';
+    case 'studying': return 'A explicação é correta, adequada ao nível pedido e fácil de confirmar.';
+    case 'research': return 'As conclusões distinguem factos, evidência, incerteza e limitações.';
+    case 'business': return 'O resultado está pronto a usar e torna clara a próxima ação.';
+    case 'imageGeneration': return 'O prompt dá direção visual concreta e preserva o assunto e ambiente pedidos.';
+    case 'general':
+    default: return 'A resposta resolve diretamente a tarefa e torna explícitas apenas as suposições necessárias.';
+  }
+}
+
+function rewritePortugueseStructuredPrompt(prompt: string, useCase: UseCase, analysis: PromptAnalysisCore): string {
+  const context = analysis.categoryScores.context >= 70
+    ? 'Usa o contexto e os factos fornecidos na tarefa abaixo.'
+    : '[Adiciona o contexto relevante, o público e os factos que devem permanecer corretos]';
+  const requirements = analysis.categoryScores.constraints >= 70
+    ? 'Mantém todos os requisitos e limites indicados no pedido.'
+    : '[Adiciona limites, tom, extensão, requisitos ou elementos a evitar]';
+
+  return [
+    formatSection('Papel', `Atua como ${roleForUseCasePt(useCase)}.`),
+    formatSection('Contexto', context),
+    formatSection('Tarefa', prompt.trim()),
+    formatSection('Requisitos', requirements),
+    formatSection('Formato de saída', outputFormatForUseCasePt(useCase, prompt)),
+    formatSection('Critérios de sucesso', successCriteriaForUseCasePt(useCase)),
+    'Antes de responder, indica apenas as suposições estritamente necessárias.'
+  ].join('\n\n');
+}
+
+function rewriteShortQuestion(prompt: string, useCase: UseCase, language: Language): string | null {
+  const trimmed = prompt.trim().replace(/[?!.]+$/, '');
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length > 10) return null;
+
+  const englishQuestion = trimmed.match(/^(who|what|when|where|why|how)\b/i);
+  const portugueseQuestion = trimmed.match(/^(quem|o que|quando|onde|por que|porque|como)\b/i);
+  const questionLanguage: Language = portugueseQuestion ? 'pt' : englishQuestion ? 'en' : language;
+  const questionType = questionLanguage === 'pt' ? portugueseQuestion?.[1]?.toLowerCase() : englishQuestion?.[1]?.toLowerCase();
+  if (!questionType) return null;
+
+  let polishedQuestion = trimmed.replace(/\s+/g, ' ').trim();
+  if (questionLanguage === 'pt') {
+    polishedQuestion = polishedQuestion
+      .replace(/^quem\s+e\b/i, 'Quem é')
+      .replace(/^o que\s+e\b/i, 'O que é')
+      .replace(/^qual\s+e\b/i, 'Qual é')
+      .replace(/\b(jfk|ue|eua|nato|onu|ia|api|html|css|sql|llm|gpt)\b/gi, (value) => value.toUpperCase());
+    polishedQuestion = polishedQuestion.charAt(0).toUpperCase() + polishedQuestion.slice(1);
+  } else {
+    polishedQuestion = polishedQuestion.charAt(0).toUpperCase() + polishedQuestion.slice(1);
+  }
+
+  if (questionLanguage === 'pt') {
+    const focus = questionType === 'quem'
+      ? 'Inclui quem é a pessoa, porque é relevante, os principais acontecimentos ou contributos associados e o seu legado.'
+      : 'Inclui uma definição clara, o contexto essencial, porque é relevante e exemplos concretos quando forem úteis.';
+    const evidence = useCase === 'research'
+      ? 'Usa linguagem neutra, distingue factos estabelecidos de afirmações disputadas e indica fontes quando necessário.'
+      : 'Usa linguagem clara e não assumes conhecimento prévio.';
+    return `Responde à pergunta: “${polishedQuestion}?” ${focus} ${evidence} Estrutura a resposta com uma introdução curta seguida de 3 a 5 pontos.`;
+  }
+
+  const focus = questionType === 'who'
+    ? 'Cover who the person is, why they are notable, the key events or contributions associated with them, and their legacy.'
+    : questionType === 'how'
+      ? 'Explain the process step by step, including prerequisites, important tradeoffs, and a concrete example.'
+      : questionType === 'why'
+        ? 'Explain the main causes, the strongest supporting evidence, and credible alternative explanations.'
+        : 'Give a clear definition or direct answer, essential context, why it matters, and a concrete example when useful.';
+  const evidence = useCase === 'research'
+    ? 'Use neutral language, distinguish established facts from disputed claims, and name sources when appropriate.'
+    : 'Use plain language and do not assume prior knowledge.';
+
+  return `Answer the question: “${polishedQuestion}?” ${focus} ${evidence} Format the response as a short introduction followed by 3–5 bullet points.`;
+}
+
 export function rewritePrompt(prompt: string, useCase: UseCase, analysis: PromptAnalysisCore): string {
-  const effectiveUseCase = inferUseCase(useCase, prompt);
   const language = detectLanguage(prompt);
-  const labels = language === 'pt'
-    ? { role: 'Papel', context: 'Contexto', task: 'Tarefa', constraints: 'Requisitos', output: 'Formato de saída', success: 'Critérios de sucesso', assumptions: 'Antes de responder, indica apenas as suposições estritamente necessárias.' }
-    : { role: 'Role', context: 'Context', task: 'Task', constraints: 'Constraints', output: 'Output format', success: 'Success criteria', assumptions: 'Before answering, state only the assumptions that are strictly necessary.' };
+  const correctedPrompt = correctSpelling(prompt, language, 0.88);
+  const effectiveUseCase = inferUseCase(useCase, correctedPrompt);
+
+  const shortComparisonRewrite = rewriteShortComparison(correctedPrompt, effectiveUseCase, language);
+  if (shortComparisonRewrite) return shortComparisonRewrite;
+
+  const shortQuestionRewrite = rewriteShortQuestion(correctedPrompt, effectiveUseCase, language);
+  if (shortQuestionRewrite) return shortQuestionRewrite;
+
+  if (language === 'pt') {
+    return rewritePortugueseStructuredPrompt(correctedPrompt, effectiveUseCase, analysis);
+  }
+
+  const labels = { role: 'Role', context: 'Context', task: 'Task', constraints: 'Constraints', output: 'Output format', success: 'Success criteria', assumptions: 'Before answering, state only the assumptions that are strictly necessary.' };
   const sections = [
-    formatSection(labels.role, `Act as ${roleForUseCase(effectiveUseCase, prompt)}.`),
-    formatSection(labels.context, buildContext(prompt, analysis)),
-    formatSection(labels.task, buildTask(prompt, analysis, effectiveUseCase)),
+    formatSection(labels.role, `Act as ${roleForUseCase(effectiveUseCase, correctedPrompt)}.`),
+    formatSection(labels.context, buildContext(correctedPrompt, analysis)),
+    formatSection(labels.task, buildTask(correctedPrompt, analysis, effectiveUseCase)),
     formatSection(labels.constraints, buildConstraints(analysis, effectiveUseCase)),
-    formatSection(labels.output, outputFormatForUseCase(effectiveUseCase, analysis, prompt)),
+    formatSection(labels.output, outputFormatForUseCase(effectiveUseCase, analysis, correctedPrompt)),
     formatSection(labels.success, successCriteriaForUseCase(effectiveUseCase)),
     labels.assumptions
   ];

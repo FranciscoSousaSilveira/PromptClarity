@@ -26,6 +26,13 @@ const PORTUGUESE_MARKERS = ['que', 'de', 'para', 'com', 'por', 'uma', 'está', '
 function detectLanguage(prompt: string): Language {
   const lower = prompt.toLowerCase();
   const tokens = tokenize(lower);
+
+  if (
+    /^(quem|qual|onde|quando|como|por que|porque|o que)\b/.test(lower.trim()) ||
+    /\b(que|qual)\b.{0,120}\bou\b/.test(lower)
+  ) {
+    return 'pt';
+  }
   
   // Count Portuguese markers
   const ptCount = PORTUGUESE_MARKERS.filter(marker => tokens.includes(marker)).length;

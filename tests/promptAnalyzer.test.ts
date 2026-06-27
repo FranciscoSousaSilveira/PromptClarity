@@ -223,6 +223,43 @@ describe('prompt analyzer', () => {
       expect(analysis.rewrittenPrompt).toContain('ready-to-send email');
       expect(analysis.rewrittenPrompt).not.toMatch(/At as|wwrite|sstring|tstable/);
     });
+
+    it('keeps short factual questions compact and useful', () => {
+      const analysis = analyzePrompt('who is JFK', 'research');
+
+      expect(analysis.rewrittenPrompt).toContain('Answer the question: “Who is JFK?”');
+      expect(analysis.rewrittenPrompt).toContain('established facts');
+      expect(analysis.rewrittenPrompt).toContain('3–5 bullet points');
+      expect(analysis.rewrittenPrompt).not.toContain('Role:');
+    });
+
+    it('corrects a short Portuguese factual question', () => {
+      const analysis = analyzePrompt('quem  e o jfk', 'research');
+
+      expect(analysis.rewrittenPrompt).toContain('Responde à pergunta: “Quem é o JFK?”');
+      expect(analysis.rewrittenPrompt).toContain('factos estabelecidos');
+      expect(analysis.rewrittenPrompt).not.toContain('quem  e o jfk');
+      expect(analysis.rewrittenPrompt).not.toContain('Papel:');
+    });
+
+    it('turns a conversational Portuguese course comparison into a useful prompt', () => {
+      const analysis = analyzePrompt('mas tum que curso abre mais portas? aero ou mechatronisc?', 'research');
+
+      expect(analysis.rewrittenPrompt).toContain('Compara Engenharia Aeroespacial e Engenharia Mecatrónica');
+      expect(analysis.rewrittenPrompt).toContain('empregabilidade');
+      expect(analysis.rewrittenPrompt).toContain('mobilidade internacional');
+      expect(analysis.rewrittenPrompt).not.toContain('mechatronisc');
+      expect(analysis.rewrittenPrompt).not.toContain('Clarify the task');
+      expect(analysis.rewrittenPrompt).not.toContain('Papel:');
+    });
+
+    it('keeps structured Portuguese fallbacks fully localized', () => {
+      const analysis = analyzePrompt('Escreve um plano de estudo para aprender cálculo durante oito semanas.', 'studying');
+
+      expect(analysis.rewrittenPrompt).toContain('Papel: Atua como');
+      expect(analysis.rewrittenPrompt).toContain('Formato de saída:');
+      expect(analysis.rewrittenPrompt).not.toMatch(/Act as|Add relevant|Output format|Claims are/);
+    });
   });
 
   describe('original test cases', () => {

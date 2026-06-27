@@ -14,11 +14,12 @@ const USE_CASES: { value: UseCase; label: string }[] = [
 export class PromptEnhancerUI {
   private container: HTMLDivElement | null = null;
   private shadow: ShadowRoot | null = null;
-  private bubble: HTMLDivElement | null = null;
+  private bubble: HTMLButtonElement | null = null;
   private popup: HTMLDivElement | null = null;
 
   // Callbacks
   private onUseCaseChange: (useCase: UseCase) => void = () => {};
+  private onAutoEnhanceChange: (enabled: boolean) => void = () => {};
   private onCopy: (text: string) => void = () => {};
   private onInsert: (text: string) => void = () => {};
   private onClose: () => void = () => {};
@@ -29,12 +30,14 @@ export class PromptEnhancerUI {
     cssText: string,
     callbacks: {
       onUseCaseChange: (useCase: UseCase) => void;
+      onAutoEnhanceChange: (enabled: boolean) => void;
       onCopy: (text: string) => void;
       onInsert: (text: string) => void;
       onClose: () => void;
     }
   ) {
     this.onUseCaseChange = callbacks.onUseCaseChange;
+    this.onAutoEnhanceChange = callbacks.onAutoEnhanceChange;
     this.onCopy = callbacks.onCopy;
     this.onInsert = callbacks.onInsert;
     this.onClose = callbacks.onClose;
@@ -65,9 +68,12 @@ export class PromptEnhancerUI {
     this.shadow.appendChild(styleEl);
 
     // Create Bubble Element
-    this.bubble = document.createElement('div');
+    this.bubble = document.createElement('button');
+    this.bubble.type = 'button';
     this.bubble.className = 'prompt-bubble';
     this.bubble.title = 'Enhance this Prompt';
+    this.bubble.setAttribute('aria-label', 'Improve this prompt');
+    this.bubble.setAttribute('aria-expanded', 'false');
     this.bubble.innerHTML = `
       <svg viewBox="0 0 24 24">
         <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -83,21 +89,36 @@ export class PromptEnhancerUI {
     this.shadow.appendChild(this.popup);
 
     // Bind event listeners
-    this.bubble.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      // Click bubble opens popup or runs analysis
+    const activateBubble = () => {
       const activeTextarea = (this.container as any)._activeElement;
-      if (activeTextarea) {
-        // Toggle popup
-        if (this.popup?.classList.contains('visible')) {
-          this.hidePopup();
-        } else {
-          // Re-trigger detection & analysis
-          const event = new CustomEvent('prompt-enhance-click');
-          window.dispatchEvent(event);
-        }
+      if (!activeTextarea) return;
+
+      if (this.popup?.classList.contains('visible')) {
+        this.hidePopup();
+      } else {
+        window.dispatchEvent(new CustomEvent('prompt-enhance-click'));
       }
+    };
+
+    // Gemini and similar editors re-render when their composer loses focus.
+    // Activate on pointerdown and keep focus in the composer so the icon is
+    // not detached before the later click event can run.
+    this.bubble.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      activateBubble();
+    });
+
+    this.bubble.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+    });
+
+    // Keyboard-triggered button clicks have detail 0 and no pointerdown.
+    this.bubble.addEventListener('click', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      if (event.detail === 0) activateBubble();
     });
 
     // Close popup on click outside
@@ -110,6 +131,12 @@ export class PromptEnhancerUI {
       const isInsideShadow = path.includes(this.container!);
       
       if (!isInsideShadow && this.popup.classList.contains('visible')) {
+        this.hidePopup();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && this.popup?.classList.contains('visible')) {
         this.hidePopup();
       }
     });
@@ -147,17 +174,32 @@ export class PromptEnhancerUI {
     }
   }
 
-  public showPopup(rect: DOMRect, content: PopupContent, currentUseCase: UseCase) {
+  public showPopup(rect: DOMRect, content: PopupContent, currentUseCase: UseCase, autoEnhanceEnabled: boolean) {
     if (!this.popup || !this.bubble) return;
 
-    this.renderPopupContent(content, currentUseCase);
+    this.renderPopupContent(content, currentUseCase, autoEnhanceEnabled);
+
+    this.positionPopup();
+    this.popup.classList.add('visible');
+    this.bubble.setAttribute('aria-expanded', 'true');
+  }
+
+  public updatePopupPosition() {
+    if (this.popup?.classList.contains('visible')) {
+      this.positionPopup();
+    }
+  }
+
+  private positionPopup() {
+    if (!this.popup || !this.bubble) return;
 
     const bubbleTop = parseFloat(this.bubble.style.top);
     const bubbleLeft = parseFloat(this.bubble.style.left);
 
     // Position popup next to bubble
-    const popupWidth = 380;
+    const popupWidth = Math.min(380, window.innerWidth - 20);
     const popupHeight = 480;
+    this.popup.style.width = `${popupWidth}px`;
 
     let top = bubbleTop + 38;
     let left = bubbleLeft - popupWidth + 32;
@@ -182,19 +224,19 @@ export class PromptEnhancerUI {
 
     this.popup.style.top = `${top}px`;
     this.popup.style.left = `${left}px`;
-    this.popup.classList.add('visible');
   }
 
-  public hidePopup() {
+  public hidePopup(notify = true) {
     this.popup?.classList.remove('visible');
-    this.onClose();
+    this.bubble?.setAttribute('aria-expanded', 'false');
+    if (notify) this.onClose();
   }
 
   public isPopupVisible(): boolean {
     return this.popup?.classList.contains('visible') || false;
   }
 
-  private renderPopupContent(content: PopupContent, currentUseCase: UseCase) {
+  private renderPopupContent(content: PopupContent, currentUseCase: UseCase, autoEnhanceEnabled: boolean) {
     if (!this.popup) return;
 
     // Header HTML
@@ -206,9 +248,12 @@ export class PromptEnhancerUI {
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
             </svg>
           </div>
-          <div class="popup-title">Prompt Enhancer</div>
+          <div>
+            <div class="popup-title">Prompt Grammarly</div>
+            <div class="popup-subtitle">Draft reviewed locally</div>
+          </div>
         </div>
-        <button class="popup-close-btn" id="pe-close-btn">
+        <button class="popup-close-btn" id="pe-close-btn" aria-label="Close suggestion">
           <svg fill="none" viewBox="0 0 24 24">
             <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -241,6 +286,7 @@ export class PromptEnhancerUI {
               </select>
             </div>
           </div>
+          ${this.renderAutoEnhanceControl(autoEnhanceEnabled)}
         </div>
       `;
       this.bindPopupEvents(content);
@@ -257,17 +303,17 @@ export class PromptEnhancerUI {
     const offset = 145 - (145 * score) / 100;
 
     // Render Critique Items
-    const issues = analysis.issues.map(issue => `
+    const issues = analysis.issues.slice(0, 3).map(issue => `
       <div class="critique-item issue">
         <span class="critique-icon">⚠️</span>
-        <span class="critique-text"><strong>${issue.title}:</strong> ${issue.suggestion}</span>
+        <span class="critique-text"><strong>${this.escapeHtml(issue.title)}:</strong> ${this.escapeHtml(issue.suggestion)}</span>
       </div>
     `).join('');
 
     const strengths = analysis.strengths.slice(0, 2).map(strength => `
       <div class="critique-item strength">
         <span class="critique-icon">✨</span>
-        <span class="critique-text">${strength}</span>
+        <span class="critique-text">${this.escapeHtml(strength)}</span>
       </div>
     `).join('');
 
@@ -282,6 +328,7 @@ export class PromptEnhancerUI {
             </select>
           </div>
         </div>
+        ${this.renderAutoEnhanceControl(autoEnhanceEnabled)}
 
         <!-- Score Ring Card -->
         <div class="score-card">
@@ -300,7 +347,7 @@ export class PromptEnhancerUI {
           </div>
           <div class="score-details">
             <div class="score-label ${labelLower}">${label} Quality</div>
-            <div class="score-summary">${analysis.summary || 'Analyze detailed prompt structure.'}</div>
+            <div class="score-summary">${this.escapeHtml(analysis.summary || 'Analyze detailed prompt structure.')}</div>
           </div>
         </div>
 
@@ -318,7 +365,7 @@ export class PromptEnhancerUI {
         <div class="improved-box-section">
           <div class="section-label">Enhanced Prompt</div>
           <div class="improved-container">
-            <textarea class="improved-textarea" id="pe-improved-textarea" readonly>${improvedPrompt || ''}</textarea>
+            <textarea class="improved-textarea" id="pe-improved-textarea" readonly>${this.escapeHtml(improvedPrompt || '')}</textarea>
           </div>
         </div>
       </div>
@@ -360,6 +407,11 @@ export class PromptEnhancerUI {
       if (select.value) {
         this.onUseCaseChange(select.value as UseCase);
       }
+    });
+
+    const autoEnhance = this.popup.querySelector('#pe-auto-enhance') as HTMLInputElement | null;
+    autoEnhance?.addEventListener('change', () => {
+      this.onAutoEnhanceChange(autoEnhance.checked);
     });
 
     // Copy Button
@@ -413,7 +465,9 @@ export class PromptEnhancerUI {
           setTimeout(() => {
             insertBtn.innerHTML = originalHTML;
             insertBtn.style.background = '';
-            this.hidePopup();
+            if (insertBtn.isConnected && this.popup?.classList.contains('visible')) {
+              this.hidePopup();
+            }
           }, 1000);
         }
       }
@@ -424,5 +478,28 @@ export class PromptEnhancerUI {
     if (this.container) {
       (this.container as any)._activeElement = el;
     }
+  }
+
+  private renderAutoEnhanceControl(enabled: boolean): string {
+    return `
+      <label class="auto-enhance-control">
+        <span class="auto-enhance-copy">
+          <strong>Auto-open suggestions</strong>
+          <small>Runs on this device after you pause typing</small>
+        </span>
+        <input type="checkbox" id="pe-auto-enhance" ${enabled ? 'checked' : ''}>
+        <span class="auto-enhance-switch" aria-hidden="true"></span>
+      </label>
+    `;
+  }
+
+  private escapeHtml(value: string): string {
+    return value.replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    })[character] || character);
   }
 }

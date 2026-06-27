@@ -53,10 +53,25 @@ describe('promptDetector', () => {
       expect(result.confidence).toBeLessThan(0.4);
     });
 
-    it('flags casual question as low confidence', () => {
+    it('detects direct questions entered in an AI composer', () => {
       const result = detectPrompt('what do you think about this');
-      expect(result.isPrompt).toBe(false);
-      expect(result.confidence).toBeLessThan(0.4);
+      expect(result.isPrompt).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+      expect(result.signals.find(s => s.name === 'direct_question')?.present).toBe(true);
+    });
+
+    it('detects short Portuguese questions without punctuation', () => {
+      const result = detectPrompt('quem e o jfk');
+      expect(result.isPrompt).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+      expect(result.signals.find(s => s.name === 'direct_question')?.present).toBe(true);
+    });
+
+    it('detects a conversational Portuguese comparison', () => {
+      const result = detectPrompt('mas tum que curso abre mais portas? aero ou mechatronisc?');
+      expect(result.isPrompt).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+      expect(result.signals.find(s => s.name === 'direct_question')?.present).toBe(true);
     });
 
     it('detects prompt with multiple signals', () => {
@@ -206,9 +221,9 @@ describe('promptDetector', () => {
       expect(shouldShowPopup(result.confidence)).toBe(false);
     });
 
-    it('rejects "how is the weather"', () => {
+    it('recognizes a direct weather question as a prompt', () => {
       const result = detectPrompt('how is the weather today');
-      expect(shouldShowPopup(result.confidence)).toBe(false);
+      expect(shouldShowPopup(result.confidence)).toBe(true);
     });
   });
 
