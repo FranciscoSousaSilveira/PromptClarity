@@ -25,5 +25,5 @@ Supported sites include ChatGPT, Claude, Gemini, Microsoft Copilot, Perplexity, 
 
 ## Troubleshooting
 
-- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.1.4`, reload it, and refresh the Gemini/ChatGPT tab.
+- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.1.5`, reload it, and refresh the Gemini/ChatGPT tab.
 - If no icon appears, focus the message composer and type at least a short instruction such as `Explain this in three bullets`.

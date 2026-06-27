@@ -268,7 +268,8 @@ class PromptEnhancerExtension {
   private runAnalysis(force: boolean) {
     if (!this.activeElement) return;
 
-    const text = this.getInputText(this.activeElement).trim();
+    const capturedText = this.getInputText(this.activeElement).trim();
+    const text = force ? this.extractTaskFromLegacyRewrite(capturedText) : capturedText;
     if (text.length < 2) return;
     const rect = this.activeElement.getBoundingClientRect();
 
@@ -418,10 +419,29 @@ class PromptEnhancerExtension {
   private looksLikeGeneratedRewrite(text: string): boolean {
     const normalized = this.normalizeText(text);
     const structured = /^(Role|Papel):/i.test(normalized) &&
-      /\n+(Context|Contexto):/i.test(normalized) &&
-      /\n+(Task|Tarefa):/i.test(normalized);
+      /\b(Context|Contexto):/i.test(normalized) &&
+      /\b(Task|Tarefa):/i.test(normalized);
     const compactQuestion = /^(Answer the question|Responde à pergunta):/i.test(normalized);
     return structured || compactQuestion;
+  }
+
+  private extractTaskFromLegacyRewrite(text: string): string {
+    if (!this.looksLikeGeneratedRewrite(text)) return text;
+
+    const normalized = this.normalizeText(text);
+    const taskMarkers = Array.from(normalized.matchAll(/(?:^|\s)(?:Task|Tarefa):\s*/gim));
+    const lastMarker = taskMarkers.at(-1);
+    if (lastMarker?.index === undefined) return text;
+
+    const taskStart = lastMarker.index + lastMarker[0].length;
+    const remainder = normalized.slice(taskStart);
+    const boundary = remainder.search(/\s+(?:Constraints|Requisitos|Output format|Formato de saída|Success criteria|Critérios de sucesso):/i);
+    const lastTask = (boundary >= 0 ? remainder.slice(0, boundary) : remainder).trim();
+    if (!lastTask) return text;
+
+    return lastTask
+      .replace(/^(?:Clarify the task|Esclarece a tarefa):\s*/i, '')
+      .trim() || text;
   }
 
   private isContentEditable(el: HTMLElement): boolean {

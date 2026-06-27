@@ -12,7 +12,7 @@ const PORTUGUESE_MARKERS = [
 function detectLanguage(prompt: string): Language {
   const lower = prompt.toLowerCase();
   if (
-    /^(quem|qual|onde|quando|como|por que|porque|o que)\b/.test(lower.trim()) ||
+    /^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora)\b/.test(lower.trim()) ||
     /\b(que|qual)\b.{0,120}\bou\b/.test(lower)
   ) {
     return 'pt';
@@ -301,6 +301,102 @@ function rewriteShortComparison(prompt: string, useCase: UseCase, language: Lang
   return `Compare ${firstOption} and ${secondOption} to determine which option creates broader career opportunities. Evaluate employability, range of industries, market demand, career progression, international mobility, and ease of moving between fields. Present a table of advantages and limitations, then give a recommendation based on the person's interests and goals. ${evidence}`;
 }
 
+function rewriteCourseComparison(prompt: string, language: Language): string | null {
+  const key = prompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const comparesAerospaceAndMechatronics = /\baero(?:espacial)?\b/.test(key) && /\b(mecha|mechat|mecatr)/.test(key);
+  if (!comparesAerospaceAndMechatronics) return null;
+
+  const mentionsTum = /\btum\b/.test(key);
+  if (language === 'pt') {
+    const scope = mentionsTum
+      ? 'na TUM, usando informação atual dos planos curriculares e páginas oficiais da universidade'
+      : 'considerando a instituição e o mercado de [país ou região]';
+    return `Explica, de forma clara e objetiva, as principais diferenças entre Engenharia Aeroespacial e Engenharia Mecatrónica ${scope}. Compara o currículo, as áreas de especialização, a componente prática, a carga de trabalho, os requisitos de admissão, as oportunidades de estágio, a empregabilidade, a diversidade de setores, a mobilidade internacional e a flexibilidade para mudar de área. Apresenta a comparação numa tabela e termina com uma recomendação para diferentes perfis de estudante, deixando claro quando algum dado depender do ano letivo ou precisar de confirmação.`;
+  }
+
+  const scope = mentionsTum
+    ? 'at TUM, using current curricula and official university pages'
+    : 'for the relevant institution and job market';
+  return `Explain the main differences between Aerospace Engineering and Mechatronics Engineering ${scope}. Compare the curriculum, specializations, practical work, workload, admission requirements, internship opportunities, career paths, and flexibility to move into other industries. Present the comparison in a table and finish with recommendations for different student profiles, clearly marking anything that depends on the academic year or needs confirmation.`;
+}
+
+function polishNaturalPrompt(prompt: string, language: Language): string {
+  let polished = prompt.replace(/\s+/g, ' ').trim();
+
+  if (language === 'pt') {
+    polished = polished
+      .replace(/\bexplica\s+me\b/gi, 'Explica-me')
+      .replace(/\bmechatronica\b/gi, 'Mecatrónica')
+      .replace(/\bmecatronica\b/gi, 'Mecatrónica')
+      .replace(/\bsff\b/gi, '')
+      .replace(/\s+([?!.,])/g, '$1')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+  polished = polished.charAt(0).toUpperCase() + polished.slice(1);
+  if (!/[?!.]$/.test(polished)) polished += '.';
+  return polished;
+}
+
+function rewriteNaturalPrompt(
+  prompt: string,
+  useCase: UseCase,
+  analysis: PromptAnalysisCore,
+  language: Language
+): string | null {
+  const words = prompt.trim().split(/\s+/).filter(Boolean);
+  const isTooVague = words.length < 4 || /^(help|ajuda|ajuda-me|isto|isso|make this better)[.!?]*$/i.test(prompt.trim());
+  if (isTooVague) return null;
+
+  const polished = polishNaturalPrompt(prompt, language);
+  const additions: string[] = [];
+
+  if (language === 'pt') {
+    switch (useCase) {
+      case 'research':
+        additions.push('Baseia a resposta em fontes credíveis e atuais, distingue factos de interpretações e assinala limitações ou informação incerta.');
+        if (analysis.categoryScores.outputFormat < 70) additions.push('Organiza a resposta com uma visão geral curta, uma comparação clara e uma conclusão prática.');
+        break;
+      case 'coding':
+        additions.push('Explica a causa, apresenta uma solução reproduzível e inclui código completo quando for relevante.');
+        break;
+      case 'studying':
+        additions.push('Adapta a explicação ao nível indicado, usa exemplos concretos e termina com uma forma rápida de confirmar a compreensão.');
+        break;
+      case 'writing':
+        additions.push('Preserva a intenção, adequa o tom ao público e entrega diretamente uma versão final clara e concisa.');
+        break;
+      case 'business':
+        additions.push(/\b(email|e-mail)\b/i.test(polished)
+          ? 'Entrega um email completo e pronto a enviar, com assunto, tom adequado e uma próxima ação clara.'
+          : 'Mantém a resposta concisa, orientada à decisão e termina com próximos passos concretos.');
+        break;
+      case 'imageGeneration':
+        additions.push('Inclui assunto, estilo, composição, iluminação, ambiente e proporção, sem alterar a intenção principal.');
+        break;
+      case 'general':
+      default:
+        additions.push('Responde de forma clara, específica e diretamente útil, indicando apenas as suposições indispensáveis.');
+    }
+  } else {
+    switch (useCase) {
+      case 'research': additions.push('Use credible, current sources, separate facts from interpretation, and flag limitations or uncertainty.'); break;
+      case 'coding': additions.push('Explain the cause, provide a reproducible solution, and include complete code when relevant.'); break;
+      case 'studying': additions.push('Match the requested level, use concrete examples, and finish with a quick comprehension check.'); break;
+      case 'writing': additions.push('Preserve the intent, match the audience and tone, and provide the polished final draft directly.'); break;
+      case 'business': additions.push(/\bemail\b/i.test(polished)
+        ? 'Provide a complete, ready-to-send email with a subject line, appropriate tone, and a clear next action.'
+        : 'Keep the response concise and decision-oriented, with concrete next steps.'); break;
+      case 'imageGeneration': additions.push('Make the image prompt include subject, style, composition, lighting, mood, and aspect ratio without changing the core intent.'); break;
+      case 'general':
+      default: additions.push('Answer clearly and specifically, stating only assumptions that materially affect the result.');
+    }
+  }
+
+  return [polished, ...additions].join(' ');
+}
+
 function roleForUseCasePt(useCase: UseCase): string {
   switch (useCase) {
     case 'coding': return 'um engenheiro de software sénior, rigoroso na análise e na implementação';
@@ -414,11 +510,17 @@ export function rewritePrompt(prompt: string, useCase: UseCase, analysis: Prompt
   const correctedPrompt = correctSpelling(prompt, language, 0.88);
   const effectiveUseCase = inferUseCase(useCase, correctedPrompt);
 
+  const courseComparisonRewrite = rewriteCourseComparison(correctedPrompt, language);
+  if (courseComparisonRewrite) return courseComparisonRewrite;
+
   const shortComparisonRewrite = rewriteShortComparison(correctedPrompt, effectiveUseCase, language);
   if (shortComparisonRewrite) return shortComparisonRewrite;
 
   const shortQuestionRewrite = rewriteShortQuestion(correctedPrompt, effectiveUseCase, language);
   if (shortQuestionRewrite) return shortQuestionRewrite;
+
+  const naturalRewrite = rewriteNaturalPrompt(correctedPrompt, effectiveUseCase, analysis, language);
+  if (naturalRewrite) return naturalRewrite;
 
   if (language === 'pt') {
     return rewritePortugueseStructuredPrompt(correctedPrompt, effectiveUseCase, analysis);

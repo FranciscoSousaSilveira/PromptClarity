@@ -245,7 +245,7 @@ describe('prompt analyzer', () => {
     it('turns a conversational Portuguese course comparison into a useful prompt', () => {
       const analysis = analyzePrompt('mas tum que curso abre mais portas? aero ou mechatronisc?', 'research');
 
-      expect(analysis.rewrittenPrompt).toContain('Compara Engenharia Aeroespacial e Engenharia Mecatrónica');
+      expect(analysis.rewrittenPrompt).toContain('Engenharia Aeroespacial e Engenharia Mecatrónica');
       expect(analysis.rewrittenPrompt).toContain('empregabilidade');
       expect(analysis.rewrittenPrompt).toContain('mobilidade internacional');
       expect(analysis.rewrittenPrompt).not.toContain('mechatronisc');
@@ -254,11 +254,20 @@ describe('prompt analyzer', () => {
     });
 
     it('keeps structured Portuguese fallbacks fully localized', () => {
-      const analysis = analyzePrompt('Escreve um plano de estudo para aprender cálculo durante oito semanas.', 'studying');
+      const analysis = analyzePrompt('ajuda-me com isto', 'studying');
 
       expect(analysis.rewrittenPrompt).toContain('Papel: Atua como');
       expect(analysis.rewrittenPrompt).toContain('Formato de saída:');
       expect(analysis.rewrittenPrompt).not.toMatch(/Act as|Add relevant|Output format|Claims are/);
+    });
+
+    it('upgrades a clear TUM course question without using the template', () => {
+      const analysis = analyzePrompt('Explica me as principais diferenças entre Aeroespacial e Mechatronica na TUM sff', 'research');
+
+      expect(analysis.rewrittenPrompt).toContain('Engenharia Aeroespacial e Engenharia Mecatrónica na TUM');
+      expect(analysis.rewrittenPrompt).toContain('planos curriculares');
+      expect(analysis.rewrittenPrompt).toContain('requisitos de admissão');
+      expect(analysis.rewrittenPrompt).not.toMatch(/Role:|Context:|Task:|Papel:|Contexto:|Tarefa:/);
     });
   });
 

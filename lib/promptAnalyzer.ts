@@ -28,7 +28,7 @@ function detectLanguage(prompt: string): Language {
   const tokens = tokenize(lower);
 
   if (
-    /^(quem|qual|onde|quando|como|por que|porque|o que)\b/.test(lower.trim()) ||
+    /^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora)\b/.test(lower.trim()) ||
     /\b(que|qual)\b.{0,120}\bou\b/.test(lower)
   ) {
     return 'pt';
