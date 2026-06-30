@@ -7,32 +7,32 @@ describe('promptDetector', () => {
       const result = detectPrompt('explain how React hooks work');
       expect(result.isPrompt).toBe(true);
       expect(result.confidence).toBeGreaterThan(0.4);
-      expect(result.signals.find(s => s.name === 'action_verb')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'action_verb')?.present).toBe(true);
     });
 
     it('detects prompts with format requests', () => {
       const result = detectPrompt('write a summary in bullet points');
       expect(result.isPrompt).toBe(true);
       expect(result.confidence).toBeGreaterThan(0.4);
-      expect(result.signals.find(s => s.name === 'format_request')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'format_request')?.present).toBe(true);
     });
 
     it('detects prompts with constraints', () => {
       const result = detectPrompt('create a function that must be less than 50 lines');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'constraints')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'constraints')?.present).toBe(true);
     });
 
     it('detects prompts starting with imperatives', () => {
       const result = detectPrompt('please fix this code for me');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'imperative')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'imperative')?.present).toBe(true);
     });
 
     it('detects prompts with "can you" pattern', () => {
       const result = detectPrompt('can you help me debug this error');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'imperative')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'imperative')?.present).toBe(true);
     });
 
     it('rejects very short text as non-prompt', () => {
@@ -57,27 +57,29 @@ describe('promptDetector', () => {
       const result = detectPrompt('what do you think about this');
       expect(result.isPrompt).toBe(true);
       expect(result.confidence).toBeGreaterThanOrEqual(0.4);
-      expect(result.signals.find(s => s.name === 'direct_question')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'direct_question')?.present).toBe(true);
     });
 
     it('detects short Portuguese questions without punctuation', () => {
       const result = detectPrompt('quem e o jfk');
       expect(result.isPrompt).toBe(true);
       expect(result.confidence).toBeGreaterThanOrEqual(0.4);
-      expect(result.signals.find(s => s.name === 'direct_question')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'direct_question')?.present).toBe(true);
     });
 
     it('detects a conversational Portuguese comparison', () => {
       const result = detectPrompt('mas tum que curso abre mais portas? aero ou mechatronisc?');
       expect(result.isPrompt).toBe(true);
       expect(result.confidence).toBeGreaterThanOrEqual(0.4);
-      expect(result.signals.find(s => s.name === 'direct_question')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'direct_question')?.present).toBe(true);
     });
 
     it('detects prompt with multiple signals', () => {
-      const result = detectPrompt('can you create a TypeScript function that validates email addresses and returns true or false');
+      const result = detectPrompt(
+        'can you create a TypeScript function that validates email addresses and returns true or false'
+      );
       expect(result.isPrompt).toBe(true);
-      const presentSignals = result.signals.filter(s => s.present).length;
+      const presentSignals = result.signals.filter((s) => s.present).length;
       expect(presentSignals).toBeGreaterThan(1);
     });
 
@@ -90,17 +92,19 @@ describe('promptDetector', () => {
     it('detects goal-oriented prompts', () => {
       const result = detectPrompt('I need a function that generates random passwords');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'goal')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'goal')?.present).toBe(true);
     });
 
     it('detects context-rich prompts', () => {
       const result = detectPrompt('My team is building a React app and we need to optimize performance');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'context')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'context')?.present).toBe(true);
     });
 
     it('rejects narrative text', () => {
-      const result = detectPrompt('This is a story about how I learned to code. It all started when I was young.');
+      const result = detectPrompt(
+        'This is a story about how I learned to code. It all started when I was young.'
+      );
       // Long narrative should be low confidence
       expect(result.confidence).toBeLessThan(0.5);
     });
@@ -125,7 +129,7 @@ describe('promptDetector', () => {
     it('detects json/yaml format as prompt', () => {
       const result = detectPrompt('convert this data to JSON format');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'format_request')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'format_request')?.present).toBe(true);
     });
 
     it('detects list/table format as prompt', () => {
@@ -141,7 +145,7 @@ describe('promptDetector', () => {
     it('detects code review as prompt', () => {
       const result = detectPrompt('review this code and suggest improvements');
       expect(result.isPrompt).toBe(true);
-      expect(result.signals.find(s => s.name === 'action_verb')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'action_verb')?.present).toBe(true);
     });
 
     it('detects summarization as prompt', () => {
@@ -162,26 +166,26 @@ describe('promptDetector', () => {
     it('handles text at length boundary (15 chars)', () => {
       const result = detectPrompt('please help me now');
       // 15+ chars with action verb should be a prompt
-      expect(result.signals.find(s => s.name === 'good_length')?.present).toBe(true);
+      expect(result.signals.find((s) => s.name === 'good_length')?.present).toBe(true);
     });
 
     it('handles text exceeding length boundary (500 chars)', () => {
       const longText = 'help me ' + 'a'.repeat(500);
       const result = detectPrompt(longText);
-      expect(result.signals.find(s => s.name === 'good_length')?.present).toBe(false);
+      expect(result.signals.find((s) => s.name === 'good_length')?.present).toBe(false);
     });
   });
 
   describe('shouldShowPopup', () => {
     it('shows popup for confidence >= 0.4', () => {
-      expect(shouldShowPopup(0.40)).toBe(true);
+      expect(shouldShowPopup(0.4)).toBe(true);
       expect(shouldShowPopup(0.5)).toBe(true);
       expect(shouldShowPopup(1.0)).toBe(true);
     });
 
     it('hides popup for confidence < 0.4', () => {
       expect(shouldShowPopup(0.39)).toBe(false);
-      expect(shouldShowPopup(0.30)).toBe(false);
+      expect(shouldShowPopup(0.3)).toBe(false);
       expect(shouldShowPopup(0.0)).toBe(false);
     });
 
@@ -190,7 +194,7 @@ describe('promptDetector', () => {
     });
 
     it('shows popup for exactly 0.40 confidence', () => {
-      expect(shouldShowPopup(0.40)).toBe(true);
+      expect(shouldShowPopup(0.4)).toBe(true);
     });
   });
 

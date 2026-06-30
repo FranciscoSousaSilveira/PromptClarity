@@ -2,6 +2,10 @@
 node_modules
 coverage
 dist
+release
+playwright-report
+test-results
+apps/desktop-app/release
 *.log
 *.tsbuildinfo
 

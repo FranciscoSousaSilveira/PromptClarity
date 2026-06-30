@@ -1,4 +1,6 @@
-# Quick Start Guide - Prompt Enhancement MVP
+# Legacy VS Code MVP Guide
+
+> Historical document. Use the root `README.md` for the current application.
 
 ## Overview
 
@@ -145,10 +147,10 @@ To manually check the confidence score for a prompt:
 ```typescript
 import { detectPrompt } from './lib/promptDetector';
 
-const result = detectPrompt("your text here");
-console.log("Confidence:", result.confidence); // 0-1
-console.log("Is Prompt:", result.isPrompt);
-console.log("Signals:", result.signals);
+const result = detectPrompt('your text here');
+console.log('Confidence:', result.confidence); // 0-1
+console.log('Is Prompt:', result.isPrompt);
+console.log('Signals:', result.signals);
 ```
 
 ### Reset Extension State
@@ -181,6 +183,7 @@ If the popup gets stuck:
 **Problem:** F5 doesn't launch Extension Development Host
 
 **Solution:**
+
 1. Check VS Code is at root of project
 2. Check `.vscode/launch.json` exists
 3. Try creating it manually with:
@@ -203,6 +206,7 @@ If the popup gets stuck:
 **Problem:** Original and improved text look the same
 
 **Solution:**
+
 1. Check text is actually a prompt
 2. Try a longer, more complex prompt
 3. Check console for analyzer errors (F12 in Extension Host)
@@ -212,6 +216,7 @@ If the popup gets stuck:
 **Problem:** Cmd+Shift+E doesn't trigger popup
 
 **Solution:**
+
 1. Ensure text is selected
 2. Check command palette for conflicts
 3. Try context menu instead
@@ -222,6 +227,7 @@ If the popup gets stuck:
 **Problem:** `npm test -- promptDetector` shows failures
 
 **Solution:**
+
 1. Check Node.js version (16+)
 2. Ensure npm install completed successfully
 3. Try `npm test` to run all tests
@@ -252,6 +258,7 @@ If the popup gets stuck:
 ## Support
 
 For issues:
+
 1. Check this guide's troubleshooting section
 2. Review `IMPLEMENTATION.md` for architecture details
 3. Check test files for usage examples

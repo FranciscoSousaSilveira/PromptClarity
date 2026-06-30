@@ -2,7 +2,9 @@ import { analyzeForPopup, shouldShowHint, type PopupContent } from '../../lib/pr
 import { analyzePrompt } from '../../lib/promptAnalyzer';
 import { DEFAULT_REWRITE_ENDPOINT, rewritePromptWithModel } from '../../lib/modelPromptRewriter';
 import type { UseCase } from '../../types/prompt';
+import type { PerformanceMode } from '../../config/product';
 import { PromptEnhancerUI } from './ui';
+import { getSiteAdapter } from './siteAdapters';
 
 // Declare compile-time global injected by esbuild
 declare const __CSS_TEXT__: string;
@@ -13,12 +15,17 @@ class PromptEnhancerExtension {
   private activeElement: HTMLTextAreaElement | HTMLInputElement | HTMLElement | null = null;
   private currentUseCase: UseCase = 'general';
   private autoEnhanceEnabled = true;
+  private performanceMode: PerformanceMode = 'fast';
   private resizeObserver: ResizeObserver | null = null;
   private positionFrame: number | null = null;
   private analysisTimer: ReturnType<typeof setTimeout> | null = null;
   private lastAnalyzedSignature = '';
   private dismissedSignature = '';
   private analysisRequestId = 0;
+  private generatedSignatures = new Set<string>();
+  private modelAbortController: AbortController | null = null;
+  private readonly siteAdapter = getSiteAdapter();
+  private lastInsertion: { element: HTMLElement; originalText: string } | null = null;
 
   private static readonly AUTO_ANALYZE_DELAY = 900;
 
@@ -27,12 +34,23 @@ class PromptEnhancerExtension {
   public async init() {
     // Load saved use case from storage if available
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      const data = await chrome.storage.local.get(['defaultUseCase', 'autoEnhanceEnabled']);
+      const data = await chrome.storage.local.get([
+        'defaultUseCase',
+        'autoEnhanceEnabled',
+        'performanceMode'
+      ]);
       if (data.defaultUseCase) {
         this.currentUseCase = data.defaultUseCase as UseCase;
       }
       if (typeof data.autoEnhanceEnabled === 'boolean') {
         this.autoEnhanceEnabled = data.autoEnhanceEnabled;
+      }
+      if (
+        data.performanceMode === 'fast' ||
+        data.performanceMode === 'balanced' ||
+        data.performanceMode === 'quality'
+      ) {
+        this.performanceMode = data.performanceMode;
       }
     }
 
@@ -41,8 +59,10 @@ class PromptEnhancerExtension {
     this.ui.init(cssText, {
       onUseCaseChange: (useCase) => this.handleUseCaseChange(useCase),
       onAutoEnhanceChange: (enabled) => this.handleAutoEnhanceChange(enabled),
+      onPerformanceModeChange: (mode) => this.handlePerformanceModeChange(mode),
       onCopy: (text) => this.handleCopy(text),
       onInsert: (text) => this.handleInsert(text),
+      onUndo: () => this.handleUndo(),
       onClose: () => this.handleClose()
     });
 
@@ -71,7 +91,7 @@ class PromptEnhancerExtension {
 
       this.activeElement = target;
       this.ui.setActiveElement(target);
-      
+
       // Update position immediately
       this.updateUI();
 
@@ -95,9 +115,9 @@ class PromptEnhancerExtension {
     const relatedTarget = e.relatedTarget as HTMLElement;
 
     // Check if the focus has moved to our extension UI
-    const isMovingToExtension = relatedTarget && 
-      (relatedTarget.id === 'prompt-enhancer-root' || 
-       relatedTarget.closest('#prompt-enhancer-root'));
+    const isMovingToExtension =
+      relatedTarget &&
+      (relatedTarget.id === 'prompt-enhancer-root' || relatedTarget.closest('#prompt-enhancer-root'));
 
     if (this.activeElement === target && !isMovingToExtension) {
       // Don't immediately clear, let bubble stay visible for a second or if it has text
@@ -139,6 +159,7 @@ class PromptEnhancerExtension {
       text.length < 12 ||
       signature === this.lastAnalyzedSignature ||
       signature === this.dismissedSignature ||
+      this.generatedSignatures.has(signature) ||
       this.looksLikeGeneratedRewrite(text)
     ) {
       return;
@@ -164,7 +185,7 @@ class PromptEnhancerExtension {
 
   private handleUseCaseChange(useCase: UseCase) {
     this.currentUseCase = useCase;
-    
+
     // Save to storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({ defaultUseCase: useCase });
@@ -194,7 +215,18 @@ class PromptEnhancerExtension {
     }
   }
 
+  private handlePerformanceModeChange(mode: PerformanceMode) {
+    this.performanceMode = mode;
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.set({ performanceMode: mode });
+    }
+    this.dismissedSignature = '';
+    void this.runAnalysis(true);
+  }
+
   private handleCopy(text: string) {
+    this.rememberGeneratedPrompt(text);
+    this.saveHistory(text);
     navigator.clipboard.writeText(text).catch((err) => {
       console.error('Failed to copy to clipboard:', err);
       const textarea = document.createElement('textarea');
@@ -211,8 +243,10 @@ class PromptEnhancerExtension {
   private handleInsert(text: string) {
     const el = this.activeElement;
     if (!el) return;
+    this.lastInsertion = { element: el, originalText: this.getInputText(el) };
 
     this.clearAnalysisTimer();
+    this.rememberGeneratedPrompt(text);
     this.lastAnalyzedSignature = this.textSignature(text);
     this.dismissedSignature = this.textSignature(text);
 
@@ -237,7 +271,7 @@ class PromptEnhancerExtension {
           if (!inserted) throw new Error('insertText was rejected');
           el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
         }
-      } catch (e) {
+      } catch {
         this.replaceRichTextContent(el, text);
       }
 
@@ -249,10 +283,9 @@ class PromptEnhancerExtension {
     } else {
       // For standard inputs/textareas
       const inputEl = el as HTMLTextAreaElement | HTMLInputElement;
-      
-      const prototype = inputEl instanceof HTMLTextAreaElement
-        ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype;
+
+      const prototype =
+        inputEl instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
       setter?.call(inputEl, text);
       inputEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
@@ -260,10 +293,41 @@ class PromptEnhancerExtension {
     }
 
     this.ui.setPulse(false);
+    this.saveHistory(text);
+  }
+
+  private handleUndo() {
+    const insertion = this.lastInsertion;
+    if (!insertion) return;
+    const { element, originalText } = insertion;
+    element.focus();
+    if (this.isContentEditable(element)) {
+      this.replaceRichTextContent(element, originalText);
+    } else {
+      const input = element as HTMLInputElement | HTMLTextAreaElement;
+      const prototype =
+        input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(input, originalText);
+      input.dispatchEvent(
+        new InputEvent('input', { bubbles: true, inputType: 'historyUndo', data: originalText })
+      );
+    }
+    this.lastInsertion = null;
+  }
+
+  private saveHistory(improvedText: string) {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
+    void chrome.storage.local.get(['promptHistory']).then((data: { promptHistory?: unknown[] }) => {
+      const history = Array.isArray(data.promptHistory) ? data.promptHistory : [];
+      history.unshift({ improvedText, createdAt: new Date().toISOString(), site: this.siteAdapter.id });
+      return chrome.storage.local.set({ promptHistory: history.slice(0, 20) });
+    });
   }
 
   private handleClose() {
     this.clearAnalysisTimer();
+    this.modelAbortController?.abort();
+    this.modelAbortController = null;
     if (this.activeElement) {
       this.dismissedSignature = this.textSignature(this.getInputText(this.activeElement));
     }
@@ -301,14 +365,25 @@ class PromptEnhancerExtension {
       rect,
       { ...content, rewriteSource: 'rules', rewriteStatus: 'loading' },
       this.currentUseCase,
-      this.autoEnhanceEnabled
+      this.autoEnhanceEnabled,
+      this.performanceMode
     );
 
-    const modelResult = await rewritePromptWithModel({
-      prompt: text,
-      useCase: this.currentUseCase,
-      fallbackPrompt: content.improvedPrompt
-    });
+    this.modelAbortController?.abort();
+    const modelAbortController = new AbortController();
+    this.modelAbortController = modelAbortController;
+    const modelResult = await rewritePromptWithModel(
+      {
+        prompt: text,
+        useCase: this.currentUseCase,
+        fallbackPrompt: content.improvedPrompt,
+        hasPriorConversation: this.hasPriorUserMessages(),
+        preferSpeed: this.performanceMode === 'fast',
+        performanceMode: this.performanceMode
+      },
+      { signal: modelAbortController.signal }
+    );
+    if (this.modelAbortController === modelAbortController) this.modelAbortController = null;
 
     // Ignore stale answers when the user typed, changed use case, or closed the card.
     if (
@@ -320,20 +395,30 @@ class PromptEnhancerExtension {
       return;
     }
 
+    this.rememberGeneratedPrompt(modelResult.rewrittenPrompt);
+    const reviewedPrompt = analyzePrompt(modelResult.rewrittenPrompt, this.currentUseCase);
     const updatedAnalysis = {
-      ...content.analysis,
+      ...reviewedPrompt,
       rewrittenPrompt: modelResult.rewrittenPrompt
     };
-    this.ui.showPopup(rect, {
-      ...content,
-      analysis: updatedAnalysis,
-      improvedPrompt: modelResult.rewrittenPrompt,
-      copyableText: modelResult.rewrittenPrompt,
-      rewriteSource: modelResult.source,
-      rewriteStatus: modelResult.source === 'model' ? 'ready' : 'fallback',
-      modelName: modelResult.model,
-      modelError: modelResult.error
-    }, this.currentUseCase, this.autoEnhanceEnabled);
+    this.ui.showPopup(
+      rect,
+      {
+        ...content,
+        analysis: updatedAnalysis,
+        improvedPrompt: modelResult.rewrittenPrompt,
+        copyableText: modelResult.rewrittenPrompt,
+        rewriteSource: modelResult.source,
+        rewriteStatus: modelResult.error ? 'fallback' : 'ready',
+        modelName: modelResult.model,
+        modelError: modelResult.error,
+        sourceDetail: modelResult.sourceDetail,
+        validationScore: modelResult.validationScore
+      },
+      this.currentUseCase,
+      this.autoEnhanceEnabled,
+      this.performanceMode
+    );
   }
 
   private forceAnalysisFallback(text: string): PopupContent {
@@ -352,7 +437,7 @@ class PromptEnhancerExtension {
         improvedPrompt: analysis.rewrittenPrompt,
         copyableText: analysis.rewrittenPrompt
       };
-    } catch (e) {
+    } catch {
       return {
         isPrompt: true,
         detectionConfidence: 0.5,
@@ -414,7 +499,7 @@ class PromptEnhancerExtension {
   private findEditableTarget(target: EventTarget | null): HTMLElement | null {
     if (!(target instanceof HTMLElement)) return null;
 
-    const candidate = target.closest<HTMLElement>('textarea, input[type="text"], [contenteditable="true"]');
+    const candidate = target.closest<HTMLElement>(this.siteAdapter.composerSelectors.join(','));
     return candidate && this.isValidInputField(candidate) ? candidate : null;
   }
 
@@ -453,16 +538,42 @@ class PromptEnhancerExtension {
   }
 
   private normalizeText(text: string): string {
-    return text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   private textSignature(text: string): string {
     return this.normalizeText(text).replace(/\s+/g, ' ').trim();
   }
 
+  private rememberGeneratedPrompt(text: string) {
+    const signature = this.textSignature(text);
+    if (!signature) return;
+
+    this.generatedSignatures.add(signature);
+    if (this.generatedSignatures.size > 30) {
+      const oldest = this.generatedSignatures.values().next().value;
+      if (oldest) this.generatedSignatures.delete(oldest);
+    }
+  }
+
+  private hasPriorUserMessages(): boolean {
+    const candidates = document.querySelectorAll<HTMLElement>(
+      this.siteAdapter.userMessageSelectors.join(',')
+    );
+    return Array.from(candidates).some((candidate) => {
+      if (candidate === this.activeElement || candidate.contains(this.activeElement)) return false;
+      const text = (candidate.innerText || candidate.textContent || '').trim();
+      return text.length > 1;
+    });
+  }
+
   private looksLikeGeneratedRewrite(text: string): boolean {
     const normalized = this.normalizeText(text);
-    const structured = /^(Role|Papel):/i.test(normalized) &&
+    const structured =
+      /^(Role|Papel):/i.test(normalized) &&
       /\b(Context|Contexto):/i.test(normalized) &&
       /\b(Task|Tarefa):/i.test(normalized);
     const compactQuestion = /^(Answer the question|Responde à pergunta):/i.test(normalized);
@@ -479,13 +590,13 @@ class PromptEnhancerExtension {
 
     const taskStart = lastMarker.index + lastMarker[0].length;
     const remainder = normalized.slice(taskStart);
-    const boundary = remainder.search(/\s+(?:Constraints|Requisitos|Output format|Formato de saída|Success criteria|Critérios de sucesso):/i);
+    const boundary = remainder.search(
+      /\s+(?:Constraints|Requisitos|Output format|Formato de saída|Success criteria|Critérios de sucesso):/i
+    );
     const lastTask = (boundary >= 0 ? remainder.slice(0, boundary) : remainder).trim();
     if (!lastTask) return text;
 
-    return lastTask
-      .replace(/^(?:Clarify the task|Esclarece a tarefa):\s*/i, '')
-      .trim() || text;
+    return lastTask.replace(/^(?:Clarify the task|Esclarece a tarefa):\s*/i, '').trim() || text;
   }
 
   private isContentEditable(el: HTMLElement): boolean {

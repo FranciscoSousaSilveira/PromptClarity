@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix extension ci
+      - run: npm --prefix apps/desktop-app ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:coverage
+      - run: npm run build
+      - run: npm run build:chrome
+      - run: npm run build:vscode
+      - run: npm run desktop:typecheck
+      - run: npm audit --audit-level=high
+      - run: npm --prefix extension audit --audit-level=high
+      - run: npm --prefix apps/desktop-app audit --audit-level=high
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  package-windows:
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix extension ci
+      - run: npm --prefix apps/desktop-app ci
+      - run: npm run build:chrome
+      - run: npm run build:vscode
+      - run: npm run package:chrome
+      - run: npm run package:vscode
+      - run: npm run package:desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prompt-grammarly-windows
+          path: |
+            release/*.zip
+            release/desktop/*.exe
+            extension/*.vsix

@@ -1,4 +1,6 @@
-# MVP Implementation Summary
+# Legacy MVP Implementation Summary
+
+> Historical document retained for context; it does not describe Prompt Grammarly v0.2.
 
 ## What Was Built
 
@@ -7,6 +9,7 @@ A complete VS Code extension MVP that detects when users write prompts and offer
 ## Key Files Created
 
 ### Detection Layer
+
 - **`lib/promptDetector.ts`** (206 lines)
   - Confidence-based prompt detection
   - 8 weighted signals (action verbs, constraints, format, etc.)
@@ -14,6 +17,7 @@ A complete VS Code extension MVP that detects when users write prompts and offer
   - Low false positive rate via 0.40 threshold
 
 ### Integration
+
 - **`lib/promptIntegration.ts`** (87 lines)
   - Bridges detection + analysis
   - Main entry point for popup: `analyzeForPopup()`
@@ -21,6 +25,7 @@ A complete VS Code extension MVP that detects when users write prompts and offer
   - Different thresholds for hints (0.35) vs popup (0.40)
 
 ### VS Code Extension
+
 - **`extension/extension.ts`** (321 lines)
   - Main activation point
   - Popup lifecycle management
@@ -41,6 +46,7 @@ A complete VS Code extension MVP that detects when users write prompts and offer
   - Packaging rules for extension distribution
 
 ### Tests
+
 - **`tests/promptDetector.test.ts`** (318 lines)
   - 40+ test cases
   - Prompt detection accuracy tests
@@ -49,6 +55,7 @@ A complete VS Code extension MVP that detects when users write prompts and offer
   - Signal presence validation
 
 ### Documentation
+
 - **`IMPLEMENTATION.md`** (320 lines)
   - Complete architecture overview
   - Data flow diagrams
@@ -60,6 +67,7 @@ A complete VS Code extension MVP that detects when users write prompts and offer
 ## Architecture Highlights
 
 ### Confidence-Based Detection
+
 ```
 Text → detectPrompt() → confidence 0-1
        │
@@ -69,13 +77,16 @@ Text → detectPrompt() → confidence 0-1
 ```
 
 ### Copy-First Workflow
+
 - No text replacement in MVP (safer)
 - Side-by-side comparison in popup
 - Single-click copy to clipboard
 - User controls when to use improved version
 
 ### Multi-Signal Approach
+
 Instead of a single heuristic, detection uses:
+
 1. Action verbs (25% weight) - explain, create, help, etc.
 2. Format requests (20%) - bullets, JSON, tables, etc.
 3. Imperative form (18%) - starts with verb, "can you", etc.
@@ -88,18 +99,21 @@ Instead of a single heuristic, detection uses:
 ## Features
 
 ### Manual Mode
+
 - Select text in VS Code
 - Press Cmd+Shift+E or use context menu
 - Popup shows original vs improved
 - Click "Copy" to copy improved version to clipboard
 
 ### Automatic Hinting
+
 - Status bar message appears when typing prompt-like text
 - Debounced 500ms for performance
 - Doesn't interrupt user (dismisses after 3 seconds)
 - No popup unless user explicitly requests
 
 ### Error Handling
+
 - Graceful degradation if analysis fails
 - Returns original text if rewriting fails
 - No crashes on edge cases
@@ -108,16 +122,19 @@ Instead of a single heuristic, detection uses:
 ## Quality Metrics
 
 ### Test Coverage
+
 - 40+ test cases for detection
 - Covers true positives, false positives, edge cases
 - All major signal types tested
 
 ### False Positive Rate
+
 - Normal chat ("thanks", "sounds good") → detected as non-prompt
 - Casual statements → confidence < 0.4
 - Narrative text → below threshold
 
 ### Performance
+
 - Detection: O(n) where n = text length (linear scan)
 - Debounced hints (500ms) to avoid lag
 - Analysis only on popup (not on every keystroke)
@@ -125,12 +142,14 @@ Instead of a single heuristic, detection uses:
 ## Integration Points
 
 ### With Existing Analyzer
+
 - Reuses `analyzePrompt()` for full analysis
 - Reuses `rewritePrompt()` for improvement generation
 - Leverages `promptEnhancer.ts` quality logic
 - Compatible with spell checking
 
 ### With VS Code
+
 - Uses standard Webview API for UI
 - Standard command palette integration
 - Context menu integration
@@ -160,9 +179,11 @@ Instead of a single heuristic, detection uses:
    - History/favorites
 
 ## Files Modified
+
 None - this is pure additive implementation. All existing files remain unchanged.
 
 ## Files Added
+
 - `lib/promptDetector.ts`
 - `lib/promptIntegration.ts`
 - `extension/extension.ts`

@@ -21,22 +21,46 @@ type CategoryBucket = {
 };
 
 // Language detection: Common Portuguese words not in English
-const PORTUGUESE_MARKERS = ['que', 'de', 'para', 'com', 'por', 'uma', 'está', 'preciso', 'explique', 'me', 'você', 'escreva', 'crie', 'faça', 'gere', 'quer'];
+const PORTUGUESE_MARKERS = [
+  'que',
+  'de',
+  'para',
+  'com',
+  'por',
+  'uma',
+  'está',
+  'preciso',
+  'explique',
+  'me',
+  'você',
+  'escreva',
+  'crie',
+  'faça',
+  'gere',
+  'quer',
+  'diga',
+  'sugere',
+  'sugira',
+  'indica',
+  'apresenta'
+];
 
 function detectLanguage(prompt: string): Language {
   const lower = prompt.toLowerCase();
   const tokens = tokenize(lower);
 
   if (
-    /^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora)\b/.test(lower.trim()) ||
+    /^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora|diz|diga|sugere|sugira|indica|indique|apresenta|apresente|mostra|lista|propõe)\b/.test(
+      lower.trim()
+    ) ||
     /\b(que|qual)\b.{0,120}\bou\b/.test(lower)
   ) {
     return 'pt';
   }
-  
+
   // Count Portuguese markers
-  const ptCount = PORTUGUESE_MARKERS.filter(marker => tokens.includes(marker)).length;
-  
+  const ptCount = PORTUGUESE_MARKERS.filter((marker) => tokens.includes(marker)).length;
+
   // If we have enough Portuguese markers, assume Portuguese
   return ptCount >= 2 ? 'pt' : 'en';
 }
@@ -52,7 +76,18 @@ const CATEGORY_WEIGHTS: Record<CategoryKey, number> = {
   successCriteria: 10
 };
 
-const VAGUE_TERMS = ['thing', 'stuff', 'something', 'anything', 'better', 'help me', 'nice', 'good', 'bad', 'stuff like that'];
+const VAGUE_TERMS = [
+  'thing',
+  'stuff',
+  'something',
+  'anything',
+  'better',
+  'help me',
+  'nice',
+  'good',
+  'bad',
+  'stuff like that'
+];
 const ACTION_VERBS = [
   'analyze',
   'answer',
@@ -78,15 +113,105 @@ const ACTION_VERBS = [
   'summarize',
   'write'
 ];
-const FORMAT_TERMS = ['bullet', 'bullets', 'table', 'json', 'yaml', 'csv', 'markdown', 'steps', 'step-by-step', 'checklist', 'outline', 'email', 'memo', 'report', 'code', 'code block'];
-const CONSTRAINT_TERMS = ['must', 'should', 'avoid', 'without', 'under', 'within', 'no more than', 'at least', 'deadline', 'limit', 'only', 'include', 'exclude', 'use'];
-const CONTEXT_TERMS = ['because', 'background', 'context', 'currently', 'for example', 'for instance', 'in my case', 'we are', 'my team', 'the user', 'audience', 'project', 'goal'];
-const EXAMPLE_MARKERS = ['example', 'examples', 'e.g.', 'for example', 'for instance', 'sample', 'desired output', 'bad example'];
-const SUCCESS_TERMS = ['success', 'good answer', 'best answer', 'quality bar', 'criteria', 'should achieve', 'goal is', 'expected'];
-const AUDIENCE_TERMS = ['beginner', 'advanced', 'expert', 'non-technical', 'technical', 'manager', 'executive', 'founder', 'student', 'teacher', 'customer', 'client', 'team'];
+const FORMAT_TERMS = [
+  'bullet',
+  'bullets',
+  'table',
+  'json',
+  'yaml',
+  'csv',
+  'markdown',
+  'steps',
+  'step-by-step',
+  'checklist',
+  'outline',
+  'email',
+  'memo',
+  'report',
+  'code',
+  'code block'
+];
+const CONSTRAINT_TERMS = [
+  'must',
+  'should',
+  'avoid',
+  'without',
+  'under',
+  'within',
+  'no more than',
+  'at least',
+  'deadline',
+  'limit',
+  'only',
+  'include',
+  'exclude',
+  'use'
+];
+const CONTEXT_TERMS = [
+  'because',
+  'background',
+  'context',
+  'currently',
+  'for example',
+  'for instance',
+  'in my case',
+  'we are',
+  'my team',
+  'the user',
+  'audience',
+  'project',
+  'goal'
+];
+const EXAMPLE_MARKERS = [
+  'example',
+  'examples',
+  'e.g.',
+  'for example',
+  'for instance',
+  'sample',
+  'desired output',
+  'bad example'
+];
+const SUCCESS_TERMS = [
+  'success',
+  'good answer',
+  'best answer',
+  'quality bar',
+  'criteria',
+  'should achieve',
+  'goal is',
+  'expected'
+];
+const AUDIENCE_TERMS = [
+  'beginner',
+  'advanced',
+  'expert',
+  'non-technical',
+  'technical',
+  'manager',
+  'executive',
+  'founder',
+  'student',
+  'teacher',
+  'customer',
+  'client',
+  'team'
+];
 
 // Portuguese translations
-const VAGUE_TERMS_PT = ['coisa', 'coisas', 'algo', 'alguma coisa', 'melhor', 'ajuda', 'legal', 'bom', 'mau', 'ruim', 'coisas assim'];
+const VAGUE_TERMS_PT = [
+  'coisa',
+  'coisas',
+  'algo',
+  'alguma coisa',
+  'melhor',
+  'ajuda',
+  'legal',
+  'bom',
+  'mau',
+  'ruim',
+  'coisas assim'
+];
 const ACTION_VERBS_PT = [
   'analisar',
   'responder',
@@ -113,37 +238,132 @@ const ACTION_VERBS_PT = [
   'produzir',
   'corrigir'
 ];
-const FORMAT_TERMS_PT = ['bala', 'balas', 'tabela', 'json', 'yaml', 'csv', 'markdown', 'passos', 'passo a passo', 'checklist', 'esboço', 'email', 'memorando', 'relatório', 'código', 'bloco de código'];
-const CONSTRAINT_TERMS_PT = ['deve', 'deveria', 'deve evitar', 'sem', 'sob', 'dentro', 'no máximo', 'pelo menos', 'prazo', 'limite', 'apenas', 'incluir', 'excluir', 'usar'];
-const CONTEXT_TERMS_PT = ['porque', 'contexto', 'atualmente', 'por exemplo', 'no meu caso', 'somos', 'minha equipe', 'o usuário', 'público', 'projeto', 'objetivo', 'fundo'];
-const EXAMPLE_MARKERS_PT = ['exemplo', 'exemplos', 'ex.', 'por exemplo', 'amostra', 'saída desejada', 'exemplo ruim'];
-const SUCCESS_TERMS_PT = ['sucesso', 'boa resposta', 'melhor resposta', 'critério de qualidade', 'critérios', 'deve alcançar', 'objetivo é', 'esperado'];
-const AUDIENCE_TERMS_PT = ['iniciante', 'intermediário', 'avançado', 'expert', 'não técnico', 'técnico', 'gestor', 'executivo', 'fundador', 'estudante', 'professor', 'cliente', 'equipe'];
+const FORMAT_TERMS_PT = [
+  'bala',
+  'balas',
+  'tabela',
+  'json',
+  'yaml',
+  'csv',
+  'markdown',
+  'passos',
+  'passo a passo',
+  'checklist',
+  'esboço',
+  'email',
+  'memorando',
+  'relatório',
+  'código',
+  'bloco de código'
+];
+const CONSTRAINT_TERMS_PT = [
+  'deve',
+  'deveria',
+  'deve evitar',
+  'sem',
+  'sob',
+  'dentro',
+  'no máximo',
+  'pelo menos',
+  'prazo',
+  'limite',
+  'apenas',
+  'incluir',
+  'excluir',
+  'usar'
+];
+const CONTEXT_TERMS_PT = [
+  'porque',
+  'contexto',
+  'atualmente',
+  'por exemplo',
+  'no meu caso',
+  'somos',
+  'minha equipe',
+  'o usuário',
+  'público',
+  'projeto',
+  'objetivo',
+  'fundo'
+];
+const EXAMPLE_MARKERS_PT = [
+  'exemplo',
+  'exemplos',
+  'ex.',
+  'por exemplo',
+  'amostra',
+  'saída desejada',
+  'exemplo ruim'
+];
+const SUCCESS_TERMS_PT = [
+  'sucesso',
+  'boa resposta',
+  'melhor resposta',
+  'critério de qualidade',
+  'critérios',
+  'deve alcançar',
+  'objetivo é',
+  'esperado'
+];
+const AUDIENCE_TERMS_PT = [
+  'iniciante',
+  'intermediário',
+  'avançado',
+  'expert',
+  'não técnico',
+  'técnico',
+  'gestor',
+  'executivo',
+  'fundador',
+  'estudante',
+  'professor',
+  'cliente',
+  'equipe'
+];
 
 // Helper function to get keywords based on language
-function getKeywords(language: Language, keywordType: 'vague' | 'action' | 'format' | 'constraint' | 'context' | 'example' | 'success' | 'audience'): string[] {
+function getKeywords(
+  language: Language,
+  keywordType: 'vague' | 'action' | 'format' | 'constraint' | 'context' | 'example' | 'success' | 'audience'
+): string[] {
   if (language === 'pt') {
     switch (keywordType) {
-      case 'vague': return VAGUE_TERMS_PT;
-      case 'action': return ACTION_VERBS_PT;
-      case 'format': return FORMAT_TERMS_PT;
-      case 'constraint': return CONSTRAINT_TERMS_PT;
-      case 'context': return CONTEXT_TERMS_PT;
-      case 'example': return EXAMPLE_MARKERS_PT;
-      case 'success': return SUCCESS_TERMS_PT;
-      case 'audience': return AUDIENCE_TERMS_PT;
+      case 'vague':
+        return VAGUE_TERMS_PT;
+      case 'action':
+        return ACTION_VERBS_PT;
+      case 'format':
+        return FORMAT_TERMS_PT;
+      case 'constraint':
+        return CONSTRAINT_TERMS_PT;
+      case 'context':
+        return CONTEXT_TERMS_PT;
+      case 'example':
+        return EXAMPLE_MARKERS_PT;
+      case 'success':
+        return SUCCESS_TERMS_PT;
+      case 'audience':
+        return AUDIENCE_TERMS_PT;
     }
   }
-  
+
   switch (keywordType) {
-    case 'vague': return VAGUE_TERMS;
-    case 'action': return ACTION_VERBS;
-    case 'format': return FORMAT_TERMS;
-    case 'constraint': return CONSTRAINT_TERMS;
-    case 'context': return CONTEXT_TERMS;
-    case 'example': return EXAMPLE_MARKERS;
-    case 'success': return SUCCESS_TERMS;
-    case 'audience': return AUDIENCE_TERMS;
+    case 'vague':
+      return VAGUE_TERMS;
+    case 'action':
+      return ACTION_VERBS;
+    case 'format':
+      return FORMAT_TERMS;
+    case 'constraint':
+      return CONSTRAINT_TERMS;
+    case 'context':
+      return CONTEXT_TERMS;
+    case 'example':
+      return EXAMPLE_MARKERS;
+    case 'success':
+      return SUCCESS_TERMS;
+    case 'audience':
+      return AUDIENCE_TERMS;
   }
 }
 
@@ -153,28 +373,87 @@ const USE_CASE_HINTS: Record<UseCase, { focusTerms: string[]; missingSuggestions
     missingSuggestions: ['Define the task more specifically and add a preferred format.']
   },
   coding: {
-    focusTerms: ['javascript', 'typescript', 'python', 'react', 'next', 'api', 'error', 'stack trace', 'reproduce', 'expected', 'actual', 'file', 'function'],
-    missingSuggestions: ['Add the language or framework, the expected versus actual behavior, and reproduction steps.']
+    focusTerms: [
+      'javascript',
+      'typescript',
+      'python',
+      'react',
+      'next',
+      'api',
+      'error',
+      'stack trace',
+      'reproduce',
+      'expected',
+      'actual',
+      'file',
+      'function'
+    ],
+    missingSuggestions: [
+      'Add the language or framework, the expected versus actual behavior, and reproduction steps.'
+    ]
   },
   writing: {
     focusTerms: ['tone', 'voice', 'audience', 'length', 'style', 'rewrite', 'edit', 'draft'],
     missingSuggestions: ['Add the target reader, tone, and desired length.']
   },
   studying: {
-    focusTerms: ['beginner', 'intermediate', 'advanced', 'topic', 'explain', 'practice', 'quiz', 'flashcards', 'step by step'],
+    focusTerms: [
+      'beginner',
+      'intermediate',
+      'advanced',
+      'topic',
+      'explain',
+      'practice',
+      'quiz',
+      'flashcards',
+      'step by step'
+    ],
     missingSuggestions: ['Add the topic level, desired depth, and whether you want practice questions.']
   },
   research: {
-    focusTerms: ['sources', 'evidence', 'compare', 'comparison', 'timeframe', 'credible', 'study', 'research', 'citations'],
+    focusTerms: [
+      'sources',
+      'evidence',
+      'compare',
+      'comparison',
+      'timeframe',
+      'credible',
+      'study',
+      'research',
+      'citations'
+    ],
     missingSuggestions: ['Specify the scope, timeframe, and what counts as credible evidence.']
   },
   business: {
-    focusTerms: ['stakeholder', 'customer', 'client', 'revenue', 'strategy', 'meeting', 'email', 'cta', 'decision', 'objective'],
+    focusTerms: [
+      'stakeholder',
+      'customer',
+      'client',
+      'revenue',
+      'strategy',
+      'meeting',
+      'email',
+      'cta',
+      'decision',
+      'objective'
+    ],
     missingSuggestions: ['Clarify the business goal, audience, and the action you want the reader to take.']
   },
   imageGeneration: {
-    focusTerms: ['subject', 'style', 'lighting', 'camera', 'lens', 'composition', 'mood', 'aspect ratio', 'negative prompt'],
-    missingSuggestions: ['Add visual details such as subject, style, lighting, composition, and aspect ratio.']
+    focusTerms: [
+      'subject',
+      'style',
+      'lighting',
+      'camera',
+      'lens',
+      'composition',
+      'mood',
+      'aspect ratio',
+      'negative prompt'
+    ],
+    missingSuggestions: [
+      'Add visual details such as subject, style, lighting, composition, and aspect ratio.'
+    ]
   }
 };
 
@@ -184,32 +463,92 @@ const USE_CASE_HINTS_PT: Record<UseCase, { focusTerms: string[]; missingSuggesti
     missingSuggestions: ['Defina a tarefa de forma mais específica e adicione um formato preferido.']
   },
   coding: {
-    focusTerms: ['javascript', 'typescript', 'python', 'react', 'next', 'api', 'erro', 'stack trace', 'reproduzir', 'esperado', 'atual', 'arquivo', 'função'],
-    missingSuggestions: ['Adicione a linguagem ou framework, o comportamento esperado versus atual, e passos para reproduzir.']
+    focusTerms: [
+      'javascript',
+      'typescript',
+      'python',
+      'react',
+      'next',
+      'api',
+      'erro',
+      'stack trace',
+      'reproduzir',
+      'esperado',
+      'atual',
+      'arquivo',
+      'função'
+    ],
+    missingSuggestions: [
+      'Adicione a linguagem ou framework, o comportamento esperado versus atual, e passos para reproduzir.'
+    ]
   },
   writing: {
     focusTerms: ['tom', 'voz', 'público', 'comprimento', 'estilo', 'reescrever', 'editar', 'rascunho'],
     missingSuggestions: ['Adicione o leitor alvo, tom e comprimento desejado.']
   },
   studying: {
-    focusTerms: ['iniciante', 'intermediário', 'avançado', 'tópico', 'explicar', 'praticar', 'quiz', 'passo a passo'],
+    focusTerms: [
+      'iniciante',
+      'intermediário',
+      'avançado',
+      'tópico',
+      'explicar',
+      'praticar',
+      'quiz',
+      'passo a passo'
+    ],
     missingSuggestions: ['Adicione o nível do tópico, profundidade desejada e se quer perguntas de prática.']
   },
   research: {
-    focusTerms: ['fontes', 'evidência', 'comparar', 'comparação', 'período', 'credível', 'estudo', 'pesquisa', 'citações'],
+    focusTerms: [
+      'fontes',
+      'evidência',
+      'comparar',
+      'comparação',
+      'período',
+      'credível',
+      'estudo',
+      'pesquisa',
+      'citações'
+    ],
     missingSuggestions: ['Especifique o escopo, período de tempo e o que conta como evidência credível.']
   },
   business: {
-    focusTerms: ['stakeholder', 'cliente', 'receita', 'estratégia', 'reunião', 'email', 'cta', 'decisão', 'objetivo'],
+    focusTerms: [
+      'stakeholder',
+      'cliente',
+      'receita',
+      'estratégia',
+      'reunião',
+      'email',
+      'cta',
+      'decisão',
+      'objetivo'
+    ],
     missingSuggestions: ['Esclareça o objetivo comercial, público e a ação que deseja do leitor.']
   },
   imageGeneration: {
-    focusTerms: ['assunto', 'estilo', 'iluminação', 'câmera', 'lente', 'composição', 'humor', 'proporção de aspecto', 'prompt negativo'],
-    missingSuggestions: ['Adicione detalhes visuais como assunto, estilo, iluminação, composição e proporção de aspecto.']
+    focusTerms: [
+      'assunto',
+      'estilo',
+      'iluminação',
+      'câmera',
+      'lente',
+      'composição',
+      'humor',
+      'proporção de aspecto',
+      'prompt negativo'
+    ],
+    missingSuggestions: [
+      'Adicione detalhes visuais como assunto, estilo, iluminação, composição e proporção de aspecto.'
+    ]
   }
 };
 
-function getUseCaseHints(language: Language, useCase: UseCase): { focusTerms: string[]; missingSuggestions: string[] } {
+function getUseCaseHints(
+  language: Language,
+  useCase: UseCase
+): { focusTerms: string[]; missingSuggestions: string[] } {
   const hints = language === 'pt' ? USE_CASE_HINTS_PT : USE_CASE_HINTS;
   return hints[useCase];
 }
@@ -258,7 +597,14 @@ function severityForGap(score: number, critical = false): IssueSeverity {
   return score < 35 ? 'high' : score < 60 ? 'medium' : 'low';
 }
 
-function makeIssue(id: string, severity: IssueSeverity, category: CategoryKey | 'general', title: string, description: string, suggestion: string): PromptIssue {
+function makeIssue(
+  id: string,
+  severity: IssueSeverity,
+  category: CategoryKey | 'general',
+  title: string,
+  description: string,
+  suggestion: string
+): PromptIssue {
   return { id, severity, category, title, description, suggestion };
 }
 
@@ -279,7 +625,12 @@ function buildSummary(categoryScores: Record<CategoryKey, number>): string {
   return 'The prompt has good coverage across the main prompt-quality dimensions.';
 }
 
-function scoreClarity(prompt: string, wordCount: number, taskCount: number, language: Language): CategoryBucket {
+function scoreClarity(
+  prompt: string,
+  wordCount: number,
+  taskCount: number,
+  language: Language
+): CategoryBucket {
   const notes: string[] = [];
   const strengths: string[] = [];
   const gaps: string[] = [];
@@ -343,7 +694,11 @@ function scoreContext(prompt: string, useCase: UseCase, language: Language): Cat
   const audienceTerms = getKeywords(language, 'audience');
   const contextHits = countKeywordHits(prompt, contextTerms);
   const audienceHits = countKeywordHits(prompt, audienceTerms);
-  const refHits = /\bfile\b|\bpath\b|\burl\b|\bstack trace\b|\berror\b|\bdataset\b|\blog\b/.test(prompt.toLowerCase()) ? 1 : 0;
+  const refHits = /\bfile\b|\bpath\b|\burl\b|\bstack trace\b|\berror\b|\bdataset\b|\blog\b/.test(
+    prompt.toLowerCase()
+  )
+    ? 1
+    : 0;
   const useCaseHints = getUseCaseHints(language, useCase);
   const useCaseHits = countKeywordHits(prompt, useCaseHints.focusTerms);
 
@@ -424,9 +779,18 @@ function scoreConstraints(prompt: string, language: Language): CategoryBucket {
 
   const constraintTerms = getKeywords(language, 'constraint');
   const constraintHits = countKeywordHits(prompt, constraintTerms);
-  const lengthHints = /\b(short|brief|concise|detailed|under \d+ words|less than \d+ words|more than \d+ words|within \d+)/.test(prompt.toLowerCase());
-  const styleHints = /\b(tone|style|formal|casual|friendly|professional|plain english)\b/.test(prompt.toLowerCase());
-  const toolsHints = /\b(use|with|without|via|using)\b/.test(prompt.toLowerCase()) && /\b(api|code|python|typescript|json|table|markdown|browser|spreadsheet|docs?)\b/.test(prompt.toLowerCase());
+  const lengthHints =
+    /\b(short|brief|concise|detailed|under \d+ words|less than \d+ words|more than \d+ words|within \d+)/.test(
+      prompt.toLowerCase()
+    );
+  const styleHints = /\b(tone|style|formal|casual|friendly|professional|plain english)\b/.test(
+    prompt.toLowerCase()
+  );
+  const toolsHints =
+    /\b(use|with|without|via|using)\b/.test(prompt.toLowerCase()) &&
+    /\b(api|code|python|typescript|json|table|markdown|browser|spreadsheet|docs?)\b/.test(
+      prompt.toLowerCase()
+    );
 
   if (constraintHits > 0) {
     score += Math.min(55, constraintHits * 12);
@@ -463,7 +827,9 @@ function scoreOutputFormat(prompt: string, useCase: UseCase, language: Language)
 
   const formatTerms = getKeywords(language, 'format');
   const formatHits = countKeywordHits(prompt, formatTerms);
-  const hasFormatLanguage = /\b(show me|in a|as a|format|layout|structure|template|sections?)\b/.test(prompt.toLowerCase());
+  const hasFormatLanguage = /\b(show me|in a|as a|format|layout|structure|template|sections?)\b/.test(
+    prompt.toLowerCase()
+  );
 
   if (formatHits > 0) {
     score += Math.min(75, 50 + (formatHits - 1) * 10);
@@ -526,7 +892,9 @@ function scoreAudience(prompt: string, language: Language): CategoryBucket {
 
   const audienceTerms = getKeywords(language, 'audience');
   const audienceHits = countKeywordHits(prompt, audienceTerms);
-  const roleHints = /\b(act as|pretend you're|you are a|explain to|write for|tailored for)\b/.test(prompt.toLowerCase());
+  const roleHints = /\b(act as|pretend you're|you are a|explain to|write for|tailored for)\b/.test(
+    prompt.toLowerCase()
+  );
 
   if (audienceHits > 0) {
     score += Math.min(75, 50 + (audienceHits - 1) * 10);
@@ -555,8 +923,12 @@ function scoreSuccessCriteria(prompt: string, language: Language): CategoryBucke
 
   const successTerms = getKeywords(language, 'success');
   const successHits = countKeywordHits(prompt, successTerms);
-  const qualityHints = /\b(best|good|strong|clear|accurate|complete|actionable|useful|specific)\b/.test(prompt.toLowerCase());
-  const measurableHints = /\b(\d+|percent|percentage|minutes?|hours?|pages?|words?|bullets?)\b/.test(prompt.toLowerCase());
+  const qualityHints = /\b(best|good|strong|clear|accurate|complete|actionable|useful|specific)\b/.test(
+    prompt.toLowerCase()
+  );
+  const measurableHints = /\b(\d+|percent|percentage|minutes?|hours?|pages?|words?|bullets?)\b/.test(
+    prompt.toLowerCase()
+  );
 
   if (successHits > 0) {
     score += Math.min(55, successHits * 14);
@@ -587,14 +959,21 @@ function detectTaskCount(prompt: string): number {
   return Math.max(1, verbs + conjunctionSplit);
 }
 
-function applyUseCaseAdjustments(categoryScores: Record<CategoryKey, number>, useCase: UseCase, prompt: string): string[] {
+function applyUseCaseAdjustments(
+  categoryScores: Record<CategoryKey, number>,
+  useCase: UseCase,
+  prompt: string
+): string[] {
   const strengths: string[] = [];
   const lower = prompt.toLowerCase();
 
   switch (useCase) {
     case 'coding': {
-      const hasStack = /\b(javascript|typescript|python|react|next|node|api|sql|css|html|rust|go|java)\b/.test(lower);
-      const hasDebugData = /\b(expected|actual|error|stack trace|reproduce|logs?|files?|steps?)\b/.test(lower);
+      const hasStack =
+        /\b(javascript|typescript|python|react|next|node|api|sql|css|html|rust|go|java)\b/.test(lower);
+      const hasDebugData = /\b(expected|actual|error|stack trace|reproduce|logs?|files?|steps?)\b/.test(
+        lower
+      );
       if (hasStack) {
         categoryScores.context = clamp(categoryScores.context + 8);
         categoryScores.clarity = clamp(categoryScores.clarity + 5);
@@ -634,7 +1013,9 @@ function applyUseCaseAdjustments(categoryScores: Record<CategoryKey, number>, us
       break;
     }
     case 'research': {
-      const hasScope = /\b(timeframe|sources?|citations?|evidence|compare|comparison|study|studies)\b/.test(lower);
+      const hasScope = /\b(timeframe|sources?|citations?|evidence|compare|comparison|study|studies)\b/.test(
+        lower
+      );
       if (hasScope) {
         categoryScores.context = clamp(categoryScores.context + 8);
         categoryScores.successCriteria = clamp(categoryScores.successCriteria + 8);
@@ -643,7 +1024,10 @@ function applyUseCaseAdjustments(categoryScores: Record<CategoryKey, number>, us
       break;
     }
     case 'business': {
-      const hasGoal = /\b(objective|goal|cta|call to action|meeting|email|proposal|revenue|pipeline|client|customer)\b/.test(lower);
+      const hasGoal =
+        /\b(objective|goal|cta|call to action|meeting|email|proposal|revenue|pipeline|client|customer)\b/.test(
+          lower
+        );
       if (hasGoal) {
         categoryScores.goal = clamp(categoryScores.goal + 8);
         categoryScores.audience = clamp(categoryScores.audience + 8);
@@ -652,7 +1036,10 @@ function applyUseCaseAdjustments(categoryScores: Record<CategoryKey, number>, us
       break;
     }
     case 'imageGeneration': {
-      const hasVisualDetails = /\b(subject|style|composition|lighting|camera|lens|mood|palette|aspect ratio|negative prompt)\b/.test(lower);
+      const hasVisualDetails =
+        /\b(subject|style|composition|lighting|camera|lens|mood|palette|aspect ratio|negative prompt)\b/.test(
+          lower
+        );
       if (hasVisualDetails) {
         categoryScores.constraints = clamp(categoryScores.constraints + 8);
         categoryScores.outputFormat = clamp(categoryScores.outputFormat + 10);
@@ -668,134 +1055,169 @@ function applyUseCaseAdjustments(categoryScores: Record<CategoryKey, number>, us
   return strengths;
 }
 
-function buildIssues(categoryScores: Record<CategoryKey, number>, useCase: UseCase, prompt: string, taskCount: number, language: Language): PromptIssue[] {
+function buildIssues(
+  categoryScores: Record<CategoryKey, number>,
+  useCase: UseCase,
+  prompt: string,
+  taskCount: number
+): PromptIssue[] {
   const issues: PromptIssue[] = [];
   const lower = prompt.toLowerCase();
   const wellStructured =
-      categoryScores.clarity >= 55 &&
-      categoryScores.context >= 35 &&
-      categoryScores.goal >= 35 &&
-      categoryScores.outputFormat >= 30;
+    categoryScores.clarity >= 55 &&
+    categoryScores.context >= 35 &&
+    categoryScores.goal >= 35 &&
+    categoryScores.outputFormat >= 30;
 
   if (categoryScores.clarity < 45) {
-    issues.push(makeIssue(
-      'vague-task',
-      severityForGap(categoryScores.clarity, categoryScores.clarity < 25),
-      'clarity',
-      'The task is too vague',
-      'The prompt does not clearly state what should happen next.',
-      'Name the exact action, outcome, or deliverable you want.'
-    ));
+    issues.push(
+      makeIssue(
+        'vague-task',
+        severityForGap(categoryScores.clarity, categoryScores.clarity < 25),
+        'clarity',
+        'The task is too vague',
+        'The prompt does not clearly state what should happen next.',
+        'Name the exact action, outcome, or deliverable you want.'
+      )
+    );
   }
 
   if (categoryScores.context < 45) {
-    issues.push(makeIssue(
-      'missing-context',
-      severityForGap(categoryScores.context, false),
-      'context',
-      'No context provided',
-      'The model does not know the background, scenario, or audience.',
-      'Add the background, relevant constraints, and who the output is for.'
-    ));
+    issues.push(
+      makeIssue(
+        'missing-context',
+        severityForGap(categoryScores.context, false),
+        'context',
+        'No context provided',
+        'The model does not know the background, scenario, or audience.',
+        'Add the background, relevant constraints, and who the output is for.'
+      )
+    );
   }
 
   if (categoryScores.constraints < 40) {
-    issues.push(makeIssue(
-      'missing-constraints',
-      severityForGap(categoryScores.constraints, false),
-      'constraints',
-      'No constraints specified',
-      'The prompt gives the model too much freedom, which can lead to generic output.',
-      'Add limits, requirements, style preferences, boundaries, or tools to use.'
-    ));
+    issues.push(
+      makeIssue(
+        'missing-constraints',
+        severityForGap(categoryScores.constraints, false),
+        'constraints',
+        'No constraints specified',
+        'The prompt gives the model too much freedom, which can lead to generic output.',
+        'Add limits, requirements, style preferences, boundaries, or tools to use.'
+      )
+    );
   }
 
   if (categoryScores.outputFormat < 45) {
-    issues.push(makeIssue(
-      'missing-format',
-      severityForGap(categoryScores.outputFormat, false),
-      'outputFormat',
-      'Missing output format',
-      'The model is not told what the answer should look like.',
-      'Specify whether you want bullets, a table, JSON, steps, a checklist, code, or a short answer.'
-    ));
+    issues.push(
+      makeIssue(
+        'missing-format',
+        severityForGap(categoryScores.outputFormat, false),
+        'outputFormat',
+        'Missing output format',
+        'The model is not told what the answer should look like.',
+        'Specify whether you want bullets, a table, JSON, steps, a checklist, code, or a short answer.'
+      )
+    );
   }
 
   if (!wellStructured && categoryScores.audience < 40) {
-    issues.push(makeIssue(
-      'missing-audience',
-      severityForGap(categoryScores.audience, false),
-      'audience',
-      'No target audience mentioned',
-      'Without an audience, the answer may use the wrong level of detail or tone.',
-      'Tell the model who the response is for or what role it should take.'
-    ));
+    issues.push(
+      makeIssue(
+        'missing-audience',
+        severityForGap(categoryScores.audience, false),
+        'audience',
+        'No target audience mentioned',
+        'Without an audience, the answer may use the wrong level of detail or tone.',
+        'Tell the model who the response is for or what role it should take.'
+      )
+    );
   }
 
   if (!wellStructured && categoryScores.successCriteria < 40) {
-    issues.push(makeIssue(
-      'missing-success',
-      severityForGap(categoryScores.successCriteria, false),
-      'successCriteria',
-      'No success criteria defined',
-      'The model does not know how to judge a good answer.',
-      'Describe what a strong answer should achieve and what “good” means.'
-    ));
+    issues.push(
+      makeIssue(
+        'missing-success',
+        severityForGap(categoryScores.successCriteria, false),
+        'successCriteria',
+        'No success criteria defined',
+        'The model does not know how to judge a good answer.',
+        'Describe what a strong answer should achieve and what “good” means.'
+      )
+    );
   }
 
   if (!wellStructured && categoryScores.examples < 35) {
-    issues.push(makeIssue(
-      'missing-examples',
-      severityForGap(categoryScores.examples, false),
-      'examples',
-      'No examples included',
-      'Examples can anchor style and avoid generic answers.',
-      'Add a positive example, a bad example, or a sample output if you have one.'
-    ));
+    issues.push(
+      makeIssue(
+        'missing-examples',
+        severityForGap(categoryScores.examples, false),
+        'examples',
+        'No examples included',
+        'Examples can anchor style and avoid generic answers.',
+        'Add a positive example, a bad example, or a sample output if you have one.'
+      )
+    );
   }
 
   if (!wellStructured && taskCount > 2) {
-    issues.push(makeIssue(
-      'multiple-tasks',
-      'medium',
-      'general',
-      'Prompt combines multiple tasks without prioritization',
-      'The request appears to ask for more than one thing at once.',
-      'Split the prompt into separate steps or say which task is most important.'
-    ));
+    issues.push(
+      makeIssue(
+        'multiple-tasks',
+        'medium',
+        'general',
+        'Prompt combines multiple tasks without prioritization',
+        'The request appears to ask for more than one thing at once.',
+        'Split the prompt into separate steps or say which task is most important.'
+      )
+    );
   }
 
-  if (!wellStructured && useCase === 'coding' && !/\b(expected|actual|reproduce|stack trace|error|file|language|framework)\b/.test(lower)) {
-    issues.push(makeIssue(
-      'coding-missing-debug-data',
-      'medium',
-      'context',
-      'Coding prompt is missing debugging details',
-      'The prompt will be more useful if it includes concrete implementation or error context.',
-      'Add the language, framework, error message, expected behavior, actual behavior, and reproduction steps.'
-    ));
+  if (
+    !wellStructured &&
+    useCase === 'coding' &&
+    !/\b(expected|actual|reproduce|stack trace|error|file|language|framework)\b/.test(lower)
+  ) {
+    issues.push(
+      makeIssue(
+        'coding-missing-debug-data',
+        'medium',
+        'context',
+        'Coding prompt is missing debugging details',
+        'The prompt will be more useful if it includes concrete implementation or error context.',
+        'Add the language, framework, error message, expected behavior, actual behavior, and reproduction steps.'
+      )
+    );
   }
 
-  if (!wellStructured && useCase === 'imageGeneration' && !/\b(subject|style|lighting|camera|composition|aspect ratio|mood|negative prompt)\b/.test(lower)) {
-    issues.push(makeIssue(
-      'image-missing-visuals',
-      'medium',
-      'context',
-      'Image prompt is missing visual details',
-      'The model needs more art direction to avoid a generic image.',
-      'Add the subject, style, composition, lighting, mood, and aspect ratio.'
-    ));
+  if (
+    !wellStructured &&
+    useCase === 'imageGeneration' &&
+    !/\b(subject|style|lighting|camera|composition|aspect ratio|mood|negative prompt)\b/.test(lower)
+  ) {
+    issues.push(
+      makeIssue(
+        'image-missing-visuals',
+        'medium',
+        'context',
+        'Image prompt is missing visual details',
+        'The model needs more art direction to avoid a generic image.',
+        'Add the subject, style, composition, lighting, mood, and aspect ratio.'
+      )
+    );
   }
 
   if (/\bmake it better|help me|something\b/.test(lower) && categoryScores.clarity < 60) {
-    issues.push(makeIssue(
-      'generic-answer-risk',
-      'high',
-      'general',
-      'The prompt may produce a generic answer',
-      'The request is broad enough that the model may answer with filler instead of a useful result.',
-      'Replace vague language with a precise task, audience, format, and constraints.'
-    ));
+    issues.push(
+      makeIssue(
+        'generic-answer-risk',
+        'high',
+        'general',
+        'The prompt may produce a generic answer',
+        'The request is broad enough that the model may answer with filler instead of a useful result.',
+        'Replace vague language with a precise task, audience, format, and constraints.'
+      )
+    );
   }
 
   return issues;
@@ -826,13 +1248,16 @@ function buildStrengths(
   });
 
   const useCaseStrengthIsSupported = (strength: string): boolean => {
-    if (strength.includes('audience') || strength.includes('Learning level')) return categoryScores.audience >= 40;
+    if (strength.includes('audience') || strength.includes('Learning level'))
+      return categoryScores.audience >= 40;
     if (strength.includes('Tone')) return categoryScores.constraints >= 40;
     if (strength.includes('Practice')) return categoryScores.successCriteria >= 40;
-    if (strength.includes('Business objective')) return categoryScores.goal >= 40 && categoryScores.audience >= 40;
+    if (strength.includes('Business objective'))
+      return categoryScores.goal >= 40 && categoryScores.audience >= 40;
     if (strength.includes('Visual direction')) return categoryScores.outputFormat >= 45;
     if (strength.includes('Research scope')) return categoryScores.context >= 45;
-    if (strength.includes('Coding stack') || strength.includes('Debugging')) return categoryScores.context >= 45;
+    if (strength.includes('Coding stack') || strength.includes('Debugging'))
+      return categoryScores.context >= 45;
     return true;
   };
 
@@ -845,7 +1270,9 @@ function buildStrengths(
   return Array.from(strengths).slice(0, 6);
 }
 
-function deriveCategoryNotes(categoryResults: Record<CategoryKey, CategoryBucket>): Record<CategoryKey, string[]> {
+function deriveCategoryNotes(
+  categoryResults: Record<CategoryKey, CategoryBucket>
+): Record<CategoryKey, string[]> {
   return {
     clarity: categoryResults.clarity.notes,
     context: categoryResults.context.notes,
@@ -858,7 +1285,9 @@ function deriveCategoryNotes(categoryResults: Record<CategoryKey, CategoryBucket
   };
 }
 
-function buildCategoryScores(categoryResults: Record<CategoryKey, CategoryBucket>): Record<CategoryKey, number> {
+function buildCategoryScores(
+  categoryResults: Record<CategoryKey, CategoryBucket>
+): Record<CategoryKey, number> {
   return {
     clarity: categoryResults.clarity.score,
     context: categoryResults.context.score,
@@ -872,7 +1301,10 @@ function buildCategoryScores(categoryResults: Record<CategoryKey, CategoryBucket
 }
 
 function weightedAverage(scores: Record<CategoryKey, number>): number {
-  const weightedTotal = (Object.keys(scores) as CategoryKey[]).reduce((total, key) => total + scores[key] * CATEGORY_WEIGHTS[key], 0);
+  const weightedTotal = (Object.keys(scores) as CategoryKey[]).reduce(
+    (total, key) => total + scores[key] * CATEGORY_WEIGHTS[key],
+    0
+  );
   const totalWeight = Object.values(CATEGORY_WEIGHTS).reduce((total, weight) => total + weight, 0);
   return weightedTotal / totalWeight;
 }
@@ -898,7 +1330,7 @@ export function analyzePrompt(prompt: string, useCase: UseCase): PromptAnalysis 
   const categoryScores = buildCategoryScores(categoryResults);
   const useCaseStrengths = applyUseCaseAdjustments(categoryScores, useCase, normalized);
   const adjustedCategoryScores = { ...categoryScores };
-  const rawIssues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount, language);
+  const rawIssues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount);
   const strengths = buildStrengths(categoryResults, useCaseStrengths, adjustedCategoryScores);
 
   const shortPromptPenalty = wordCount < 5 ? 18 : wordCount < 10 ? 10 : wordCount < 16 ? 4 : 0;
@@ -907,24 +1339,33 @@ export function analyzePrompt(prompt: string, useCase: UseCase): PromptAnalysis 
   const multiTaskPenalty = taskCount > 2 ? 8 : taskCount === 2 ? 4 : 0;
   const weightedScore = weightedAverage(adjustedCategoryScores);
 
-  const overallScore = clamp(Math.round(weightedScore + 32 - shortPromptPenalty - vaguePenalty - multiTaskPenalty + (useCase === 'business' ? 8 : 0)));
+  const overallScore = clamp(
+    Math.round(
+      weightedScore +
+        32 -
+        shortPromptPenalty -
+        vaguePenalty -
+        multiTaskPenalty +
+        (useCase === 'business' ? 8 : 0)
+    )
+  );
   const label = labelForScore(overallScore);
   const summary = buildSummary(adjustedCategoryScores);
   const categoryNotes = deriveCategoryNotes(categoryResults);
   const issues = overallScore >= 70 ? rawIssues.slice(0, 2) : rawIssues;
-  
+
   // Detect spelling mistakes
   const detectedSpellingIssues = detectSpellingMistakes(normalized, language);
-  const spellingIssues: SpellingIssue[] = detectedSpellingIssues.map(issue => ({
+  const spellingIssues: SpellingIssue[] = detectedSpellingIssues.map((issue) => ({
     word: issue.word,
     suggestions: issue.suggestions,
     confidence: Math.round(issue.confidence * 100)
   }));
-  
+
   // Keep this field literal: it is only the original text with safe spelling fixes.
   // The structured improvement is generated separately by rewritePrompt.
   const correctedPrompt = correctSpelling(normalized, language, 0.88);
-  
+
   const core: PromptAnalysisCore = {
     overallScore,
     label,

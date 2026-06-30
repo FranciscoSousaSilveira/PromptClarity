@@ -7,9 +7,9 @@ interface TemplateGalleryProps {
 }
 
 export function TemplateGallery({ templates, onSelect, activeUseCase }: TemplateGalleryProps) {
-  const visibleTemplates = templates.filter((template) => template.useCase === activeUseCase || activeUseCase === 'general');
-  const matchedTemplates = visibleTemplates.filter((t) => t.useCase === activeUseCase && activeUseCase !== 'general');
-
+  const visibleTemplates = templates.filter(
+    (template) => template.useCase === activeUseCase || activeUseCase === 'general'
+  );
   return (
     <section className="panel template-panel">
       <div className="panel-header compact">

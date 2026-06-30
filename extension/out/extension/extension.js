@@ -91,10 +91,15 @@ async function analyzeWithLocalModel(text) {
     const result = (0, promptIntegration_1.analyzeForPopup)({ text, useCase: 'general' });
     if (!result.analysis || !result.improvedPrompt)
         return result;
+    const configuration = vscode.workspace.getConfiguration('promptGrammarly');
+    const performanceMode = configuration.get('performanceMode', 'fast');
     const modelResult = await (0, modelPromptRewriter_1.rewritePromptWithModel)({
         prompt: text,
         useCase: 'general',
-        fallbackPrompt: result.improvedPrompt
+        fallbackPrompt: result.improvedPrompt,
+        preferSpeed: performanceMode === 'fast',
+        performanceMode,
+        keepModelsWarm: configuration.get('keepModelsWarm', true)
     });
     return {
         ...result,
@@ -197,7 +202,7 @@ function insertTextInEditor(text) {
 /**
  * Generates the HTML for the webview popup
  */
-function getWebviewContent(original, improved, confidence, webview) {
+function getWebviewContent(original, improved, confidence, _webview) {
     const nonce = (0, crypto_1.randomBytes)(16).toString('base64');
     return `<!DOCTYPE html>
 <html lang="en">

@@ -17,9 +17,11 @@ This document outlines potential improvements for the prompt enhancement system 
 ### Priority 1: Enhanced Detection & Analysis
 
 #### 1.1 Auto-Detect Use Case
+
 **Goal:** Analyze prompt to guess use case (coding vs writing vs research)
 
 **Implementation:**
+
 - Add `detectUseCase()` function to promptIntegration.ts
 - Check for language/framework keywords (react, python, etc.)
 - Check for writing indicators (tone, audience, style)
@@ -27,22 +29,26 @@ This document outlines potential improvements for the prompt enhancement system 
 - Update popup to pass detected use case to analyzer
 
 **Files to modify:**
+
 - `lib/promptIntegration.ts` - add detectUseCase()
 - `extension/extension.ts` - pass useCase to analysis
 
 **Testing:**
+
 ```typescript
-const coding = detectUseCase("create a React component");
-const writing = detectUseCase("write a professional email");
-const research = detectUseCase("compare these two approaches");
+const coding = detectUseCase('create a React component');
+const writing = detectUseCase('write a professional email');
+const research = detectUseCase('compare these two approaches');
 ```
 
 **Estimated effort:** 2-3 hours
 
 #### 1.2 Show Analysis Details
+
 **Goal:** Display analysis breakdown in popup (not just improved text)
 
 **Implementation:**
+
 - Create `AnalysisPopup` React component
 - Tab 1: "Improved" (current view)
 - Tab 2: "Analysis" showing:
@@ -53,6 +59,7 @@ const research = detectUseCase("compare these two approaches");
 - Show confidence breakdown by signal
 
 **Files to modify:**
+
 - `extension/extension.ts` - webview HTML/CSS/JS
 - New component (optional): `components/AnalysisView.tsx`
 
@@ -61,9 +68,11 @@ const research = detectUseCase("compare these two approaches");
 ### Priority 2: UI Polish
 
 #### 2.1 Better Visual Feedback
+
 **Goal:** Improve popup appearance and user experience
 
 **Enhancements:**
+
 - Add confidence indicator (progress bar)
 - Color-code by quality level (weak/decent/strong/excellent)
 - Smooth animations for panel open/close
@@ -71,32 +80,39 @@ const research = detectUseCase("compare these two approaches");
 - Show improvement metrics (word count reduction, clarity gain)
 
 **Files to modify:**
+
 - `extension/extension.ts` - update webview HTML/CSS
 
 **Estimated effort:** 2-3 hours
 
 #### 2.2 Light/Dark Theme Support
+
 **Goal:** Better theme integration for light and dark modes
 
 **Enhancements:**
+
 - Test in VS Code light, dark, and high contrast themes
 - Adjust colors for better contrast in each theme
 - Use VS Code color variables more completely
 
 **Files to modify:**
+
 - `extension/extension.ts` - CSS variables section
 
 **Estimated effort:** 1-2 hours
 
 #### 2.3 Status Bar Integration
+
 **Goal:** Better indicator of when popup is available
 
 **Enhancements:**
+
 - Show confidence score in status bar (instead of message)
 - Update in real-time as user types
 - Click status bar to open popup directly
 
 **Files to modify:**
+
 - `extension/extension.ts` - add status bar item
 
 **Estimated effort:** 2-3 hours
@@ -104,40 +120,49 @@ const research = detectUseCase("compare these two approaches");
 ### Priority 3: Performance Optimization
 
 #### 3.1 Analysis Caching
+
 **Goal:** Avoid re-analyzing same text multiple times
 
 **Implementation:**
+
 - Add simple in-memory cache of (text hash → analysis)
 - Clear cache periodically (5 min)
 - Optional: Save to file for session persistence
 
 **Files to add:**
+
 - `lib/analysisCache.ts` - cache management
 
 **Estimated effort:** 2 hours
 
 #### 3.2 Lazy Loading
+
 **Goal:** Don't load full analyzer until needed
 
 **Implementation:**
+
 - Detach analyzer module into separate chunk
 - Load only on first popup open
 - Show loading indicator while loading
 
 **Files to modify:**
+
 - `extension/extension.ts` - dynamic import
 
 **Estimated effort:** 1-2 hours
 
 #### 3.3 Incremental Analysis
+
 **Goal:** Show partial results while full analysis completes
 
 **Implementation:**
+
 - Show just improved prompt immediately
 - Load analysis details in background
 - Update popup when analysis completes
 
 **Files to modify:**
+
 - `lib/promptIntegration.ts` - progressive analysis
 - `extension/extension.ts` - handle updates
 
@@ -146,43 +171,52 @@ const research = detectUseCase("compare these two approaches");
 ### Priority 4: Feature Expansion
 
 #### 4.1 Multi-Language Support
+
 **Goal:** Support Portuguese, Spanish, French, etc.
 
 **Implementation:**
+
 - Already available in analyzer (Portuguese in place)
 - Add language detection to extension
 - Pass language to analyzer
 
 **Files to modify:**
+
 - `extension/extension.ts` - detect OS language
 - `lib/promptIntegration.ts` - pass language parameter
 
 **Estimated effort:** 2 hours
 
 #### 4.2 Prompt Templates
+
 **Goal:** Suggest templates based on use case
 
 **Implementation:**
+
 - Extract templates from `lib/templates.ts`
 - Show relevant templates in popup
 - One-click apply template
 
 **Files to modify:**
+
 - `extension/extension.ts` - add template UI
 - `lib/promptIntegration.ts` - template lookup
 
 **Estimated effort:** 3-4 hours
 
 #### 4.3 History & Favorites
+
 **Goal:** Track previous prompts and allow favoriting
 
 **Implementation:**
+
 - Store to VS Code globalState (built-in storage)
 - Show history in side panel
 - Favorite commonly-used prompts
 - Quick-apply from history
 
 **Files to add:**
+
 - `lib/promptHistory.ts` - history management
 - `extension/historyPanel.ts` - side panel UI
 
@@ -191,43 +225,52 @@ const research = detectUseCase("compare these two approaches");
 ### Priority 5: Quality Improvements
 
 #### 5.1 Better Rewrite Quality
+
 **Goal:** Improve the suggestions the analyzer generates
 
 **Implementation:**
+
 - Review current rewriter output
 - Identify weak areas
 - Adjust prompt templates in analyzer
 - Add more sophisticated rule engine
 
 **Files to modify:**
+
 - `lib/promptRewriter.ts` - enhance logic
 - `lib/promptEnhancer.ts` - quality rules
 
 **Estimated effort:** 5+ hours (exploratory)
 
 #### 5.2 Custom Rules Engine
+
 **Goal:** Allow users to define their own improvement rules
 
 **Implementation:**
+
 - YAML/JSON config for custom rules
 - Load from workspace settings
 - Compose multiple rule sets
 
 **Files to add:**
+
 - `lib/customRules.ts` - rule parser/executor
 - VS Code settings schema
 
 **Estimated effort:** 6+ hours
 
 #### 5.3 Feedback Loop
+
 **Goal:** Track what users accept/reject to improve detection
 
 **Implementation:**
+
 - Anonymous opt-in feedback
 - Track which improvements users copy vs ignore
 - Use to tune thresholds and weights
 
 **Files to add:**
+
 - `lib/feedbackAnalytics.ts`
 - `extension/analytics.ts`
 
@@ -236,15 +279,18 @@ const research = detectUseCase("compare these two approaches");
 ### Priority 6: Distribution & Marketing
 
 #### 6.1 Publish to VS Code Marketplace
+
 **Goal:** Make extension available to general public
 
 **Prerequisites:**
+
 - Create Microsoft account
 - Complete extension metadata
 - Create icon & screenshots
 - Write marketplace description
 
 **Steps:**
+
 1. Generate icon (512x512 PNG)
 2. Create 1-2 animated GIFs showing usage
 3. Polish README for marketplace
@@ -254,9 +300,11 @@ const research = detectUseCase("compare these two approaches");
 **Estimated effort:** 2-3 hours
 
 #### 6.2 Create Demo Video
+
 **Goal:** Show MVP in action
 
 **Content:**
+
 - Open VS Code Chat
 - Type a prompt
 - Show popup with improvement
@@ -266,14 +314,17 @@ const research = detectUseCase("compare these two approaches");
 **Estimated effort:** 1 hour production + 1 hour editing
 
 #### 6.3 Documentation Website
+
 **Goal:** Host docs outside of GitHub
 
 **Options:**
+
 - Use GitHub Pages
 - Use Docs.rs style site
 - Create simple landing page
 
 **Content:**
+
 - Feature overview
 - Installation instructions
 - Usage guide
@@ -307,16 +358,19 @@ const research = detectUseCase("compare these two approaches");
 ## Estimated Timeline
 
 **Quick wins (1-2 weeks):**
+
 - Auto-detect use case
 - Better visual feedback
 - Keyboard shortcuts
 
 **Medium features (2-4 weeks):**
+
 - Analysis caching
 - Template suggestions
 - History & favorites
 
 **Larger features (4+ weeks):**
+
 - Custom rules engine
 - Marketplace publication
 - Demo video + landing page

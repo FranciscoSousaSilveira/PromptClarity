@@ -4,7 +4,7 @@
  * analyze it, and generate an improved version.
  */
 
-import { detectPrompt, shouldShowPopup, type DetectionResult } from './promptDetector';
+import { detectPrompt, shouldShowPopup } from './promptDetector';
 import { analyzePrompt } from './promptAnalyzer';
 import type { PromptAnalysis, UseCase } from '../types/prompt';
 
@@ -23,6 +23,8 @@ export interface PopupContent {
   rewriteStatus?: 'loading' | 'ready' | 'fallback';
   modelName?: string;
   modelError?: string;
+  sourceDetail?: 'local-ai' | 'instant-rules' | 'safety-fallback';
+  validationScore?: number;
 }
 
 /**

@@ -4,16 +4,38 @@ exports.analyzePrompt = analyzePrompt;
 const promptRewriter_1 = require("./promptRewriter");
 const spellChecker_1 = require("./spellChecker");
 // Language detection: Common Portuguese words not in English
-const PORTUGUESE_MARKERS = ['que', 'de', 'para', 'com', 'por', 'uma', 'está', 'preciso', 'explique', 'me', 'você', 'escreva', 'crie', 'faça', 'gere', 'quer'];
+const PORTUGUESE_MARKERS = [
+    'que',
+    'de',
+    'para',
+    'com',
+    'por',
+    'uma',
+    'está',
+    'preciso',
+    'explique',
+    'me',
+    'você',
+    'escreva',
+    'crie',
+    'faça',
+    'gere',
+    'quer',
+    'diga',
+    'sugere',
+    'sugira',
+    'indica',
+    'apresenta'
+];
 function detectLanguage(prompt) {
     const lower = prompt.toLowerCase();
     const tokens = tokenize(lower);
-    if (/^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora)\b/.test(lower.trim()) ||
+    if (/^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora|diz|diga|sugere|sugira|indica|indique|apresenta|apresente|mostra|lista|propõe)\b/.test(lower.trim()) ||
         /\b(que|qual)\b.{0,120}\bou\b/.test(lower)) {
         return 'pt';
     }
     // Count Portuguese markers
-    const ptCount = PORTUGUESE_MARKERS.filter(marker => tokens.includes(marker)).length;
+    const ptCount = PORTUGUESE_MARKERS.filter((marker) => tokens.includes(marker)).length;
     // If we have enough Portuguese markers, assume Portuguese
     return ptCount >= 2 ? 'pt' : 'en';
 }
@@ -27,7 +49,18 @@ const CATEGORY_WEIGHTS = {
     audience: 10,
     successCriteria: 10
 };
-const VAGUE_TERMS = ['thing', 'stuff', 'something', 'anything', 'better', 'help me', 'nice', 'good', 'bad', 'stuff like that'];
+const VAGUE_TERMS = [
+    'thing',
+    'stuff',
+    'something',
+    'anything',
+    'better',
+    'help me',
+    'nice',
+    'good',
+    'bad',
+    'stuff like that'
+];
 const ACTION_VERBS = [
     'analyze',
     'answer',
@@ -53,14 +86,104 @@ const ACTION_VERBS = [
     'summarize',
     'write'
 ];
-const FORMAT_TERMS = ['bullet', 'bullets', 'table', 'json', 'yaml', 'csv', 'markdown', 'steps', 'step-by-step', 'checklist', 'outline', 'email', 'memo', 'report', 'code', 'code block'];
-const CONSTRAINT_TERMS = ['must', 'should', 'avoid', 'without', 'under', 'within', 'no more than', 'at least', 'deadline', 'limit', 'only', 'include', 'exclude', 'use'];
-const CONTEXT_TERMS = ['because', 'background', 'context', 'currently', 'for example', 'for instance', 'in my case', 'we are', 'my team', 'the user', 'audience', 'project', 'goal'];
-const EXAMPLE_MARKERS = ['example', 'examples', 'e.g.', 'for example', 'for instance', 'sample', 'desired output', 'bad example'];
-const SUCCESS_TERMS = ['success', 'good answer', 'best answer', 'quality bar', 'criteria', 'should achieve', 'goal is', 'expected'];
-const AUDIENCE_TERMS = ['beginner', 'advanced', 'expert', 'non-technical', 'technical', 'manager', 'executive', 'founder', 'student', 'teacher', 'customer', 'client', 'team'];
+const FORMAT_TERMS = [
+    'bullet',
+    'bullets',
+    'table',
+    'json',
+    'yaml',
+    'csv',
+    'markdown',
+    'steps',
+    'step-by-step',
+    'checklist',
+    'outline',
+    'email',
+    'memo',
+    'report',
+    'code',
+    'code block'
+];
+const CONSTRAINT_TERMS = [
+    'must',
+    'should',
+    'avoid',
+    'without',
+    'under',
+    'within',
+    'no more than',
+    'at least',
+    'deadline',
+    'limit',
+    'only',
+    'include',
+    'exclude',
+    'use'
+];
+const CONTEXT_TERMS = [
+    'because',
+    'background',
+    'context',
+    'currently',
+    'for example',
+    'for instance',
+    'in my case',
+    'we are',
+    'my team',
+    'the user',
+    'audience',
+    'project',
+    'goal'
+];
+const EXAMPLE_MARKERS = [
+    'example',
+    'examples',
+    'e.g.',
+    'for example',
+    'for instance',
+    'sample',
+    'desired output',
+    'bad example'
+];
+const SUCCESS_TERMS = [
+    'success',
+    'good answer',
+    'best answer',
+    'quality bar',
+    'criteria',
+    'should achieve',
+    'goal is',
+    'expected'
+];
+const AUDIENCE_TERMS = [
+    'beginner',
+    'advanced',
+    'expert',
+    'non-technical',
+    'technical',
+    'manager',
+    'executive',
+    'founder',
+    'student',
+    'teacher',
+    'customer',
+    'client',
+    'team'
+];
 // Portuguese translations
-const VAGUE_TERMS_PT = ['coisa', 'coisas', 'algo', 'alguma coisa', 'melhor', 'ajuda', 'legal', 'bom', 'mau', 'ruim', 'coisas assim'];
+const VAGUE_TERMS_PT = [
+    'coisa',
+    'coisas',
+    'algo',
+    'alguma coisa',
+    'melhor',
+    'ajuda',
+    'legal',
+    'bom',
+    'mau',
+    'ruim',
+    'coisas assim'
+];
 const ACTION_VERBS_PT = [
     'analisar',
     'responder',
@@ -87,35 +210,127 @@ const ACTION_VERBS_PT = [
     'produzir',
     'corrigir'
 ];
-const FORMAT_TERMS_PT = ['bala', 'balas', 'tabela', 'json', 'yaml', 'csv', 'markdown', 'passos', 'passo a passo', 'checklist', 'esboço', 'email', 'memorando', 'relatório', 'código', 'bloco de código'];
-const CONSTRAINT_TERMS_PT = ['deve', 'deveria', 'deve evitar', 'sem', 'sob', 'dentro', 'no máximo', 'pelo menos', 'prazo', 'limite', 'apenas', 'incluir', 'excluir', 'usar'];
-const CONTEXT_TERMS_PT = ['porque', 'contexto', 'atualmente', 'por exemplo', 'no meu caso', 'somos', 'minha equipe', 'o usuário', 'público', 'projeto', 'objetivo', 'fundo'];
-const EXAMPLE_MARKERS_PT = ['exemplo', 'exemplos', 'ex.', 'por exemplo', 'amostra', 'saída desejada', 'exemplo ruim'];
-const SUCCESS_TERMS_PT = ['sucesso', 'boa resposta', 'melhor resposta', 'critério de qualidade', 'critérios', 'deve alcançar', 'objetivo é', 'esperado'];
-const AUDIENCE_TERMS_PT = ['iniciante', 'intermediário', 'avançado', 'expert', 'não técnico', 'técnico', 'gestor', 'executivo', 'fundador', 'estudante', 'professor', 'cliente', 'equipe'];
+const FORMAT_TERMS_PT = [
+    'bala',
+    'balas',
+    'tabela',
+    'json',
+    'yaml',
+    'csv',
+    'markdown',
+    'passos',
+    'passo a passo',
+    'checklist',
+    'esboço',
+    'email',
+    'memorando',
+    'relatório',
+    'código',
+    'bloco de código'
+];
+const CONSTRAINT_TERMS_PT = [
+    'deve',
+    'deveria',
+    'deve evitar',
+    'sem',
+    'sob',
+    'dentro',
+    'no máximo',
+    'pelo menos',
+    'prazo',
+    'limite',
+    'apenas',
+    'incluir',
+    'excluir',
+    'usar'
+];
+const CONTEXT_TERMS_PT = [
+    'porque',
+    'contexto',
+    'atualmente',
+    'por exemplo',
+    'no meu caso',
+    'somos',
+    'minha equipe',
+    'o usuário',
+    'público',
+    'projeto',
+    'objetivo',
+    'fundo'
+];
+const EXAMPLE_MARKERS_PT = [
+    'exemplo',
+    'exemplos',
+    'ex.',
+    'por exemplo',
+    'amostra',
+    'saída desejada',
+    'exemplo ruim'
+];
+const SUCCESS_TERMS_PT = [
+    'sucesso',
+    'boa resposta',
+    'melhor resposta',
+    'critério de qualidade',
+    'critérios',
+    'deve alcançar',
+    'objetivo é',
+    'esperado'
+];
+const AUDIENCE_TERMS_PT = [
+    'iniciante',
+    'intermediário',
+    'avançado',
+    'expert',
+    'não técnico',
+    'técnico',
+    'gestor',
+    'executivo',
+    'fundador',
+    'estudante',
+    'professor',
+    'cliente',
+    'equipe'
+];
 // Helper function to get keywords based on language
 function getKeywords(language, keywordType) {
     if (language === 'pt') {
         switch (keywordType) {
-            case 'vague': return VAGUE_TERMS_PT;
-            case 'action': return ACTION_VERBS_PT;
-            case 'format': return FORMAT_TERMS_PT;
-            case 'constraint': return CONSTRAINT_TERMS_PT;
-            case 'context': return CONTEXT_TERMS_PT;
-            case 'example': return EXAMPLE_MARKERS_PT;
-            case 'success': return SUCCESS_TERMS_PT;
-            case 'audience': return AUDIENCE_TERMS_PT;
+            case 'vague':
+                return VAGUE_TERMS_PT;
+            case 'action':
+                return ACTION_VERBS_PT;
+            case 'format':
+                return FORMAT_TERMS_PT;
+            case 'constraint':
+                return CONSTRAINT_TERMS_PT;
+            case 'context':
+                return CONTEXT_TERMS_PT;
+            case 'example':
+                return EXAMPLE_MARKERS_PT;
+            case 'success':
+                return SUCCESS_TERMS_PT;
+            case 'audience':
+                return AUDIENCE_TERMS_PT;
         }
     }
     switch (keywordType) {
-        case 'vague': return VAGUE_TERMS;
-        case 'action': return ACTION_VERBS;
-        case 'format': return FORMAT_TERMS;
-        case 'constraint': return CONSTRAINT_TERMS;
-        case 'context': return CONTEXT_TERMS;
-        case 'example': return EXAMPLE_MARKERS;
-        case 'success': return SUCCESS_TERMS;
-        case 'audience': return AUDIENCE_TERMS;
+        case 'vague':
+            return VAGUE_TERMS;
+        case 'action':
+            return ACTION_VERBS;
+        case 'format':
+            return FORMAT_TERMS;
+        case 'constraint':
+            return CONSTRAINT_TERMS;
+        case 'context':
+            return CONTEXT_TERMS;
+        case 'example':
+            return EXAMPLE_MARKERS;
+        case 'success':
+            return SUCCESS_TERMS;
+        case 'audience':
+            return AUDIENCE_TERMS;
     }
 }
 const USE_CASE_HINTS = {
@@ -124,28 +339,87 @@ const USE_CASE_HINTS = {
         missingSuggestions: ['Define the task more specifically and add a preferred format.']
     },
     coding: {
-        focusTerms: ['javascript', 'typescript', 'python', 'react', 'next', 'api', 'error', 'stack trace', 'reproduce', 'expected', 'actual', 'file', 'function'],
-        missingSuggestions: ['Add the language or framework, the expected versus actual behavior, and reproduction steps.']
+        focusTerms: [
+            'javascript',
+            'typescript',
+            'python',
+            'react',
+            'next',
+            'api',
+            'error',
+            'stack trace',
+            'reproduce',
+            'expected',
+            'actual',
+            'file',
+            'function'
+        ],
+        missingSuggestions: [
+            'Add the language or framework, the expected versus actual behavior, and reproduction steps.'
+        ]
     },
     writing: {
         focusTerms: ['tone', 'voice', 'audience', 'length', 'style', 'rewrite', 'edit', 'draft'],
         missingSuggestions: ['Add the target reader, tone, and desired length.']
     },
     studying: {
-        focusTerms: ['beginner', 'intermediate', 'advanced', 'topic', 'explain', 'practice', 'quiz', 'flashcards', 'step by step'],
+        focusTerms: [
+            'beginner',
+            'intermediate',
+            'advanced',
+            'topic',
+            'explain',
+            'practice',
+            'quiz',
+            'flashcards',
+            'step by step'
+        ],
         missingSuggestions: ['Add the topic level, desired depth, and whether you want practice questions.']
     },
     research: {
-        focusTerms: ['sources', 'evidence', 'compare', 'comparison', 'timeframe', 'credible', 'study', 'research', 'citations'],
+        focusTerms: [
+            'sources',
+            'evidence',
+            'compare',
+            'comparison',
+            'timeframe',
+            'credible',
+            'study',
+            'research',
+            'citations'
+        ],
         missingSuggestions: ['Specify the scope, timeframe, and what counts as credible evidence.']
     },
     business: {
-        focusTerms: ['stakeholder', 'customer', 'client', 'revenue', 'strategy', 'meeting', 'email', 'cta', 'decision', 'objective'],
+        focusTerms: [
+            'stakeholder',
+            'customer',
+            'client',
+            'revenue',
+            'strategy',
+            'meeting',
+            'email',
+            'cta',
+            'decision',
+            'objective'
+        ],
         missingSuggestions: ['Clarify the business goal, audience, and the action you want the reader to take.']
     },
     imageGeneration: {
-        focusTerms: ['subject', 'style', 'lighting', 'camera', 'lens', 'composition', 'mood', 'aspect ratio', 'negative prompt'],
-        missingSuggestions: ['Add visual details such as subject, style, lighting, composition, and aspect ratio.']
+        focusTerms: [
+            'subject',
+            'style',
+            'lighting',
+            'camera',
+            'lens',
+            'composition',
+            'mood',
+            'aspect ratio',
+            'negative prompt'
+        ],
+        missingSuggestions: [
+            'Add visual details such as subject, style, lighting, composition, and aspect ratio.'
+        ]
     }
 };
 const USE_CASE_HINTS_PT = {
@@ -154,28 +428,85 @@ const USE_CASE_HINTS_PT = {
         missingSuggestions: ['Defina a tarefa de forma mais específica e adicione um formato preferido.']
     },
     coding: {
-        focusTerms: ['javascript', 'typescript', 'python', 'react', 'next', 'api', 'erro', 'stack trace', 'reproduzir', 'esperado', 'atual', 'arquivo', 'função'],
-        missingSuggestions: ['Adicione a linguagem ou framework, o comportamento esperado versus atual, e passos para reproduzir.']
+        focusTerms: [
+            'javascript',
+            'typescript',
+            'python',
+            'react',
+            'next',
+            'api',
+            'erro',
+            'stack trace',
+            'reproduzir',
+            'esperado',
+            'atual',
+            'arquivo',
+            'função'
+        ],
+        missingSuggestions: [
+            'Adicione a linguagem ou framework, o comportamento esperado versus atual, e passos para reproduzir.'
+        ]
     },
     writing: {
         focusTerms: ['tom', 'voz', 'público', 'comprimento', 'estilo', 'reescrever', 'editar', 'rascunho'],
         missingSuggestions: ['Adicione o leitor alvo, tom e comprimento desejado.']
     },
     studying: {
-        focusTerms: ['iniciante', 'intermediário', 'avançado', 'tópico', 'explicar', 'praticar', 'quiz', 'passo a passo'],
+        focusTerms: [
+            'iniciante',
+            'intermediário',
+            'avançado',
+            'tópico',
+            'explicar',
+            'praticar',
+            'quiz',
+            'passo a passo'
+        ],
         missingSuggestions: ['Adicione o nível do tópico, profundidade desejada e se quer perguntas de prática.']
     },
     research: {
-        focusTerms: ['fontes', 'evidência', 'comparar', 'comparação', 'período', 'credível', 'estudo', 'pesquisa', 'citações'],
+        focusTerms: [
+            'fontes',
+            'evidência',
+            'comparar',
+            'comparação',
+            'período',
+            'credível',
+            'estudo',
+            'pesquisa',
+            'citações'
+        ],
         missingSuggestions: ['Especifique o escopo, período de tempo e o que conta como evidência credível.']
     },
     business: {
-        focusTerms: ['stakeholder', 'cliente', 'receita', 'estratégia', 'reunião', 'email', 'cta', 'decisão', 'objetivo'],
+        focusTerms: [
+            'stakeholder',
+            'cliente',
+            'receita',
+            'estratégia',
+            'reunião',
+            'email',
+            'cta',
+            'decisão',
+            'objetivo'
+        ],
         missingSuggestions: ['Esclareça o objetivo comercial, público e a ação que deseja do leitor.']
     },
     imageGeneration: {
-        focusTerms: ['assunto', 'estilo', 'iluminação', 'câmera', 'lente', 'composição', 'humor', 'proporção de aspecto', 'prompt negativo'],
-        missingSuggestions: ['Adicione detalhes visuais como assunto, estilo, iluminação, composição e proporção de aspecto.']
+        focusTerms: [
+            'assunto',
+            'estilo',
+            'iluminação',
+            'câmera',
+            'lente',
+            'composição',
+            'humor',
+            'proporção de aspecto',
+            'prompt negativo'
+        ],
+        missingSuggestions: [
+            'Adicione detalhes visuais como assunto, estilo, iluminação, composição e proporção de aspecto.'
+        ]
     }
 };
 function getUseCaseHints(language, useCase) {
@@ -290,7 +621,9 @@ function scoreContext(prompt, useCase, language) {
     const audienceTerms = getKeywords(language, 'audience');
     const contextHits = countKeywordHits(prompt, contextTerms);
     const audienceHits = countKeywordHits(prompt, audienceTerms);
-    const refHits = /\bfile\b|\bpath\b|\burl\b|\bstack trace\b|\berror\b|\bdataset\b|\blog\b/.test(prompt.toLowerCase()) ? 1 : 0;
+    const refHits = /\bfile\b|\bpath\b|\burl\b|\bstack trace\b|\berror\b|\bdataset\b|\blog\b/.test(prompt.toLowerCase())
+        ? 1
+        : 0;
     const useCaseHints = getUseCaseHints(language, useCase);
     const useCaseHits = countKeywordHits(prompt, useCaseHints.focusTerms);
     if (contextHits > 0) {
@@ -358,7 +691,8 @@ function scoreConstraints(prompt, language) {
     const constraintHits = countKeywordHits(prompt, constraintTerms);
     const lengthHints = /\b(short|brief|concise|detailed|under \d+ words|less than \d+ words|more than \d+ words|within \d+)/.test(prompt.toLowerCase());
     const styleHints = /\b(tone|style|formal|casual|friendly|professional|plain english)\b/.test(prompt.toLowerCase());
-    const toolsHints = /\b(use|with|without|via|using)\b/.test(prompt.toLowerCase()) && /\b(api|code|python|typescript|json|table|markdown|browser|spreadsheet|docs?)\b/.test(prompt.toLowerCase());
+    const toolsHints = /\b(use|with|without|via|using)\b/.test(prompt.toLowerCase()) &&
+        /\b(api|code|python|typescript|json|table|markdown|browser|spreadsheet|docs?)\b/.test(prompt.toLowerCase());
     if (constraintHits > 0) {
         score += Math.min(55, constraintHits * 12);
         strengths.push('Constraints detected');
@@ -568,7 +902,7 @@ function applyUseCaseAdjustments(categoryScores, useCase, prompt) {
     }
     return strengths;
 }
-function buildIssues(categoryScores, useCase, prompt, taskCount, language) {
+function buildIssues(categoryScores, useCase, prompt, taskCount) {
     const issues = [];
     const lower = prompt.toLowerCase();
     const wellStructured = categoryScores.clarity >= 55 &&
@@ -599,10 +933,14 @@ function buildIssues(categoryScores, useCase, prompt, taskCount, language) {
     if (!wellStructured && taskCount > 2) {
         issues.push(makeIssue('multiple-tasks', 'medium', 'general', 'Prompt combines multiple tasks without prioritization', 'The request appears to ask for more than one thing at once.', 'Split the prompt into separate steps or say which task is most important.'));
     }
-    if (!wellStructured && useCase === 'coding' && !/\b(expected|actual|reproduce|stack trace|error|file|language|framework)\b/.test(lower)) {
+    if (!wellStructured &&
+        useCase === 'coding' &&
+        !/\b(expected|actual|reproduce|stack trace|error|file|language|framework)\b/.test(lower)) {
         issues.push(makeIssue('coding-missing-debug-data', 'medium', 'context', 'Coding prompt is missing debugging details', 'The prompt will be more useful if it includes concrete implementation or error context.', 'Add the language, framework, error message, expected behavior, actual behavior, and reproduction steps.'));
     }
-    if (!wellStructured && useCase === 'imageGeneration' && !/\b(subject|style|lighting|camera|composition|aspect ratio|mood|negative prompt)\b/.test(lower)) {
+    if (!wellStructured &&
+        useCase === 'imageGeneration' &&
+        !/\b(subject|style|lighting|camera|composition|aspect ratio|mood|negative prompt)\b/.test(lower)) {
         issues.push(makeIssue('image-missing-visuals', 'medium', 'context', 'Image prompt is missing visual details', 'The model needs more art direction to avoid a generic image.', 'Add the subject, style, composition, lighting, mood, and aspect ratio.'));
     }
     if (/\bmake it better|help me|something\b/.test(lower) && categoryScores.clarity < 60) {
@@ -698,21 +1036,26 @@ function analyzePrompt(prompt, useCase) {
     const categoryScores = buildCategoryScores(categoryResults);
     const useCaseStrengths = applyUseCaseAdjustments(categoryScores, useCase, normalized);
     const adjustedCategoryScores = { ...categoryScores };
-    const rawIssues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount, language);
+    const rawIssues = buildIssues(adjustedCategoryScores, useCase, normalized, taskCount);
     const strengths = buildStrengths(categoryResults, useCaseStrengths, adjustedCategoryScores);
     const shortPromptPenalty = wordCount < 5 ? 18 : wordCount < 10 ? 10 : wordCount < 16 ? 4 : 0;
     const vagueTerms = getKeywords(language, 'vague');
     const vaguePenalty = countKeywordHits(normalized, vagueTerms) * 4;
     const multiTaskPenalty = taskCount > 2 ? 8 : taskCount === 2 ? 4 : 0;
     const weightedScore = weightedAverage(adjustedCategoryScores);
-    const overallScore = clamp(Math.round(weightedScore + 32 - shortPromptPenalty - vaguePenalty - multiTaskPenalty + (useCase === 'business' ? 8 : 0)));
+    const overallScore = clamp(Math.round(weightedScore +
+        32 -
+        shortPromptPenalty -
+        vaguePenalty -
+        multiTaskPenalty +
+        (useCase === 'business' ? 8 : 0)));
     const label = labelForScore(overallScore);
     const summary = buildSummary(adjustedCategoryScores);
     const categoryNotes = deriveCategoryNotes(categoryResults);
     const issues = overallScore >= 70 ? rawIssues.slice(0, 2) : rawIssues;
     // Detect spelling mistakes
     const detectedSpellingIssues = (0, spellChecker_1.detectSpellingMistakes)(normalized, language);
-    const spellingIssues = detectedSpellingIssues.map(issue => ({
+    const spellingIssues = detectedSpellingIssues.map((issue) => ({
         word: issue.word,
         suggestions: issue.suggestions,
         confidence: Math.round(issue.confidence * 100)

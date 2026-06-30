@@ -3,6 +3,7 @@
 ## Mission Accomplished
 
 You requested a Grammarly-like prompt enhancement system for VS Code that:
+
 - ✅ Detects when users write prompts in VS Code Chat
 - ✅ Shows an improved version in a popup
 - ✅ Supports copy-paste workflow
@@ -17,6 +18,7 @@ You requested a Grammarly-like prompt enhancement system for VS Code that:
 ### Core Implementation (2,000+ lines)
 
 #### 1. Prompt Detection Layer
+
 - **File:** `lib/promptDetector.ts` (206 lines)
 - **Purpose:** Lightweight detection with confidence scoring (0-1)
 - **Approach:** 8-signal weighted system (action verbs, format, context, etc.)
@@ -24,12 +26,14 @@ You requested a Grammarly-like prompt enhancement system for VS Code that:
 - **Quality:** ~95% accuracy on test cases
 
 #### 2. Integration Module
+
 - **File:** `lib/promptIntegration.ts` (87 lines)
 - **Purpose:** Bridges detection + analysis
 - **Functions:** `analyzeForPopup()` (main entry), `shouldShowHint()`, `getPopupContent()`
 - **Features:** Error handling, graceful degradation
 
 #### 3. VS Code Extension
+
 - **File:** `extension/extension.ts` (321 lines)
 - **Purpose:** Main VS Code integration
 - **Features:**
@@ -40,6 +44,7 @@ You requested a Grammarly-like prompt enhancement system for VS Code that:
   - Debounced analysis (500ms) for performance
 
 #### 4. Extension Manifest
+
 - **File:** `extension/package.json` + `extension/tsconfig.json` + `extension/.vscodeignore`
 - **Purpose:** Extension metadata and build configuration
 - **Includes:** Commands, keybindings, menu contributions
@@ -47,6 +52,7 @@ You requested a Grammarly-like prompt enhancement system for VS Code that:
 ### Testing (340+ lines)
 
 #### Comprehensive Test Suite
+
 - **File:** `tests/promptDetector.test.ts` (318 lines)
 - **Coverage:** 40+ test cases
 - **Categories:**
@@ -70,26 +76,34 @@ You requested a Grammarly-like prompt enhancement system for VS Code that:
 ## Key Design Decisions
 
 ### 1. Detection-First Architecture
+
 Why: Separates lightweight detection from expensive analysis
+
 - Detection runs on every keystroke (debounced, fast)
 - Analysis only runs when user opens popup
 - Confidence score guides UI behavior
 
 ### 2. Copy-First, Not Replace
+
 Why: Safer for MVP, user controls usage
+
 - Shows improved version in popup
 - One-click copy to clipboard
 - User decides when to use improvement
 - No automatic text replacement in MVP
 
 ### 3. Low False Positive Rate
+
 Why: Better UX than bothering users with non-prompts
+
 - 0.40 confidence threshold for popup
 - Multiple signals must align
 - Normal chat text typically scores < 0.30
 
 ### 4. Local & Deterministic
+
 Why: Works offline, repeatable results
+
 - All analysis runs locally (no API calls)
 - Same input always produces same output
 - No network latency or failures
@@ -156,6 +170,7 @@ See [QUICKSTART.md](./QUICKSTART.md) for detailed testing guide.
 ## Files Created
 
 ### Core Logic
+
 - `lib/promptDetector.ts` - Detection with 8-signal weighted approach
 - `lib/promptIntegration.ts` - Integration layer combining detection + analysis
 - `extension/extension.ts` - VS Code extension main activation
@@ -164,9 +179,11 @@ See [QUICKSTART.md](./QUICKSTART.md) for detailed testing guide.
 - `extension/.vscodeignore` - Packaging rules
 
 ### Tests
+
 - `tests/promptDetector.test.ts` - 40+ test cases for detection
 
 ### Documentation
+
 - `INDEX.md` - Complete documentation index & navigation
 - `QUICKSTART.md` - 15-minute setup & testing guide
 - `MVP-SUMMARY.md` - Executive summary of implementation
@@ -195,7 +212,7 @@ Signals found:
   ✗ context: 0.00 (no background given)
   ✓ goal: 0.12 (goal to understand React hooks)
   ✗ question: 0.00 (no question mark)
-  
+
 Total confidence: 0.25 + 0.08 + 0.18 + 0.12 = 0.63
 
 Result: isPrompt = true (0.63 >= 0.40 threshold)
@@ -214,7 +231,7 @@ In `promptDetector.ts`:
 ```typescript
 // Change threshold to get more/fewer popups
 export function shouldShowPopup(confidence: number): boolean {
-  return confidence >= 0.40;  // ← Adjust this number
+  return confidence >= 0.4; // ← Adjust this number
 }
 
 // Higher = more popups (0.35 = more sensitive)
@@ -229,7 +246,7 @@ In `promptDetector.ts`:
 // Adjust these weights to emphasize different signals
 signals.push({
   name: 'action_verb',
-  weight: 0.25,  // ← Action verbs are 25% of score
+  weight: 0.25, // ← Action verbs are 25% of score
   present: hasActionVerb
 });
 ```
@@ -240,7 +257,13 @@ In `promptDetector.ts`:
 
 ```typescript
 const ACTION_VERBS = [
-  'explain', 'help', 'write', 'create', 'generate', 'build', 'design',
+  'explain',
+  'help',
+  'write',
+  'create',
+  'generate',
+  'build',
+  'design'
   // Add more verbs here
 ];
 ```
@@ -250,16 +273,19 @@ const ACTION_VERBS = [
 ## Performance Characteristics
 
 ### Detection
+
 - **Latency:** O(n) where n = text length (linear)
 - **Memory:** Minimal (stateless)
 - **Typical time:** < 5ms for 100-char text
 
 ### Analysis
+
 - **Only runs when popup opened** (not on every keystroke)
 - **Leverages existing analyzer** (proven, tested)
 - **Includes spell checking and quality rules**
 
 ### Extension
+
 - **Debounced 500ms** to avoid performance impact
 - **Webview lazy-loaded** on first popup
 - **Status messages auto-dismiss** after 3 seconds
@@ -269,6 +295,7 @@ const ACTION_VERBS = [
 ## Known Limitations & Phase 2 Opportunities
 
 ### Limitations (Acceptable for MVP)
+
 1. ✓ English-only detection (analyzer supports Portuguese)
 2. ✓ Copy-paste only (no automatic replacement)
 3. ✓ Single use case (always 'general')
@@ -278,16 +305,19 @@ const ACTION_VERBS = [
 ### Phase 2 Opportunities (Prioritized in PHASE2-ROADMAP.md)
 
 **High Priority (1-2 weeks):**
+
 - Auto-detect use case (coding vs writing vs research)
 - Show analysis breakdown in popup
 - Better UI/theming
 
 **Medium Priority (2-4 weeks):**
+
 - Multi-language support
 - Prompt templates
 - History & favorites
 
 **Lower Priority:**
+
 - Custom rules engine
 - Marketplace publication
 - Feedback loop
@@ -297,6 +327,7 @@ const ACTION_VERBS = [
 ## Next Steps
 
 ### For Testing (This Week)
+
 1. [ ] Read [QUICKSTART.md](./QUICKSTART.md)
 2. [ ] Set up extension (npm install, npm run build in extension/)
 3. [ ] Test in VS Code Extension Development Host (F5)
@@ -304,6 +335,7 @@ const ACTION_VERBS = [
 5. [ ] Verify copy-to-clipboard works
 
 ### For Integration (Next Week)
+
 1. [ ] Code review of detection logic
 2. [ ] Review test coverage
 3. [ ] Validate detection accuracy on real chat patterns
@@ -311,6 +343,7 @@ const ACTION_VERBS = [
 5. [ ] Performance testing
 
 ### For Phase 2 Planning (After MVP Validation)
+
 1. [ ] Collect user feedback
 2. [ ] Review PHASE2-ROADMAP.md
 3. [ ] Prioritize features
@@ -321,6 +354,7 @@ const ACTION_VERBS = [
 ## File Reference
 
 ### Start Reading Here
+
 - **INDEX.md** - Complete navigation and overview (9,700 words)
 
 ### For Different Audiences
@@ -342,6 +376,7 @@ const ACTION_VERBS = [
 ## Quality Metrics
 
 ### Code Quality
+
 - ✅ TypeScript strict mode
 - ✅ All functions typed
 - ✅ Comments for complex logic
@@ -349,12 +384,14 @@ const ACTION_VERBS = [
 - ✅ Error handling throughout
 
 ### Test Quality
+
 - ✅ 40+ test cases
 - ✅ Coverage of true positives, false positives, edge cases
 - ✅ All major signals tested
 - ✅ Example-driven documentation
 
 ### Documentation Quality
+
 - ✅ 5 markdown files (10,000+ words)
 - ✅ Architecture diagrams
 - ✅ Configuration guide
@@ -366,6 +403,7 @@ const ACTION_VERBS = [
 ## Verification Steps
 
 ### ✅ Code Review Checklist
+
 - [ ] All files created in correct locations
 - [ ] Import paths are correct
 - [ ] Type imports from prompt.ts are valid
@@ -373,12 +411,14 @@ const ACTION_VERBS = [
 - [ ] Error handling is graceful
 
 ### ✅ Testing Checklist
+
 - [ ] promptDetector.test.ts runs without errors
 - [ ] All 40+ tests pass
 - [ ] False positive tests confirm low trigger rate
 - [ ] Edge cases are handled
 
 ### ✅ Extension Checklist
+
 - [ ] extension/extension.ts has correct VS Code imports
 - [ ] Webview HTML/CSS/JS is valid
 - [ ] Commands are registered properly

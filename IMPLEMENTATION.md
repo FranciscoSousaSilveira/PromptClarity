@@ -1,4 +1,6 @@
-# Prompt Enhancement MVP - Implementation Guide
+# Legacy Implementation Guide
+
+> Historical MVP document. Use the root `README.md` for the current architecture.
 
 ## Overview
 
@@ -9,6 +11,7 @@ This is the MVP implementation of a Grammarly-like prompt enhancement system for
 ### Core Components
 
 #### 1. **Prompt Detection** (`lib/promptDetector.ts`)
+
 - Detects if text looks like a prompt (AI instruction/request)
 - Confidence scoring (0-1) based on multiple signals:
   - Action verbs (explain, create, write, etc.)
@@ -21,16 +24,19 @@ This is the MVP implementation of a Grammarly-like prompt enhancement system for
   - Question marks or colons
 
 **Key Functions:**
+
 - `detectPrompt(text)` → DetectionResult with confidence & signals
 - `shouldShowPopup(confidence)` → boolean (threshold: 0.40)
 - `shouldShowHint(text)` → boolean (threshold: 0.35, for hints)
 
 **Philosophy:**
+
 - Low false positive rate (normal chat doesn't trigger popup)
 - Confidence-based UI response (can show hints at 0.35, full popup at 0.40)
 - Modular signal weighting for easy tuning
 
 #### 2. **Prompt Integration** (`lib/promptIntegration.ts`)
+
 - Main entry point combining detection + analysis
 - Handles error cases gracefully
 - Returns structured PopupContent with:
@@ -40,12 +46,14 @@ This is the MVP implementation of a Grammarly-like prompt enhancement system for
   - Copyable improved text
 
 **Key Functions:**
+
 - `analyzeForPopup(request)` → PopupContent
 - `getPopupContent(text, useCase)` → string | null
 - `shouldShowHint(text)` → boolean
 - `getConfidenceScore(text)` → number (0-100)
 
 #### 3. **VS Code Extension** (`extension/extension.ts`)
+
 - Main activation point for the VS Code extension
 - Manages popup lifecycle and UI state
 - Commands:
@@ -53,6 +61,7 @@ This is the MVP implementation of a Grammarly-like prompt enhancement system for
   - `prompt-enhancement.analyzeAndCopy` - Direct copy-to-clipboard
 
 **Features:**
+
 - Manual popup toggle via keybinding or context menu
 - Automatic hinting (status bar message when prompt detected)
 - Copy-to-clipboard workflow (no text replacement in MVP)
@@ -60,6 +69,7 @@ This is the MVP implementation of a Grammarly-like prompt enhancement system for
 - Webview panel with side-by-side comparison
 
 #### 4. **Tests** (`tests/promptDetector.test.ts`)
+
 - 40+ test cases covering:
   - Clear prompts with action verbs
   - Format requests
@@ -96,26 +106,31 @@ Improved prompt → clipboard
 ## Key Design Decisions
 
 ### 1. Detection-First Architecture
+
 - Prompt detection is lightweight and always runs
 - Expensive analysis only happens when popup is shown
 - Confidence scoring guides UI decisions (hints vs full popup)
 
 ### 2. Copy-First, Not Replace
+
 - MVP focuses on copy-paste workflow
 - No automatic text replacement (safer for MVP)
 - Users explicitly choose to use improved version
 
 ### 3. Local Analysis
+
 - All analysis runs locally (no API calls)
 - Deterministic results (same input = same output)
 - Works offline
 
 ### 4. Chat Context Optimization
+
 - Detection tuned for shorter, chat-style prompts
 - Emphasis on action verbs + constraints
 - Lower bar for chat-style instructions vs full essays
 
 ### 5. False Positive Avoidance
+
 - Threshold of 0.40 confidence required for popup
 - Multiple signal types must align
 - Normal chat text scores < 0.4 in most cases
@@ -123,34 +138,43 @@ Improved prompt → clipboard
 ## Configuration & Customization
 
 ### Detection Thresholds
+
 In `promptDetector.ts`:
+
 - `shouldShowPopup(confidence)`: requires 0.40 (adjust for sensitivity)
 - `shouldShowHint(text)`: uses 0.35 threshold (for status bar hints)
 
 ### Action Verbs & Signal Weights
+
 In `promptDetector.ts`:
+
 - Modify `ACTION_VERBS` to add/remove detection patterns
 - Adjust signal weights (currently: action_verb=0.25, format=0.20, etc.)
 
 ### Chat vs Essay Distinction
+
 In `promptDetector.ts`:
+
 - Length heuristic: 15-500 chars (adjust for different contexts)
 - Longer texts are deprioritized (prevents essays from triggering)
 
 ## Testing the MVP
 
 ### Unit Tests
+
 ```bash
 npm test -- promptDetector
 ```
 
 Covers:
+
 - Prompt detection accuracy
 - False positive avoidance
 - Confidence scoring
 - Signal combinations
 
 ### Manual Integration Testing
+
 1. Open VS Code with extension installed
 2. Open Command Palette (Cmd+Shift+P)
 3. Type "Enhance Prompt"
@@ -161,7 +185,9 @@ Covers:
 8. Paste in VS Code Chat
 
 ### False Positive Testing
+
 Type normal chat text to confirm popup doesn't appear:
+
 - "sounds good to me" → no popup
 - "thanks for your help" → no popup
 - "see you later" → no popup
@@ -170,6 +196,7 @@ Type normal chat text to confirm popup doesn't appear:
 ## Next Steps
 
 ### Phase 2 (Optional)
+
 1. **UI Polish**
    - Add keyboard shortcuts for copy/close
    - Show confidence score with visual indicator
@@ -217,10 +244,12 @@ Type normal chat text to confirm popup doesn't appear:
 ## Dependencies
 
 ### Required (in VS Code extension context)
+
 - `vscode` - VS Code API (provided by runtime)
 - TypeScript 5.3+
 
 ### Local libraries
+
 - Existing analyzer, rewriter, enhancer modules
 - No external dependencies for core MVP
 
@@ -244,17 +273,20 @@ Type normal chat text to confirm popup doesn't appear:
 ## Troubleshooting
 
 ### Popup doesn't appear
+
 1. Check text meets minimum length (15+ chars)
 2. Confirm text has action verb or format request
 3. Verify confidence score: `getConfidenceScore(text)`
 4. Check that confidence ≥ 0.40
 
 ### Popup shows for normal chat
+
 1. Reduce threshold in `promptDetector.ts`
 2. Review signal weights (check if context or goal signals are too loose)
 3. Add false positive examples to test suite
 
 ### Analysis fails silently
+
 1. Check console for errors (F1 > "Developer: Toggle Developer Tools")
 2. Verify analyzer module is loaded
 3. Check text length and format
@@ -262,6 +294,7 @@ Type normal chat text to confirm popup doesn't appear:
 ## Contact & Support
 
 For issues, feature requests, or questions:
+
 - Open issue on GitHub
 - Check test cases for example usage
 - Review signal definitions in promptDetector.ts

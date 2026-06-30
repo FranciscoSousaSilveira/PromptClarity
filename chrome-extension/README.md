@@ -2,18 +2,18 @@
 
 The extension reviews prompt drafts directly inside supported AI chat apps. After you pause typing, it opens a suggestion card with a score, focused feedback, and a natural ready-to-send rewrite.
 
-Rewriting is performed by a local open-source model through Ollama. The prompt is sent only to the local Next.js service on your computer, which forwards it to local Ollama. Deterministic rules prepare a private draft internally, but the Chrome extension only enables copy and insert after the model returns a final answer.
+Rewriting is local. Fast mode uses an instant deterministic rewrite for short prompts and Ollama when more reasoning is needed. Balanced and Quality modes use progressively larger local models. The enhanced prompt remains editable before Copy or Insert, and Insert supports Undo.
 
 ## Local AI setup
 
 1. Install [Ollama](https://ollama.com/download) for your operating system.
-2. From the repository root, run `npm run model:pull` once. This downloads `qwen2.5:1.5b` (roughly 1 GB).
+2. From the repository root, run `npm run model:pull` once. This downloads the Fast (`qwen2.5:0.5b`), Balanced (`gemma3:1b`), and Quality (`qwen2.5:3b`) models.
 3. Run `npm run dev` and leave that terminal open while using the extension. This starts the local bridge at `http://127.0.0.1:3000/api/rewrite`.
 4. Build and reload the Chrome extension as described below.
 
 You can check the bridge by opening `http://127.0.0.1:3000/api/rewrite`. A successful response reports whether Ollama and the configured model are available.
 
-The first rewrite after starting Ollama is slower because the model must be loaded into memory. The server keeps it warm for 30 minutes so later rewrites are substantially faster.
+The app warms only the selected model. Model memory can be disabled from settings when RAM usage matters more than latency.
 
 To favor quality over speed, start the app with `OLLAMA_MODEL=qwen2.5:3b`. You can use any other Ollama model in the same way, and change the Ollama server address with `OLLAMA_URL`.
 
@@ -38,6 +38,6 @@ Supported sites include ChatGPT, Claude, Gemini, Microsoft Copilot, Perplexity, 
 
 ## Troubleshooting
 
-- If the floating icon disappears, Gemini inserts only the first line, or a result is enhanced twice, confirm that the extension shows version `1.2.4`, reload it, and refresh the Gemini/ChatGPT tab.
+- If the floating icon disappears or a chat site changes its editor, rebuild, reload the extension, and refresh the chat tab. Site-specific selectors live in `src/siteAdapters.ts`.
 - If no icon appears, focus the message composer and type at least a short instruction such as `Explain this in three bullets`.
-- If the card says that the model did not respond, run `ollama serve`, confirm that `qwen2.5:1.5b` appears in `ollama list`, and keep `npm run dev` running. Use **Try again** after restoring the connection.
+- If the card says that the model did not respond, run `ollama serve`, confirm that the three models listed above appear in `ollama list`, and keep `npm run dev` running. Use **Try again** after restoring the connection.

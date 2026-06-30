@@ -16,14 +16,6 @@
     "moduleResolution": "node",
     "types": ["node", "vscode"]
   },
-  "include": [
-    "**/*.ts",
-    "../lib/**/*.ts",
-    "../types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "out",
-    "**/*.test.ts"
-  ]
+  "include": ["**/*.ts", "../lib/**/*.ts", "../types/**/*.ts"],
+  "exclude": ["node_modules", "out", "**/*.test.ts"]
 }

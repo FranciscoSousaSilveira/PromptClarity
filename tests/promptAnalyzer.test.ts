@@ -15,7 +15,10 @@ describe('prompt analyzer', () => {
 
     it('penalizes very short prompts', () => {
       const short = analyzePrompt('Help.', 'general');
-      const longer = analyzePrompt('Help me write a professional email to my manager about my progress this quarter.', 'general');
+      const longer = analyzePrompt(
+        'Help me write a professional email to my manager about my progress this quarter.',
+        'general'
+      );
       expect(short.overallScore).toBeLessThan(longer.overallScore);
     });
 
@@ -69,20 +72,31 @@ describe('prompt analyzer', () => {
 
     it('scores context based on background and audience mentions', () => {
       const noContext = analyzePrompt('Analyze this.', 'general');
-      const withContext = analyzePrompt('My team uses React. We are building a dashboard. Analyze performance bottlenecks in data tables with 10k rows.', 'coding');
+      const withContext = analyzePrompt(
+        'My team uses React. We are building a dashboard. Analyze performance bottlenecks in data tables with 10k rows.',
+        'coding'
+      );
       expect(withContext.categoryScores.context).toBeGreaterThan(noContext.categoryScores.context);
     });
 
     it('scores output format based on format keywords', () => {
       const noFormat = analyzePrompt('Explain quantum computing.', 'general');
-      const withFormat = analyzePrompt('Explain quantum computing in a table with concept, explanation, and real-world use.', 'general');
+      const withFormat = analyzePrompt(
+        'Explain quantum computing in a table with concept, explanation, and real-world use.',
+        'general'
+      );
       expect(withFormat.categoryScores.outputFormat).toBeGreaterThan(noFormat.categoryScores.outputFormat);
     });
 
     it('scores constraints based on limit and requirement keywords', () => {
       const noConstraints = analyzePrompt('Write something.', 'general');
-      const withConstraints = analyzePrompt('Write a 200-word email in casual but professional tone, avoiding technical jargon.', 'writing');
-      expect(withConstraints.categoryScores.constraints).toBeGreaterThan(noConstraints.categoryScores.constraints);
+      const withConstraints = analyzePrompt(
+        'Write a 200-word email in casual but professional tone, avoiding technical jargon.',
+        'writing'
+      );
+      expect(withConstraints.categoryScores.constraints).toBeGreaterThan(
+        noConstraints.categoryScores.constraints
+      );
     });
 
     it('scores audience based on audience and role mentions', () => {
@@ -95,37 +109,55 @@ describe('prompt analyzer', () => {
   describe('use-case-specific scoring', () => {
     it('rewards coding prompts with language and framework mentions', () => {
       const noTech = analyzePrompt('Fix this code.', 'coding');
-      const withTech = analyzePrompt('I have a TypeScript React component that is re-rendering unnecessarily. Help me identify and fix the issue.', 'coding');
+      const withTech = analyzePrompt(
+        'I have a TypeScript React component that is re-rendering unnecessarily. Help me identify and fix the issue.',
+        'coding'
+      );
       expect(withTech.overallScore).toBeGreaterThan(noTech.overallScore);
     });
 
     it('rewards writing prompts with tone and audience', () => {
       const noTone = analyzePrompt('Write something.', 'writing');
-      const withTone = analyzePrompt('Write a formal business proposal in a persuasive tone for executive stakeholders.', 'writing');
+      const withTone = analyzePrompt(
+        'Write a formal business proposal in a persuasive tone for executive stakeholders.',
+        'writing'
+      );
       expect(withTone.overallScore).toBeGreaterThan(noTone.overallScore);
     });
 
     it('rewards studying prompts with level and practice requests', () => {
       const basic = analyzePrompt('Teach me about photosynthesis.', 'studying');
-      const detailed = analyzePrompt('Explain photosynthesis for a high school student using analogies and real-world examples. Then give 3 practice questions.', 'studying');
+      const detailed = analyzePrompt(
+        'Explain photosynthesis for a high school student using analogies and real-world examples. Then give 3 practice questions.',
+        'studying'
+      );
       expect(detailed.overallScore).toBeGreaterThan(basic.overallScore);
     });
 
     it('rewards research prompts with scope and evidence language', () => {
       const vague = analyzePrompt('Compare these things.', 'research');
-      const precise = analyzePrompt('Compare machine learning approaches to traditional statistical methods. Focus on academic studies from the past 5 years. Highlight tradeoffs in accuracy, interpretability, and scalability.', 'research');
+      const precise = analyzePrompt(
+        'Compare machine learning approaches to traditional statistical methods. Focus on academic studies from the past 5 years. Highlight tradeoffs in accuracy, interpretability, and scalability.',
+        'research'
+      );
       expect(precise.overallScore).toBeGreaterThan(vague.overallScore);
     });
 
     it('rewards business prompts with objective and audience', () => {
       const vague = analyzePrompt('Help with this.', 'business');
-      const clear = analyzePrompt('Draft a CTA-driven email for sales leads explaining our new pricing tier. Target small business owners. Goal: 20% conversion. Keep it under 150 words.', 'business');
+      const clear = analyzePrompt(
+        'Draft a CTA-driven email for sales leads explaining our new pricing tier. Target small business owners. Goal: 20% conversion. Keep it under 150 words.',
+        'business'
+      );
       expect(clear.overallScore).toBeGreaterThan(vague.overallScore);
     });
 
     it('rewards image prompts with visual details and composition', () => {
       const vague = analyzePrompt('Draw a landscape.', 'imageGeneration');
-      const detailed = analyzePrompt('Create a hyperrealistic landscape photograph of a misty mountain valley at sunrise. Golden hour light, wide-angle lens, cinematic composition, cool color palette with warm highlights. Aspect ratio 16:9. Avoid people.', 'imageGeneration');
+      const detailed = analyzePrompt(
+        'Create a hyperrealistic landscape photograph of a misty mountain valley at sunrise. Golden hour light, wide-angle lens, cinematic composition, cool color palette with warm highlights. Aspect ratio 16:9. Avoid people.',
+        'imageGeneration'
+      );
       expect(detailed.overallScore).toBeGreaterThan(vague.overallScore);
     });
   });
@@ -152,7 +184,10 @@ describe('prompt analyzer', () => {
     });
 
     it('detects multiple task issues', () => {
-      const analysis = analyzePrompt('Analyze this, then explain that, and also suggest improvements.', 'general');
+      const analysis = analyzePrompt(
+        'Analyze this, then explain that, and also suggest improvements.',
+        'general'
+      );
       expect(analysis.issues.some((issue) => issue.id === 'multiple-tasks')).toBe(true);
     });
 
@@ -262,7 +297,10 @@ describe('prompt analyzer', () => {
     });
 
     it('upgrades a clear TUM course question without using the template', () => {
-      const analysis = analyzePrompt('Explica me as principais diferenças entre Aeroespacial e Mechatronica na TUM sff', 'research');
+      const analysis = analyzePrompt(
+        'Explica me as principais diferenças entre Aeroespacial e Mechatronica na TUM sff',
+        'research'
+      );
 
       expect(analysis.rewrittenPrompt).toContain('Engenharia Aeroespacial e Engenharia Mecatrónica na TUM');
       expect(analysis.rewrittenPrompt).toContain('planos curriculares');
@@ -272,6 +310,23 @@ describe('prompt analyzer', () => {
   });
 
   describe('original test cases', () => {
+    it('keeps short Portuguese name requests in Portuguese', () => {
+      const analysis = analyzePrompt('Diga-me mais nomes brincalhões.', 'general');
+
+      expect(analysis.rewrittenPrompt).not.toContain('Respond with');
+      expect(analysis.rewrittenPrompt).not.toContain('specific and helpful');
+    });
+
+    it('scores the enhanced names prompt above the rough original', () => {
+      const original = analyzePrompt('diz me mais nomes mais brincalhoes', 'general');
+      const enhanced = analyzePrompt(
+        'Com base nos nomes sugeridos anteriormente, apresenta mais opções com um tom brincalhão e criativo. Evita nomes demasiado sérios ou genéricos e acrescenta uma breve explicação para cada sugestão.',
+        'general'
+      );
+
+      expect(enhanced.overallScore).toBeGreaterThan(original.overallScore);
+    });
+
     it('cleans common Portuguese shorthand in the rules fallback', () => {
       const analysis = analyzePrompt(
         'Quero um relatorio de 10 paginas sobre smallville tp clean, n quero AI slop e nng deve ver repetições. Tem que comecar bem e terminar com um cta.',

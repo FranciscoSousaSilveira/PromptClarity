@@ -13,6 +13,7 @@ import { SuggestionList } from '../components/SuggestionList';
 import { TemplateGallery } from '../components/TemplateGallery';
 import { UseCaseSelector } from '../components/UseCaseSelector';
 import { USE_CASE_OPTIONS, type PromptAnalysis, type PromptTemplate, type UseCase } from '../types/prompt';
+import type { PerformanceMode } from '../config/product';
 
 type CopyFormat = 'improved' | 'json' | 'analysis';
 
@@ -26,20 +27,22 @@ export default function HomePage() {
   const [copiedFormat, setCopiedFormat] = useState<CopyFormat | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const [performanceMode, setPerformanceMode] = useState<PerformanceMode>('fast');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState('Ready');
+  const analysisAbortRef = useRef<AbortController | null>(null);
   const copyMenuRef = useRef<HTMLDivElement>(null);
   const latestPromptRef = useRef(prompt);
   latestPromptRef.current = prompt;
 
   const characterCount = useMemo(() => prompt.length, [prompt]);
-  const shortPromptWarning = prompt.trim().length > 0 && prompt.trim().length < 18
-    ? 'This is very short. The analysis will work, but you may want more context for a better rewrite.'
-    : null;
+  const shortPromptWarning =
+    prompt.trim().length > 0 && prompt.trim().length < 18
+      ? 'This is very short. The analysis will work, but you may want more context for a better rewrite.'
+      : null;
   const currentPrompt = prompt.trim();
   const analysisIsCurrent = Boolean(
-    analysis &&
-    analyzedPrompt === currentPrompt &&
-    analyzedUseCase === useCase &&
-    currentPrompt.length > 0
+    analysis && analyzedPrompt === currentPrompt && analyzedUseCase === useCase && currentPrompt.length > 0
   );
 
   useEffect(() => {
@@ -84,11 +87,12 @@ export default function HomePage() {
     if (prompt.trim().length === 0) return [];
     const lower = prompt.toLowerCase();
     const hints: string[] = [];
-    
+
     if (!/[.!?]/.test(prompt)) hints.push('Consider a clear ending');
     if (prompt.split(' ').length < 5) hints.push('Add more context');
-    if (!/\b(what|how|why|create|write|generate|explain|compare)\b/.test(lower)) hints.push('State the action clearly');
-    
+    if (!/\b(what|how|why|create|write|generate|explain|compare)\b/.test(lower))
+      hints.push('State the action clearly');
+
     return hints;
   }, [prompt]);
 
@@ -101,20 +105,39 @@ export default function HomePage() {
     }
 
     setError(null);
+    analysisAbortRef.current?.abort();
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
+    setIsAnalyzing(true);
+    setAnalysisStage('Reviewing structure');
     const nextAnalysis = analyzePrompt(prompt, useCase);
     setAnalysis(nextAnalysis);
     setAnalyzedPrompt(trimmed);
     setAnalyzedUseCase(useCase);
 
-    const modelResult = await rewritePromptWithModel({
-      prompt: trimmed,
-      useCase,
-      fallbackPrompt: nextAnalysis.rewrittenPrompt
-    }, { endpoint: '/api/rewrite' });
+    try {
+      setAnalysisStage(performanceMode === 'fast' ? 'Applying fast local rewrite' : 'Running local AI');
+      const modelResult = await rewritePromptWithModel(
+        {
+          prompt: trimmed,
+          useCase,
+          fallbackPrompt: nextAnalysis.rewrittenPrompt,
+          preferSpeed: performanceMode === 'fast',
+          performanceMode
+        },
+        { endpoint: '/api/rewrite', signal: controller.signal }
+      );
 
-    // Do not replace a newer analysis if the user edited the prompt meanwhile.
-    if (latestPromptRef.current.trim() === trimmed) {
-      setAnalysis({ ...nextAnalysis, rewrittenPrompt: modelResult.rewrittenPrompt });
+      setAnalysisStage('Validating result');
+      if (latestPromptRef.current.trim() === trimmed && !controller.signal.aborted) {
+        setAnalysis({ ...nextAnalysis, rewrittenPrompt: modelResult.rewrittenPrompt });
+      }
+    } catch (caught) {
+      if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'Analysis failed.');
+    } finally {
+      if (analysisAbortRef.current === controller) analysisAbortRef.current = null;
+      setIsAnalyzing(false);
+      setAnalysisStage('Ready');
     }
   }
 
@@ -130,19 +153,24 @@ export default function HomePage() {
         text = analysis.rewrittenPrompt;
         break;
       case 'json':
-        text = JSON.stringify({
-          original: analyzedPrompt,
-          useCase,
-          score: analysis.overallScore,
-          label: analysis.label,
-          improved: analysis.rewrittenPrompt,
-          issues: analysis.issues.map((i) => ({ title: i.title, suggestion: i.suggestion }))
-        }, null, 2);
+        text = JSON.stringify(
+          {
+            original: analyzedPrompt,
+            useCase,
+            score: analysis.overallScore,
+            label: analysis.label,
+            improved: analysis.rewrittenPrompt,
+            issues: analysis.issues.map((i) => ({ title: i.title, suggestion: i.suggestion }))
+          },
+          null,
+          2
+        );
         break;
       case 'analysis':
-        const issuesList = analysis.issues.length > 0
-          ? analysis.issues.map((i) => `- ${i.title}: ${i.suggestion}`).join('\n')
-          : 'No major issues detected.';
+        const issuesList =
+          analysis.issues.length > 0
+            ? analysis.issues.map((i) => `- ${i.title}: ${i.suggestion}`).join('\n')
+            : 'No major issues detected.';
         text = `Prompt Analysis Report\n=====================\n\nOriginal: ${analyzedPrompt}\nScore: ${analysis.overallScore}/100 (${analysis.label})\nUse case: ${useCase}\n\nIssues:\n${issuesList}\n\nImproved prompt:\n${analysis.rewrittenPrompt}`;
         break;
     }
@@ -206,7 +234,8 @@ export default function HomePage() {
           <p className="eyebrow">Public MVP demo</p>
           <h1>Prompt Grammarly</h1>
           <p className="hero-description">
-            Analyze a rough prompt, see what is missing, and rewrite it into a stronger version before you send it to an LLM.
+            Analyze a rough prompt, see what is missing, and rewrite it into a stronger version before you
+            send it to an LLM.
           </p>
           <div className="hero-badges">
             <span>Local AI rewriting</span>
@@ -226,6 +255,8 @@ export default function HomePage() {
             characterCount={characterCount}
             error={error}
             warning={shortPromptWarning}
+            isAnalyzing={isAnalyzing}
+            onCancel={() => analysisAbortRef.current?.abort()}
           />
 
           {quickHints.length > 0 && (
@@ -247,8 +278,19 @@ export default function HomePage() {
               </div>
             </div>
             <UseCaseSelector value={useCase} options={USE_CASE_OPTIONS} onChange={setUseCase} />
+            <label className="performance-control">
+              <span>Performance mode</span>
+              <select
+                value={performanceMode}
+                onChange={(event) => setPerformanceMode(event.target.value as PerformanceMode)}
+              >
+                <option value="fast">Fast</option>
+                <option value="balanced">Balanced</option>
+                <option value="quality">Quality</option>
+              </select>
+              <small>{analysisStage}</small>
+            </label>
           </section>
-
         </div>
 
         <div className="results-column">
@@ -329,7 +371,12 @@ export default function HomePage() {
             </article>
             <article className="comparison-card after-card">
               <span className="comparison-label">Improved Version</span>
-              <pre>{analysis.rewrittenPrompt || 'Click "Analyze" to generate the improved prompt.'}</pre>
+              <textarea
+                className="improved-editable"
+                aria-label="Editable enhanced prompt"
+                value={analysis.rewrittenPrompt || ''}
+                onChange={(event) => setAnalysis({ ...analysis, rewrittenPrompt: event.target.value })}
+              />
             </article>
           </div>
           <p className={`copy-feedback ${copyError ? 'is-error' : ''}`} role="status" aria-live="polite">

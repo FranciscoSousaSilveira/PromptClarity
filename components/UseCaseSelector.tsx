@@ -13,11 +13,12 @@ export function UseCaseSelector({ value, options, onChange }: UseCaseSelectorPro
   const groupRef = useRef<HTMLDivElement>(null);
 
   function selectWithKeyboard(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
-    const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown'
-      ? 1
-      : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-        ? -1
-        : 0;
+    const direction =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? 1
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? -1
+          : 0;
 
     if (direction === 0) return;
     event.preventDefault();

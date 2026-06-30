@@ -18,6 +18,8 @@ export interface PopupContent {
     rewriteStatus?: 'loading' | 'ready' | 'fallback';
     modelName?: string;
     modelError?: string;
+    sourceDetail?: 'local-ai' | 'instant-rules' | 'safety-fallback';
+    validationScore?: number;
 }
 /**
  * Main entry point for the VS Code popup.

@@ -1,0 +1,11 @@
+.next
+.agents
+.github/agents
+.github/prompts
+node_modules
+coverage
+**/dist
+**/out
+**/release
+package-lock.json
+*.map

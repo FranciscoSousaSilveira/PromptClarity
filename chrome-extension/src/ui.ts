@@ -1,5 +1,8 @@
 import type { UseCase } from '../../types/prompt';
 import type { PopupContent } from '../../lib/promptIntegration';
+import type { PerformanceMode } from '../../config/product';
+
+declare const __APP_VERSION__: string;
 
 const USE_CASES: { value: UseCase; label: string }[] = [
   { value: 'general', label: 'General' },
@@ -20,8 +23,10 @@ export class PromptEnhancerUI {
   // Callbacks
   private onUseCaseChange: (useCase: UseCase) => void = () => {};
   private onAutoEnhanceChange: (enabled: boolean) => void = () => {};
+  private onPerformanceModeChange: (mode: PerformanceMode) => void = () => {};
   private onCopy: (text: string) => void = () => {};
   private onInsert: (text: string) => void = () => {};
+  private onUndo: () => void = () => {};
   private onClose: () => void = () => {};
 
   constructor() {}
@@ -31,15 +36,19 @@ export class PromptEnhancerUI {
     callbacks: {
       onUseCaseChange: (useCase: UseCase) => void;
       onAutoEnhanceChange: (enabled: boolean) => void;
+      onPerformanceModeChange: (mode: PerformanceMode) => void;
       onCopy: (text: string) => void;
       onInsert: (text: string) => void;
+      onUndo: () => void;
       onClose: () => void;
     }
   ) {
     this.onUseCaseChange = callbacks.onUseCaseChange;
     this.onAutoEnhanceChange = callbacks.onAutoEnhanceChange;
+    this.onPerformanceModeChange = callbacks.onPerformanceModeChange;
     this.onCopy = callbacks.onCopy;
     this.onInsert = callbacks.onInsert;
+    this.onUndo = callbacks.onUndo;
     this.onClose = callbacks.onClose;
 
     // Check if container already exists
@@ -124,12 +133,11 @@ export class PromptEnhancerUI {
     // Close popup on click outside
     document.addEventListener('mousedown', (e) => {
       if (!this.popup || !this.bubble) return;
-      
-      const target = e.target as HTMLElement;
+
       // Check if target is inside our Shadow DOM container
       const path = e.composedPath();
       const isInsideShadow = path.includes(this.container!);
-      
+
       if (!isInsideShadow && this.popup.classList.contains('visible')) {
         this.hidePopup();
       }
@@ -174,10 +182,16 @@ export class PromptEnhancerUI {
     }
   }
 
-  public showPopup(rect: DOMRect, content: PopupContent, currentUseCase: UseCase, autoEnhanceEnabled: boolean) {
+  public showPopup(
+    rect: DOMRect,
+    content: PopupContent,
+    currentUseCase: UseCase,
+    autoEnhanceEnabled: boolean,
+    performanceMode: PerformanceMode
+  ) {
     if (!this.popup || !this.bubble) return;
 
-    this.renderPopupContent(content, currentUseCase, autoEnhanceEnabled);
+    this.renderPopupContent(content, currentUseCase, autoEnhanceEnabled, performanceMode);
 
     this.positionPopup();
     this.popup.classList.add('visible');
@@ -236,19 +250,27 @@ export class PromptEnhancerUI {
     return this.popup?.classList.contains('visible') || false;
   }
 
-  private renderPopupContent(content: PopupContent, currentUseCase: UseCase, autoEnhanceEnabled: boolean) {
+  private renderPopupContent(
+    content: PopupContent,
+    currentUseCase: UseCase,
+    autoEnhanceEnabled: boolean,
+    performanceMode: PerformanceMode
+  ) {
     if (!this.popup) return;
 
     // Header HTML
-    const subtitle = content.rewriteStatus === 'loading'
-      ? 'Improving with local AI…'
-      : content.rewriteSource === 'model'
-        ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
-        : content.rewriteStatus === 'fallback'
-          ? 'Local AI offline · rules fallback used'
-          : 'Draft reviewed locally';
+    const subtitle =
+      content.rewriteStatus === 'loading'
+        ? 'Improving with local AI…'
+        : content.sourceDetail === 'local-ai'
+          ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
+          : content.rewriteStatus === 'fallback'
+            ? content.modelError
+              ? 'Local AI offline · rules fallback used'
+              : 'Improved instantly · local safety rules'
+            : 'Draft reviewed locally';
 
-    let headerHTML = `
+    const headerHTML = `
       <div class="popup-header">
         <div class="popup-title-area">
           <div class="popup-title-logo">
@@ -257,7 +279,7 @@ export class PromptEnhancerUI {
             </svg>
           </div>
           <div>
-            <div class="popup-title">Prompt Grammarly</div>
+            <div class="popup-title">Prompt Grammarly <span class="popup-version">v${this.escapeHtml(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')}</span></div>
             <div class="popup-subtitle">${subtitle}</div>
           </div>
         </div>
@@ -328,7 +350,7 @@ export class PromptEnhancerUI {
             <div class="section-label">Force Analysis as:</div>
             <div class="use-case-select-wrapper">
               <select class="use-case-select" id="pe-use-case-select">
-                ${USE_CASES.map(uc => `<option value="${uc.value}" ${uc.value === currentUseCase ? 'selected' : ''}>${uc.label}</option>`).join('')}
+                ${USE_CASES.map((uc) => `<option value="${uc.value}" ${uc.value === currentUseCase ? 'selected' : ''}>${uc.label}</option>`).join('')}
               </select>
             </div>
           </div>
@@ -349,75 +371,107 @@ export class PromptEnhancerUI {
     const offset = 145 - (145 * score) / 100;
 
     // Render Critique Items
-    const issues = analysis.issues.slice(0, 3).map(issue => `
+    const issues = analysis.issues
+      .slice(0, 3)
+      .map(
+        (issue) => `
       <div class="critique-item issue">
         <span class="critique-icon">⚠️</span>
         <span class="critique-text"><strong>${this.escapeHtml(issue.title)}:</strong> ${this.escapeHtml(issue.suggestion)}</span>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
 
-    const strengths = analysis.strengths.slice(0, 2).map(strength => `
+    const strengths = analysis.strengths
+      .slice(0, 2)
+      .map(
+        (strength) => `
       <div class="critique-item strength">
         <span class="critique-icon">✨</span>
         <span class="critique-text">${this.escapeHtml(strength)}</span>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
 
     const bodyHTML = `
       <div class="popup-body">
-        <!-- Use Case Selector -->
-        <div class="use-case-section">
-          <div class="section-label">Use Case</div>
-          <div class="use-case-select-wrapper">
-            <select class="use-case-select" id="pe-use-case-select">
-              ${USE_CASES.map(uc => `<option value="${uc.value}" ${uc.value === currentUseCase ? 'selected' : ''}>${uc.label}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-        ${this.renderAutoEnhanceControl(autoEnhanceEnabled)}
-
-        <!-- Score Ring Card -->
-        <div class="score-card">
-          <div class="score-visual">
-            <svg class="score-circle-svg">
-              <defs>
-                <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#34d399" />
-                  <stop offset="100%" stop-color="#60a5fa" />
-                </linearGradient>
-              </defs>
-              <circle class="score-circle-bg" cx="26" cy="26" r="23" />
-              <circle class="score-circle-fill" cx="26" cy="26" r="23" style="stroke-dashoffset: ${offset};" />
-            </svg>
-            <div class="score-value">${score}</div>
-          </div>
-          <div class="score-details">
-            <div class="score-label ${labelLower}">${label} Quality</div>
-            <div class="score-summary">${this.escapeHtml(analysis.summary || 'Analyze detailed prompt structure.')}</div>
-          </div>
-        </div>
-
-        <!-- Issues and Strengths Critique -->
-        <div class="critique-section">
-          <div class="section-label">Suggestions & Strengths</div>
-          <div class="critique-list">
-            ${issues}
-            ${strengths}
-            ${analysis.issues.length === 0 && analysis.strengths.length === 0 ? '<div class="critique-item strength">Looking excellent! Ready to use.</div>' : ''}
-          </div>
-        </div>
-
-        <!-- Improved Text Box -->
-        <div class="improved-box-section">
+        <!-- Improved prompt is the primary result -->
+        <div class="improved-box-section improved-box-primary">
           <div class="section-label">Enhanced Prompt</div>
           <div class="improved-container">
-            <textarea class="improved-textarea" id="pe-improved-textarea" readonly>${this.escapeHtml(improvedPrompt || '')}</textarea>
+            <textarea class="improved-textarea" id="pe-improved-textarea" aria-label="Editable enhanced prompt">${this.escapeHtml(improvedPrompt || '')}</textarea>
           </div>
         </div>
+
+        <!-- Review stays collapsed until requested -->
+        <details class="prompt-review-details">
+          <summary>
+            <span class="review-summary-copy">
+              <span class="review-closed-label">View prompt review</span>
+              <span class="review-open-label">Hide prompt review</span>
+            </span>
+            <svg class="review-chevron" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M6 8l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </summary>
+          <div class="prompt-review-content">
+            <div class="score-card">
+              <div class="score-visual">
+                <svg class="score-circle-svg">
+                  <defs>
+                    <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#34d399" />
+                      <stop offset="100%" stop-color="#60a5fa" />
+                    </linearGradient>
+                  </defs>
+                  <circle class="score-circle-bg" cx="26" cy="26" r="23" />
+                  <circle class="score-circle-fill" cx="26" cy="26" r="23" style="stroke-dashoffset: ${offset};" />
+                </svg>
+                <div class="score-value">${score}</div>
+              </div>
+              <div class="score-details">
+                <div class="score-label ${labelLower}">${label} Quality</div>
+                <div class="score-summary">${this.escapeHtml(analysis.summary || 'Analyze detailed prompt structure.')}</div>
+              </div>
+            </div>
+
+            <div class="critique-section">
+              <div class="section-label">Suggestions & Strengths</div>
+              <div class="critique-list">
+                ${issues}
+                ${strengths}
+                ${analysis.issues.length === 0 && analysis.strengths.length === 0 ? '<div class="critique-item strength">Looking excellent! Ready to use.</div>' : ''}
+              </div>
+            </div>
+
+            <div class="use-case-section">
+              <div class="section-label">Use Case</div>
+              <div class="use-case-select-wrapper">
+                <select class="use-case-select" id="pe-use-case-select">
+                  ${USE_CASES.map((uc) => `<option value="${uc.value}" ${uc.value === currentUseCase ? 'selected' : ''}>${uc.label}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="use-case-section">
+              <div class="section-label">Performance</div>
+              <div class="use-case-select-wrapper">
+                <select class="use-case-select" id="pe-performance-mode" aria-label="Performance mode">
+                  <option value="fast" ${performanceMode === 'fast' ? 'selected' : ''}>Fast</option>
+                  <option value="balanced" ${performanceMode === 'balanced' ? 'selected' : ''}>Balanced</option>
+                  <option value="quality" ${performanceMode === 'quality' ? 'selected' : ''}>Quality</option>
+                </select>
+              </div>
+            </div>
+            ${this.renderAutoEnhanceControl(autoEnhanceEnabled)}
+          </div>
+        </details>
       </div>
 
       <!-- Action Buttons -->
       <div class="popup-footer">
+        <button class="footer-btn btn-secondary" id="pe-undo-btn" type="button" hidden>Undo</button>
         <button class="footer-btn btn-secondary" id="pe-copy-btn">
           <svg fill="none" viewBox="0 0 24 24">
             <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m-7 8H8" stroke="round" stroke-linejoin="round"/>
@@ -467,15 +521,20 @@ export class PromptEnhancerUI {
       this.onAutoEnhanceChange(autoEnhance.checked);
     });
 
+    const performanceMode = this.popup.querySelector('#pe-performance-mode') as HTMLSelectElement | null;
+    performanceMode?.addEventListener('change', () => {
+      this.onPerformanceModeChange(performanceMode.value as PerformanceMode);
+    });
+
     // Copy Button
     const copyBtn = this.popup.querySelector('#pe-copy-btn') as HTMLButtonElement | null;
     copyBtn?.addEventListener('click', () => {
       const textarea = this.popup?.querySelector('#pe-improved-textarea') as HTMLTextAreaElement | null;
       const textToCopy = textarea ? textarea.value : content.improvedPrompt || '';
-      
+
       if (textToCopy) {
         this.onCopy(textToCopy);
-        
+
         // Show success animation
         if (copyBtn) {
           const originalHTML = copyBtn.innerHTML;
@@ -498,13 +557,19 @@ export class PromptEnhancerUI {
 
     // Insert Button
     const insertBtn = this.popup.querySelector('#pe-insert-btn') as HTMLButtonElement | null;
+    const undoBtn = this.popup.querySelector('#pe-undo-btn') as HTMLButtonElement | null;
+    undoBtn?.addEventListener('click', () => {
+      this.onUndo();
+      undoBtn.hidden = true;
+    });
     insertBtn?.addEventListener('click', () => {
       const textarea = this.popup?.querySelector('#pe-improved-textarea') as HTMLTextAreaElement | null;
       const textToInsert = textarea ? textarea.value : content.improvedPrompt || '';
-      
+
       if (textToInsert) {
         this.onInsert(textToInsert);
-        
+        if (undoBtn) undoBtn.hidden = false;
+
         // Show success animation
         if (insertBtn) {
           const originalHTML = insertBtn.innerHTML;
@@ -518,9 +583,7 @@ export class PromptEnhancerUI {
           setTimeout(() => {
             insertBtn.innerHTML = originalHTML;
             insertBtn.style.background = '';
-            if (insertBtn.isConnected && this.popup?.classList.contains('visible')) {
-              this.hidePopup();
-            }
+            insertBtn.textContent = 'Insert Prompt';
           }, 1000);
         }
       }
@@ -547,12 +610,16 @@ export class PromptEnhancerUI {
   }
 
   private escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, (character) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    })[character] || character);
+    return value.replace(
+      /[&<>"']/g,
+      (character) =>
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        })[character] || character
+    );
   }
 }

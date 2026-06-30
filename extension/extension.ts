@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { randomBytes } from 'crypto';
 import { analyzeForPopup, shouldShowHint } from '../lib/promptIntegration';
 import { rewritePromptWithModel } from '../lib/modelPromptRewriter';
+import type { PerformanceMode } from '../config/product';
 
 let popupPanel: vscode.WebviewPanel | undefined;
 let lastAnalyzedText: string = '';
@@ -17,24 +18,21 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('Prompt Enhancement extension activated');
 
   // Command: Manual popup toggle
-  const togglePopup = vscode.commands.registerCommand(
-    'prompt-enhancement.togglePopup',
-    async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        vscode.window.showInformationMessage('No active editor');
-        return;
-      }
-
-      const selectedText = editor.document.getText(editor.selection);
-      if (!selectedText) {
-        vscode.window.showInformationMessage('Please select text to enhance');
-        return;
-      }
-
-      await showPopup(selectedText, context);
+  const togglePopup = vscode.commands.registerCommand('prompt-enhancement.togglePopup', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      vscode.window.showInformationMessage('No active editor');
+      return;
     }
-  );
+
+    const selectedText = editor.document.getText(editor.selection);
+    if (!selectedText) {
+      vscode.window.showInformationMessage('Please select text to enhance');
+      return;
+    }
+
+    await showPopup(selectedText, context);
+  });
 
   // Command: Analyze and copy to clipboard
   const analyzeAndCopy = vscode.commands.registerCommand(
@@ -71,10 +69,15 @@ async function analyzeWithLocalModel(text: string) {
   const result = analyzeForPopup({ text, useCase: 'general' });
   if (!result.analysis || !result.improvedPrompt) return result;
 
+  const configuration = vscode.workspace.getConfiguration('promptGrammarly');
+  const performanceMode = configuration.get<PerformanceMode>('performanceMode', 'fast');
   const modelResult = await rewritePromptWithModel({
     prompt: text,
     useCase: 'general',
-    fallbackPrompt: result.improvedPrompt
+    fallbackPrompt: result.improvedPrompt,
+    preferSpeed: performanceMode === 'fast',
+    performanceMode,
+    keepModelsWarm: configuration.get<boolean>('keepModelsWarm', true)
   });
 
   return {
@@ -173,7 +176,7 @@ function getRelevantEditorText(event: vscode.TextDocumentChangeEvent): string {
 
 function debounceAnalysis(text: string) {
   clearTimeout(debounceTimer);
-  
+
   debounceTimer = setTimeout(() => {
     if (shouldShowHint(text)) {
       lastAnalyzedText = text;
@@ -207,7 +210,7 @@ function getWebviewContent(
   original: string,
   improved: string,
   confidence: number,
-  webview: vscode.Webview
+  _webview: vscode.Webview
 ): string {
   const nonce = randomBytes(16).toString('base64');
 

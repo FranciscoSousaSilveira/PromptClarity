@@ -33,7 +33,9 @@ export function IssueList({ issues }: IssueListProps) {
           ))}
           {additionalIssues.length > 0 && (
             <details className="more-issues">
-              <summary>Show {additionalIssues.length} more suggestion{additionalIssues.length === 1 ? '' : 's'}</summary>
+              <summary>
+                Show {additionalIssues.length} more suggestion{additionalIssues.length === 1 ? '' : 's'}
+              </summary>
               <div className="more-issues-list">
                 {additionalIssues.map((issue) => (
                   <article key={issue.id} className={`issue-card severity-${issue.severity}`}>

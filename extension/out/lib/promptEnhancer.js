@@ -18,7 +18,6 @@ function enhancePromptQuality(prompt, categoryScores) {
     return enhanced;
 }
 function applyImprovementForCategory(prompt, category) {
-    const lower = prompt.toLowerCase();
     switch (category) {
         case 'clarity':
             return improveClarity(prompt);
@@ -65,7 +64,7 @@ function improveClarity(prompt) {
         '\\bmelhor\\b': 'excelente',
         '\\bbom\\b': 'excelente',
         '\\btalvez\\b': 'possivelmente',
-        '\\bprovavelmente\\b': 'muito provavelmente',
+        '\\bprovavelmente\\b': 'muito provavelmente'
     };
     let improved = prompt;
     for (const [vague, specific] of Object.entries(vagueReplacements)) {
@@ -79,12 +78,29 @@ function improveClarity(prompt) {
 function improveContext(prompt) {
     // Check if context is missing (prompt doesn't mention background/situation)
     const contextIndicators = [
-        'context', 'background', 'situation', 'scenario', 'project', 'currently',
-        'working', 'building', 'need', 'trying', 'reason', 'because',
-        'contexto', 'situação', 'projeto', 'atualmente', 'trabalhando',
-        'construindo', 'preciso', 'razão', 'porquê'
+        'context',
+        'background',
+        'situation',
+        'scenario',
+        'project',
+        'currently',
+        'working',
+        'building',
+        'need',
+        'trying',
+        'reason',
+        'because',
+        'contexto',
+        'situação',
+        'projeto',
+        'atualmente',
+        'trabalhando',
+        'construindo',
+        'preciso',
+        'razão',
+        'porquê'
     ];
-    const hasContext = contextIndicators.some(indicator => new RegExp(`\\b${indicator}\\b`, 'i').test(prompt));
+    const hasContext = contextIndicators.some((indicator) => new RegExp(`\\b${indicator}\\b`, 'i').test(prompt));
     // If no context and prompt is short, add context request
     if (!hasContext && prompt.length < 100) {
         return prompt + '. Please consider what context or background might be relevant.';
@@ -97,12 +113,34 @@ function improveContext(prompt) {
 function improveGoal(prompt) {
     // Check if has clear action verb at start or early
     const actionVerbs = [
-        'create', 'write', 'build', 'analyze', 'explain', 'describe', 'generate',
-        'develop', 'design', 'implement', 'review', 'summarize', 'fix',
-        'criar', 'escrever', 'construir', 'analisar', 'explicar', 'descrever',
-        'gerar', 'desenvolver', 'projetar', 'implementar', 'revisar', 'resumir', 'corrigir'
+        'create',
+        'write',
+        'build',
+        'analyze',
+        'explain',
+        'describe',
+        'generate',
+        'develop',
+        'design',
+        'implement',
+        'review',
+        'summarize',
+        'fix',
+        'criar',
+        'escrever',
+        'construir',
+        'analisar',
+        'explicar',
+        'descrever',
+        'gerar',
+        'desenvolver',
+        'projetar',
+        'implementar',
+        'revisar',
+        'resumir',
+        'corrigir'
     ];
-    const startsWithAction = actionVerbs.some(verb => new RegExp(`^\\s*(please\\s+)?${verb}`, 'i').test(prompt));
+    const startsWithAction = actionVerbs.some((verb) => new RegExp(`^\\s*(please\\s+)?${verb}`, 'i').test(prompt));
     // If doesn't start with clear action, prepend one
     if (!startsWithAction && !prompt.match(/^\s*(can you|could you|please|I need|preciso|pode|poderia)/i)) {
         // Infer what to do based on content
@@ -130,10 +168,23 @@ function improveGoal(prompt) {
 function improveConstraints(prompt) {
     // Check if has constraint keywords
     const constraintKeywords = [
-        'must', 'should', 'cannot', 'without', 'limited', 'avoid', 'only', 'except',
-        'deve', 'não deve', 'evitar', 'apenas', 'exceto', 'limitado', 'sem'
+        'must',
+        'should',
+        'cannot',
+        'without',
+        'limited',
+        'avoid',
+        'only',
+        'except',
+        'deve',
+        'não deve',
+        'evitar',
+        'apenas',
+        'exceto',
+        'limitado',
+        'sem'
     ];
-    const hasConstraints = constraintKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
+    const hasConstraints = constraintKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
     // If no constraints mentioned and prompt is vague, suggest adding them
     if (!hasConstraints && prompt.length < 150) {
         // This improves structure by reminding user to add constraints
@@ -147,12 +198,33 @@ function improveConstraints(prompt) {
 function improveOutputFormat(prompt) {
     // Check if output format is specified
     const formatKeywords = [
-        'format', 'output', 'return', 'result', 'as', 'structure', 'json', 'table',
-        'list', 'paragraph', 'bullets', 'code', 'steps', 'markdown',
-        'formato', 'saída', 'retorne', 'resultado', 'estrutura', 'tabela',
-        'lista', 'parágrafo', 'etapas', 'markdown', 'json'
+        'format',
+        'output',
+        'return',
+        'result',
+        'as',
+        'structure',
+        'json',
+        'table',
+        'list',
+        'paragraph',
+        'bullets',
+        'code',
+        'steps',
+        'markdown',
+        'formato',
+        'saída',
+        'retorne',
+        'resultado',
+        'estrutura',
+        'tabela',
+        'lista',
+        'parágrafo',
+        'etapas',
+        'markdown',
+        'json'
     ];
-    const hasFormat = formatKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
+    const hasFormat = formatKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
     // If no format specified, add reminder
     if (!hasFormat) {
         return prompt + '. Please specify the desired output format (e.g., code, JSON, steps, summary).';
@@ -165,10 +237,18 @@ function improveOutputFormat(prompt) {
 function improveExamples(prompt) {
     // Check if prompt mentions examples
     const exampleKeywords = [
-        'example', 'like', 'such as', 'for instance', 'e.g.', 'instance',
-        'exemplo', 'como', 'por exemplo', 'instância'
+        'example',
+        'like',
+        'such as',
+        'for instance',
+        'e.g.',
+        'instance',
+        'exemplo',
+        'como',
+        'por exemplo',
+        'instância'
     ];
-    const hasExamples = exampleKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
+    const hasExamples = exampleKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
     // If no examples and prompt seems to need clarity
     if (!hasExamples && prompt.length < 80) {
         return prompt + '. Please provide example(s) to clarify.';
@@ -181,12 +261,29 @@ function improveExamples(prompt) {
 function improveAudience(prompt) {
     // Check if mentions intended audience/level
     const audienceKeywords = [
-        'beginner', 'intermediate', 'advanced', 'expert', 'junior', 'senior',
-        'level', 'audience', 'for', 'intended', 'kids', 'professionals',
-        'iniciante', 'intermediário', 'avançado', 'especialista', 'nível',
-        'público', 'para', 'profissionais', 'técnico'
+        'beginner',
+        'intermediate',
+        'advanced',
+        'expert',
+        'junior',
+        'senior',
+        'level',
+        'audience',
+        'for',
+        'intended',
+        'kids',
+        'professionals',
+        'iniciante',
+        'intermediário',
+        'avançado',
+        'especialista',
+        'nível',
+        'público',
+        'para',
+        'profissionais',
+        'técnico'
     ];
-    const hasAudience = audienceKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
+    const hasAudience = audienceKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
     // If no audience mentioned, it's harder to judge quality
     if (!hasAudience && prompt.length < 120) {
         return prompt + ' (for a general audience at an intermediate level)';
@@ -199,12 +296,30 @@ function improveAudience(prompt) {
 function improveSuccessCriteria(prompt) {
     // Check if mentions what success looks like
     const successKeywords = [
-        'success', 'criteria', 'should', 'must', 'ensure', 'verify', 'check',
-        'correct', 'valid', 'working', 'meets', 'satisfies', 'achieves',
-        'sucesso', 'critério', 'deve', 'verifica', 'válido', 'funciona',
-        'satisfaz', 'atinge', 'garante'
+        'success',
+        'criteria',
+        'should',
+        'must',
+        'ensure',
+        'verify',
+        'check',
+        'correct',
+        'valid',
+        'working',
+        'meets',
+        'satisfies',
+        'achieves',
+        'sucesso',
+        'critério',
+        'deve',
+        'verifica',
+        'válido',
+        'funciona',
+        'satisfaz',
+        'atinge',
+        'garante'
     ];
-    const hasSuccessCriteria = successKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
+    const hasSuccessCriteria = successKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
     // If vague about what good looks like
     if (!hasSuccessCriteria && prompt.length < 350) {
         return prompt + ' How will we know this is successful?';

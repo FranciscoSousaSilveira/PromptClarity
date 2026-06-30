@@ -1,138 +1,151 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Prompt Enhancer Extension Test Bench</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #0f172a;
-      color: #f8fafc;
-      padding: 40px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    h1 {
-      color: #6366f1;
-      font-size: 2.2rem;
-      margin-bottom: 8px;
-    }
-    p {
-      color: #94a3b8;
-      margin-bottom: 24px;
-      line-height: 1.6;
-    }
-    .card {
-      background-color: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    }
-    .form-group {
-      margin-bottom: 20px;
-      position: relative;
-    }
-    label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #cbd5e1;
-    }
-    textarea, input[type="text"] {
-      width: 100%;
-      background-color: #0f172a;
-      border: 1px solid #475569;
-      border-radius: 8px;
-      color: #f8fafc;
-      padding: 12px;
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.15s ease-in-out;
-      box-sizing: border-box;
-    }
-    textarea:focus, input[type="text"]:focus {
-      border-color: #6366f1;
-    }
-    .contenteditable-box {
-      width: 100%;
-      min-height: 120px;
-      background-color: #0f172a;
-      border: 1px solid #475569;
-      border-radius: 8px;
-      color: #f8fafc;
-      padding: 12px;
-      font-size: 1rem;
-      outline: none;
-      box-sizing: border-box;
-    }
-    .contenteditable-box:focus {
-      border-color: #6366f1;
-    }
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      background-color: #334155;
-      color: #cbd5e1;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      margin-top: 8px;
-    }
-    code {
-      background-color: #0f172a;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-      color: #e2e8f0;
-    }
-  </style>
-</head>
-<body>
-  <h1>Prompt Enhancer Test Bench</h1>
-  <p>
-    Use this page to test the loaded unpacked Chrome Extension. To test:
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt Enhancer Extension Test Bench</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+        padding: 40px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      h1 {
+        color: #6366f1;
+        font-size: 2.2rem;
+        margin-bottom: 8px;
+      }
+      p {
+        color: #94a3b8;
+        margin-bottom: 24px;
+        line-height: 1.6;
+      }
+      .card {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      }
+      .form-group {
+        margin-bottom: 20px;
+        position: relative;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #cbd5e1;
+      }
+      textarea,
+      input[type='text'] {
+        width: 100%;
+        background-color: #0f172a;
+        border: 1px solid #475569;
+        border-radius: 8px;
+        color: #f8fafc;
+        padding: 12px;
+        font-size: 1rem;
+        outline: none;
+        transition: border-color 0.15s ease-in-out;
+        box-sizing: border-box;
+      }
+      textarea:focus,
+      input[type='text']:focus {
+        border-color: #6366f1;
+      }
+      .contenteditable-box {
+        width: 100%;
+        min-height: 120px;
+        background-color: #0f172a;
+        border: 1px solid #475569;
+        border-radius: 8px;
+        color: #f8fafc;
+        padding: 12px;
+        font-size: 1rem;
+        outline: none;
+        box-sizing: border-box;
+      }
+      .contenteditable-box:focus {
+        border-color: #6366f1;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: #334155;
+        color: #cbd5e1;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-top: 8px;
+      }
+      code {
+        background-color: #0f172a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        color: #e2e8f0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Prompt Enhancer Test Bench</h1>
+    <p>Use this page to test the loaded unpacked Chrome Extension. To test:</p>
     <ol>
-      <li>Load this extension folder (<code>chrome-extension/</code>) in <code>chrome://extensions/</code>.</li>
+      <li>
+        Load this extension folder (<code>chrome-extension/</code>) in <code>chrome://extensions/</code>.
+      </li>
       <li>Open this file (<code>test.html</code>) in Chrome.</li>
       <li>Focus any field and write a prompt. The suggestion opens automatically after a short pause.</li>
-      <li>Use <strong>Insert Prompt</strong> to replace the draft, or <strong>Copy</strong> to keep the original.</li>
+      <li>
+        Use <strong>Insert Prompt</strong> to replace the draft, or <strong>Copy</strong> to keep the
+        original.
+      </li>
     </ol>
-  </p>
 
-  <div class="card">
-    <div class="form-group">
-      <label for="textarea1">Standard Textarea (e.g., Coding prompt)</label>
-      <textarea id="textarea1" rows="5" placeholder="e.g., write a typescript function to validate email address using regex..."></textarea>
-      <span class="badge">Textarea</span>
+    <div class="card">
+      <div class="form-group">
+        <label for="textarea1">Standard Textarea (e.g., Coding prompt)</label>
+        <textarea
+          id="textarea1"
+          rows="5"
+          placeholder="e.g., write a typescript function to validate email address using regex..."
+        ></textarea>
+        <span class="badge">Textarea</span>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="form-group">
-      <label for="input1">Single Line Text Input</label>
-      <input type="text" id="input1" placeholder="e.g., explain quantum computing in 3 bullets">
-      <span class="badge">Input</span>
+    <div class="card">
+      <div class="form-group">
+        <label for="input1">Single Line Text Input</label>
+        <input type="text" id="input1" placeholder="e.g., explain quantum computing in 3 bullets" />
+        <span class="badge">Input</span>
+      </div>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="form-group">
-      <label>Rich Text / Contenteditable Field (e.g., Gemini / ChatGPT input style)</label>
-      <div class="contenteditable-box ql-editor" contenteditable="true" placeholder="e.g., create a sales pitch email for a new product..."></div>
-      <span class="badge">Contenteditable</span>
+    <div class="card">
+      <div class="form-group">
+        <label>Rich Text / Contenteditable Field (e.g., Gemini / ChatGPT input style)</label>
+        <div
+          class="contenteditable-box ql-editor"
+          contenteditable="true"
+          placeholder="e.g., create a sales pitch email for a new product..."
+        ></div>
+        <span class="badge">Contenteditable</span>
+      </div>
     </div>
-  </div>
 
-  <!-- A script to load the extension's content script directly for local testing without installing! -->
-  <script>
-    // This allows us to test the overlay functionality instantly right here without having to load the extension!
-    console.log("To test the injected UI directly, let's load dist/content.js into this page.");
-    const script = document.createElement('script');
-    script.src = './dist/content.js';
-    document.body.appendChild(script);
-  </script>
-</body>
+    <!-- A script to load the extension's content script directly for local testing without installing! -->
+    <script>
+      // This allows us to test the overlay functionality instantly right here without having to load the extension!
+      console.log("To test the injected UI directly, let's load dist/content.js into this page.");
+      const script = document.createElement('script');
+      script.src = './dist/content.js';
+      document.body.appendChild(script);
+    </script>
+  </body>
 </html>

@@ -1,11 +1,5 @@
 export type UseCase =
-  | 'general'
-  | 'coding'
-  | 'writing'
-  | 'studying'
-  | 'research'
-  | 'business'
-  | 'imageGeneration';
+  'general' | 'coding' | 'writing' | 'studying' | 'research' | 'business' | 'imageGeneration';
 
 export type CategoryKey =
   | 'clarity'

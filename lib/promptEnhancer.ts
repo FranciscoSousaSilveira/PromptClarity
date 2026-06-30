@@ -5,10 +5,7 @@
 
 import type { CategoryKey } from '../types/prompt';
 
-export function enhancePromptQuality(
-  prompt: string,
-  categoryScores: Record<CategoryKey, number>
-): string {
+export function enhancePromptQuality(prompt: string, categoryScores: Record<CategoryKey, number>): string {
   let enhanced = prompt.trim();
 
   // Identify weak categories
@@ -25,8 +22,6 @@ export function enhancePromptQuality(
 }
 
 function applyImprovementForCategory(prompt: string, category: CategoryKey): string {
-  const lower = prompt.toLowerCase();
-
   switch (category) {
     case 'clarity':
       return improveClarity(prompt);
@@ -82,7 +77,7 @@ function improveClarity(prompt: string): string {
     '\\bmelhor\\b': 'excelente',
     '\\bbom\\b': 'excelente',
     '\\btalvez\\b': 'possivelmente',
-    '\\bprovavelmente\\b': 'muito provavelmente',
+    '\\bprovavelmente\\b': 'muito provavelmente'
   };
 
   let improved = prompt;
@@ -99,13 +94,30 @@ function improveClarity(prompt: string): string {
 function improveContext(prompt: string): string {
   // Check if context is missing (prompt doesn't mention background/situation)
   const contextIndicators = [
-    'context', 'background', 'situation', 'scenario', 'project', 'currently',
-    'working', 'building', 'need', 'trying', 'reason', 'because',
-    'contexto', 'situação', 'projeto', 'atualmente', 'trabalhando',
-    'construindo', 'preciso', 'razão', 'porquê'
+    'context',
+    'background',
+    'situation',
+    'scenario',
+    'project',
+    'currently',
+    'working',
+    'building',
+    'need',
+    'trying',
+    'reason',
+    'because',
+    'contexto',
+    'situação',
+    'projeto',
+    'atualmente',
+    'trabalhando',
+    'construindo',
+    'preciso',
+    'razão',
+    'porquê'
   ];
 
-  const hasContext = contextIndicators.some(indicator =>
+  const hasContext = contextIndicators.some((indicator) =>
     new RegExp(`\\b${indicator}\\b`, 'i').test(prompt)
   );
 
@@ -123,13 +135,35 @@ function improveContext(prompt: string): string {
 function improveGoal(prompt: string): string {
   // Check if has clear action verb at start or early
   const actionVerbs = [
-    'create', 'write', 'build', 'analyze', 'explain', 'describe', 'generate',
-    'develop', 'design', 'implement', 'review', 'summarize', 'fix',
-    'criar', 'escrever', 'construir', 'analisar', 'explicar', 'descrever',
-    'gerar', 'desenvolver', 'projetar', 'implementar', 'revisar', 'resumir', 'corrigir'
+    'create',
+    'write',
+    'build',
+    'analyze',
+    'explain',
+    'describe',
+    'generate',
+    'develop',
+    'design',
+    'implement',
+    'review',
+    'summarize',
+    'fix',
+    'criar',
+    'escrever',
+    'construir',
+    'analisar',
+    'explicar',
+    'descrever',
+    'gerar',
+    'desenvolver',
+    'projetar',
+    'implementar',
+    'revisar',
+    'resumir',
+    'corrigir'
   ];
 
-  const startsWithAction = actionVerbs.some(verb =>
+  const startsWithAction = actionVerbs.some((verb) =>
     new RegExp(`^\\s*(please\\s+)?${verb}`, 'i').test(prompt)
   );
 
@@ -158,13 +192,24 @@ function improveGoal(prompt: string): string {
 function improveConstraints(prompt: string): string {
   // Check if has constraint keywords
   const constraintKeywords = [
-    'must', 'should', 'cannot', 'without', 'limited', 'avoid', 'only', 'except',
-    'deve', 'não deve', 'evitar', 'apenas', 'exceto', 'limitado', 'sem'
+    'must',
+    'should',
+    'cannot',
+    'without',
+    'limited',
+    'avoid',
+    'only',
+    'except',
+    'deve',
+    'não deve',
+    'evitar',
+    'apenas',
+    'exceto',
+    'limitado',
+    'sem'
   ];
 
-  const hasConstraints = constraintKeywords.some(kw =>
-    new RegExp(`\\b${kw}\\b`, 'i').test(prompt)
-  );
+  const hasConstraints = constraintKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
 
   // If no constraints mentioned and prompt is vague, suggest adding them
   if (!hasConstraints && prompt.length < 150) {
@@ -181,15 +226,34 @@ function improveConstraints(prompt: string): string {
 function improveOutputFormat(prompt: string): string {
   // Check if output format is specified
   const formatKeywords = [
-    'format', 'output', 'return', 'result', 'as', 'structure', 'json', 'table',
-    'list', 'paragraph', 'bullets', 'code', 'steps', 'markdown',
-    'formato', 'saída', 'retorne', 'resultado', 'estrutura', 'tabela',
-    'lista', 'parágrafo', 'etapas', 'markdown', 'json'
+    'format',
+    'output',
+    'return',
+    'result',
+    'as',
+    'structure',
+    'json',
+    'table',
+    'list',
+    'paragraph',
+    'bullets',
+    'code',
+    'steps',
+    'markdown',
+    'formato',
+    'saída',
+    'retorne',
+    'resultado',
+    'estrutura',
+    'tabela',
+    'lista',
+    'parágrafo',
+    'etapas',
+    'markdown',
+    'json'
   ];
 
-  const hasFormat = formatKeywords.some(kw =>
-    new RegExp(`\\b${kw}\\b`, 'i').test(prompt)
-  );
+  const hasFormat = formatKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
 
   // If no format specified, add reminder
   if (!hasFormat) {
@@ -205,13 +269,19 @@ function improveOutputFormat(prompt: string): string {
 function improveExamples(prompt: string): string {
   // Check if prompt mentions examples
   const exampleKeywords = [
-    'example', 'like', 'such as', 'for instance', 'e.g.', 'instance',
-    'exemplo', 'como', 'por exemplo', 'instância'
+    'example',
+    'like',
+    'such as',
+    'for instance',
+    'e.g.',
+    'instance',
+    'exemplo',
+    'como',
+    'por exemplo',
+    'instância'
   ];
 
-  const hasExamples = exampleKeywords.some(kw =>
-    new RegExp(`\\b${kw}\\b`, 'i').test(prompt)
-  );
+  const hasExamples = exampleKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
 
   // If no examples and prompt seems to need clarity
   if (!hasExamples && prompt.length < 80) {
@@ -227,15 +297,30 @@ function improveExamples(prompt: string): string {
 function improveAudience(prompt: string): string {
   // Check if mentions intended audience/level
   const audienceKeywords = [
-    'beginner', 'intermediate', 'advanced', 'expert', 'junior', 'senior',
-    'level', 'audience', 'for', 'intended', 'kids', 'professionals',
-    'iniciante', 'intermediário', 'avançado', 'especialista', 'nível',
-    'público', 'para', 'profissionais', 'técnico'
+    'beginner',
+    'intermediate',
+    'advanced',
+    'expert',
+    'junior',
+    'senior',
+    'level',
+    'audience',
+    'for',
+    'intended',
+    'kids',
+    'professionals',
+    'iniciante',
+    'intermediário',
+    'avançado',
+    'especialista',
+    'nível',
+    'público',
+    'para',
+    'profissionais',
+    'técnico'
   ];
 
-  const hasAudience = audienceKeywords.some(kw =>
-    new RegExp(`\\b${kw}\\b`, 'i').test(prompt)
-  );
+  const hasAudience = audienceKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
 
   // If no audience mentioned, it's harder to judge quality
   if (!hasAudience && prompt.length < 120) {
@@ -251,15 +336,31 @@ function improveAudience(prompt: string): string {
 function improveSuccessCriteria(prompt: string): string {
   // Check if mentions what success looks like
   const successKeywords = [
-    'success', 'criteria', 'should', 'must', 'ensure', 'verify', 'check',
-    'correct', 'valid', 'working', 'meets', 'satisfies', 'achieves',
-    'sucesso', 'critério', 'deve', 'verifica', 'válido', 'funciona',
-    'satisfaz', 'atinge', 'garante'
+    'success',
+    'criteria',
+    'should',
+    'must',
+    'ensure',
+    'verify',
+    'check',
+    'correct',
+    'valid',
+    'working',
+    'meets',
+    'satisfies',
+    'achieves',
+    'sucesso',
+    'critério',
+    'deve',
+    'verifica',
+    'válido',
+    'funciona',
+    'satisfaz',
+    'atinge',
+    'garante'
   ];
 
-  const hasSuccessCriteria = successKeywords.some(kw =>
-    new RegExp(`\\b${kw}\\b`, 'i').test(prompt)
-  );
+  const hasSuccessCriteria = successKeywords.some((kw) => new RegExp(`\\b${kw}\\b`, 'i').test(prompt));
 
   // If vague about what good looks like
   if (!hasSuccessCriteria && prompt.length < 350) {

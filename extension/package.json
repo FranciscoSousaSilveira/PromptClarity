@@ -1,8 +1,8 @@
 {
   "name": "prompt-enhancement",
-  "displayName": "Prompt Enhancement",
+  "displayName": "Prompt Grammarly",
   "description": "AI-powered prompt enhancement popup for VS Code Chat - detects prompts and suggests improvements",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -15,15 +15,45 @@
   ],
   "main": "./out/extension/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Prompt Grammarly",
+      "properties": {
+        "promptGrammarly.performanceMode": {
+          "type": "string",
+          "enum": [
+            "fast",
+            "balanced",
+            "quality"
+          ],
+          "default": "fast",
+          "description": "Controls the trade-off between speed and rewrite quality."
+        },
+        "promptGrammarly.keepModelsWarm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keeps local Ollama models in memory between rewrites."
+        },
+        "promptGrammarly.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "pt-PT"
+          ],
+          "default": "auto",
+          "description": "Preferred output language."
+        }
+      }
+    },
     "commands": [
       {
         "command": "prompt-enhancement.togglePopup",
-        "title": "Enhance Prompt",
+        "title": "Prompt Grammarly: Enhance Prompt",
         "description": "Analyze selected text and show an improved version in a popup"
       },
       {
         "command": "prompt-enhancement.analyzeAndCopy",
-        "title": "Analyze & Copy Enhanced Prompt",
+        "title": "Prompt Grammarly: Analyze & Copy",
         "description": "Analyze the last text and copy the improved version"
       }
     ],
@@ -54,6 +84,7 @@
   "devDependencies": {
     "@types/node": "^20.19.41",
     "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
   },
   "publisher": "grammarly-prompts",

@@ -9,33 +9,126 @@ exports.detectPrompt = detectPrompt;
 exports.shouldShowPopup = shouldShowPopup;
 // Signals that strongly indicate prompt-like text
 const ACTION_VERBS = [
-    'explain', 'help', 'write', 'create', 'generate', 'build', 'design',
-    'review', 'analyze', 'debug', 'fix', 'improve', 'optimize',
-    'refactor', 'simplify', 'summarize', 'compare', 'convert',
-    'translate', 'rewrite', 'check', 'suggest', 'recommend',
-    'find', 'search', 'list', 'show', 'describe', 'tell',
-    'teach', 'explain', 'demonstrate', 'provide', 'give',
-    'explica', 'explicar', 'escreve', 'escrever', 'cria', 'criar',
-    'analisa', 'analisar', 'resume', 'resumir', 'compara', 'comparar',
-    'melhora', 'melhorar', 'corrige', 'corrigir', 'mostra', 'lista'
+    'explain',
+    'help',
+    'write',
+    'create',
+    'generate',
+    'build',
+    'design',
+    'review',
+    'analyze',
+    'debug',
+    'fix',
+    'improve',
+    'optimize',
+    'refactor',
+    'simplify',
+    'summarize',
+    'compare',
+    'convert',
+    'translate',
+    'rewrite',
+    'check',
+    'suggest',
+    'recommend',
+    'find',
+    'search',
+    'list',
+    'show',
+    'describe',
+    'tell',
+    'teach',
+    'explain',
+    'demonstrate',
+    'provide',
+    'give',
+    'explica',
+    'explicar',
+    'escreve',
+    'escrever',
+    'cria',
+    'criar',
+    'analisa',
+    'analisar',
+    'resume',
+    'resumir',
+    'compara',
+    'comparar',
+    'melhora',
+    'melhorar',
+    'corrige',
+    'corrigir',
+    'mostra',
+    'lista',
+    'diz',
+    'diga',
+    'sugere',
+    'sugira',
+    'indica',
+    'indique',
+    'apresenta',
+    'apresente',
+    'propõe'
 ];
 const CONSTRAINT_INDICATORS = [
-    'must', 'should', 'dont', 'should not', 'avoid',
-    'without', 'under', 'within', 'limit', 'at least',
-    'no more than', 'only', 'exclude', 'include'
+    'must',
+    'should',
+    'dont',
+    'should not',
+    'avoid',
+    'without',
+    'under',
+    'within',
+    'limit',
+    'at least',
+    'no more than',
+    'only',
+    'exclude',
+    'include'
 ];
 const FORMAT_INDICATORS = [
-    'bullet', 'bullets', 'table', 'json', 'yaml', 'csv',
-    'markdown', 'code', 'html', 'step', 'steps', 'list',
-    'outline', 'format', 'as a', 'like a'
+    'bullet',
+    'bullets',
+    'table',
+    'json',
+    'yaml',
+    'csv',
+    'markdown',
+    'code',
+    'html',
+    'step',
+    'steps',
+    'list',
+    'outline',
+    'format',
+    'as a',
+    'like a'
 ];
 const CONTEXT_INDICATORS = [
-    'im', 'i am', 'we are', 'my', 'our', 'we', 'the',
-    'currently', 'background', 'context', 'situation'
+    'im',
+    'i am',
+    'we are',
+    'my',
+    'our',
+    'we',
+    'the',
+    'currently',
+    'background',
+    'context',
+    'situation'
 ];
 const GOAL_INDICATORS = [
-    'want', 'need', 'trying', 'trying to', 'to help',
-    'goal', 'objective', 'purpose', 'aim', 'so that'
+    'want',
+    'need',
+    'trying',
+    'trying to',
+    'to help',
+    'goal',
+    'objective',
+    'purpose',
+    'aim',
+    'so that'
 ];
 /**
  * Detects if text looks like a prompt (instruction/request for AI).
@@ -56,38 +149,38 @@ function detectPrompt(text) {
         present: hasDirectQuestion
     });
     // Signal 1: Starts with or contains action verb (strong indicator)
-    const hasActionVerb = ACTION_VERBS.some(verb => new RegExp(`\\b${verb}\\b`).test(lower));
+    const hasActionVerb = ACTION_VERBS.some((verb) => new RegExp(`\\b${verb}\\b`).test(lower));
     signals.push({
         name: 'action_verb',
         weight: 0.25,
         present: hasActionVerb
     });
     // Signal 2: Contains constraint language (moderate indicator)
-    const hasConstraints = CONSTRAINT_INDICATORS.some(term => new RegExp(`\\b${term}\\b`).test(lower));
+    const hasConstraints = CONSTRAINT_INDICATORS.some((term) => new RegExp(`\\b${term}\\b`).test(lower));
     signals.push({
         name: 'constraints',
         weight: 0.15,
         present: hasConstraints
     });
     // Signal 3: Specifies output format (strong indicator of intentional prompt)
-    const hasFormatRequest = FORMAT_INDICATORS.some(term => new RegExp(`\\b${term}\\b`, 'i').test(lower));
+    const hasFormatRequest = FORMAT_INDICATORS.some((term) => new RegExp(`\\b${term}\\b`, 'i').test(lower));
     signals.push({
         name: 'format_request',
-        weight: 0.20,
+        weight: 0.2,
         present: hasFormatRequest
     });
     // Signal 4: Includes context or background (moderate indicator)
-    const hasContext = CONTEXT_INDICATORS.some(term => new RegExp(`\\b${term}\\b`).test(lower));
+    const hasContext = CONTEXT_INDICATORS.some((term) => new RegExp(`\\b${term}\\b`).test(lower));
     signals.push({
         name: 'context',
-        weight: 0.10,
+        weight: 0.1,
         present: hasContext
     });
     // Signal 5: Goal or intention language (moderate indicator)
-    const hasGoal = GOAL_INDICATORS.some(term => new RegExp(`\\b${term}\\b`).test(lower));
+    const hasGoal = GOAL_INDICATORS.some((term) => new RegExp(`\\b${term}\\b`).test(lower));
     signals.push({
         name: 'goal',
-        weight: 0.20,
+        weight: 0.2,
         present: hasGoal
     });
     // Signal 6: Length heuristic - prompts tend to be longer than casual chat
@@ -152,8 +245,8 @@ function tokenize(text) {
     return text
         .toLowerCase()
         .split(/\s+/)
-        .map(word => word.replace(/[^\w]/g, ''))
-        .filter(word => word.length > 0);
+        .map((word) => word.replace(/[^\w]/g, ''))
+        .filter((word) => word.length > 0);
 }
 /**
  * Determines if the confidence is high enough to show the popup
@@ -161,6 +254,6 @@ function tokenize(text) {
  */
 function shouldShowPopup(confidence) {
     // For MVP: require 0.4+ confidence to reduce false positives
-    return confidence >= 0.40;
+    return confidence >= 0.4;
 }
 //# sourceMappingURL=promptDetector.js.map

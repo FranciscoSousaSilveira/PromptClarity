@@ -6,9 +6,21 @@ interface PromptInputProps {
   characterCount: number;
   error?: string | null;
   warning?: string | null;
+  isAnalyzing?: boolean;
+  onCancel?: () => void;
 }
 
-export function PromptInput({ value, onChange, onAnalyze, onClear, characterCount, error, warning }: PromptInputProps) {
+export function PromptInput({
+  value,
+  onChange,
+  onAnalyze,
+  onClear,
+  characterCount,
+  error,
+  warning,
+  isAnalyzing,
+  onCancel
+}: PromptInputProps) {
   return (
     <section className="panel prompt-panel">
       <div className="panel-header">
@@ -20,8 +32,8 @@ export function PromptInput({ value, onChange, onAnalyze, onClear, characterCoun
           <button type="button" className="secondary-button" onClick={onClear}>
             Clear
           </button>
-          <button type="button" className="primary-button" onClick={onAnalyze}>
-            Analyze prompt
+          <button type="button" className="primary-button" onClick={isAnalyzing ? onCancel : onAnalyze}>
+            {isAnalyzing ? 'Cancel' : 'Analyze prompt'}
           </button>
         </div>
       </div>

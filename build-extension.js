@@ -5,6 +5,7 @@ const path = require('path');
 const cssPath = path.join(__dirname, 'chrome-extension', 'src', 'styles.css');
 const contentSrcPath = path.join(__dirname, 'chrome-extension', 'src', 'content.ts');
 const contentOutPath = path.join(__dirname, 'chrome-extension', 'dist', 'content.js');
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
 try {
   console.log('Reading CSS file...');
@@ -16,7 +17,8 @@ try {
     bundle: true,
     outfile: contentOutPath,
     define: {
-      '__CSS_TEXT__': JSON.stringify(cssText)
+      __CSS_TEXT__: JSON.stringify(cssText),
+      __APP_VERSION__: JSON.stringify(packageJson.version)
     },
     minify: true,
     sourcemap: false,

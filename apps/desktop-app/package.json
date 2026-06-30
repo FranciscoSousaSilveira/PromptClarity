@@ -1,0 +1,58 @@
+{
+  "name": "prompt-grammarly-desktop",
+  "private": true,
+  "version": "0.2.0",
+  "productName": "Prompt Grammarly",
+  "description": "Local desktop prompt enhancer powered by the existing Prompt Grammarly API",
+  "author": "Prompt Grammarly",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev": "npm run build && node scripts/start.mjs",
+    "start": "node scripts/start.mjs",
+    "package": "npm run build && electron-builder --win nsis",
+    "package:dir": "npm run build && electron-builder --dir"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "electron": "^42.5.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "build": {
+    "appId": "com.promptgrammarly.desktop",
+    "productName": "Prompt Grammarly",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "../../release/desktop"
+    },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "grammarlydev",
+        "repo": "grammarly-prompts"
+      }
+    ]
+  }
+}

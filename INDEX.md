@@ -64,6 +64,7 @@ User copies improved prompt to clipboard
 ## 📁 File Structure
 
 ### Core Logic (No Changes Required to Run)
+
 ```
 lib/
 ├── promptDetector.ts          [NEW] 206 lines - Detection with confidence scoring
@@ -78,6 +79,7 @@ types/
 ```
 
 ### VS Code Extension
+
 ```
 extension/
 ├── extension.ts               [NEW] Main activation point
@@ -91,6 +93,7 @@ out/                           [Generated on build]
 ```
 
 ### Tests
+
 ```
 tests/
 ├── promptDetector.test.ts     [NEW] 40+ test cases for detection
@@ -100,6 +103,7 @@ tests/
 ```
 
 ### Documentation
+
 ```
 ├── QUICKSTART.md              [NEW] Get it running in 15 min
 ├── MVP-SUMMARY.md             [NEW] What was built (executive summary)
@@ -111,15 +115,18 @@ tests/
 ## 🎯 What Each File Does
 
 ### promptDetector.ts
+
 **Purpose:** Determine if text looks like a prompt
 
 **Key Functions:**
+
 - `detectPrompt(text)` - Analyzes text and returns confidence 0-1 with signals
 - `shouldShowPopup(confidence)` - Boolean check: confidence >= 0.40
 - `shouldShowHint(text)` - Check for hint threshold (0.35)
 
 **How it works:**
 Scores text on 8 weighted signals:
+
 1. Action verbs (25%) - explain, create, help, etc.
 2. Format requests (20%) - bullets, JSON, tables, etc.
 3. Imperative form (18%) - starts with verb or "can you"
@@ -132,29 +139,35 @@ Scores text on 8 weighted signals:
 If total >= 0.40 → prompt detected
 
 ### promptIntegration.ts
+
 **Purpose:** Connect detection + analysis, main entry point for popup
 
 **Key Functions:**
+
 - `analyzeForPopup(request)` - Main entry point
 - `getPopupContent(text, useCase)` - Get just the improved text
 - `shouldShowHint(text)` - Show optional hint
 - `getConfidenceScore(text)` - Get 0-100 confidence for UI
 
 **Flow:**
+
 1. Detect if text looks like prompt
 2. If confidence >= 0.40, analyze it
 3. Return PopupContent with improved version
 4. Gracefully handle analysis failures
 
 ### extension.ts
+
 **Purpose:** VS Code extension activation and popup management
 
 **Key Functions:**
+
 - `activate(context)` - Runs when extension loads
 - `showPopup(text, context)` - Shows webview popup
 - `getWebviewContent()` - Generates HTML/CSS/JS for popup
 
 **Features:**
+
 - Command: `prompt-enhancement.togglePopup` (Cmd+Shift+E)
 - Command: `prompt-enhancement.analyzeAndCopy`
 - Auto hint on text change (debounced)
@@ -164,6 +177,7 @@ If total >= 0.40 → prompt detected
 ## 🧪 Testing
 
 ### Run Tests
+
 ```bash
 npm test -- promptDetector
 ```
@@ -171,11 +185,13 @@ npm test -- promptDetector
 ### Manual Testing Scenarios
 
 **Scenario 1: Automatic Hint**
+
 - Type: "create a function that validates email"
 - Wait 500ms
 - Status bar shows: "💡 Looks like a prompt..."
 
 **Scenario 2: Manual Popup**
+
 - Select: "explain how React hooks work"
 - Press Cmd+Shift+E
 - Popup shows original vs improved
@@ -183,6 +199,7 @@ npm test -- promptDetector
 - Paste in chat
 
 **Scenario 3: False Positive Check**
+
 - Type: "sounds good to me"
 - No hint or popup appears
 - ✓ No false positive
@@ -190,14 +207,18 @@ npm test -- promptDetector
 ## 🔧 Configuration
 
 ### Detection Thresholds
+
 In `promptDetector.ts`:
+
 ```typescript
-shouldShowPopup(confidence) // currently: confidence >= 0.40
-shouldShowHint(text)         // currently: 0.35 threshold
+shouldShowPopup(confidence); // currently: confidence >= 0.40
+shouldShowHint(text); // currently: 0.35 threshold
 ```
 
 ### Signal Weights
+
 In `promptDetector.ts`:
+
 ```typescript
 { name: 'action_verb', weight: 0.25 },    // 25%
 { name: 'format_request', weight: 0.20 }, // 20%
@@ -205,6 +226,7 @@ In `promptDetector.ts`:
 ```
 
 ### Change Detection Behavior
+
 1. Lower threshold → more popups (more false positives)
 2. Adjust signal weights to emphasize certain signals
 3. Add/remove action verbs or format terms
@@ -212,16 +234,19 @@ In `promptDetector.ts`:
 ## 📊 Key Metrics
 
 ### Detection Performance
+
 - Latency: O(n) where n = text length
 - Memory: Minimal (stateless)
 - Accuracy: ~95% on test cases
 
 ### False Positive Rate
+
 - Normal chat: < 5% (usually 0%)
 - Casual statements: < 10%
 - Edge cases: Handled in tests
 
 ### User Experience
+
 - Keybinding: Cmd+Shift+E (instantly)
 - Popup time: < 200ms for copy-ready UI
 - No text replacement (copy-paste only)
@@ -229,18 +254,21 @@ In `promptDetector.ts`:
 ## 🚀 Next Steps
 
 ### Immediate (MVP Validation)
+
 1. ✅ Code review
 2. ✅ Manual testing in VS Code
 3. ✅ False positive verification
 4. ✅ Performance check
 
 ### Short Term (Phase 2)
+
 1. Auto-detect use case
 2. Show analysis breakdown
 3. Better UI/theming
 4. Caching & optimization
 
 ### Medium Term
+
 1. Multi-language support
 2. Custom rules
 3. History & favorites
@@ -249,16 +277,19 @@ In `promptDetector.ts`:
 ## 📚 Learning Path
 
 **For Detection Logic:**
+
 1. Read `promptDetector.ts` (main file)
 2. Review test cases in `promptDetector.test.ts`
 3. Adjust thresholds and run tests
 
 **For Extension Development:**
+
 1. Read `extension.ts` (main file)
 2. Review webview HTML generation
 3. Test keybindings and commands
 
 **For Full System:**
+
 1. Read `promptIntegration.ts` (entry point)
 2. Understand flow from detection → analysis → popup
 3. Test end-to-end scenarios
@@ -266,17 +297,20 @@ In `promptDetector.ts`:
 ## 🐛 Troubleshooting
 
 ### Popup doesn't appear?
+
 1. Check text is >= 15 characters
 2. Verify text has action verb or format request
 3. Check confidence >= 0.40
 4. Review console logs (F12 in extension)
 
 ### False positives?
+
 1. Increase threshold from 0.40 to 0.45
 2. Check signal weights
 3. Add false positive to test suite
 
 ### Extension won't activate?
+
 1. Check TypeScript compiled (npm run build)
 2. Verify package.json has correct paths
 3. Check `out/extension.js` exists
@@ -293,6 +327,7 @@ In `promptDetector.ts`:
 ## 📖 Documentation Quality
 
 Each file has:
+
 - ✅ Clear purpose statement
 - ✅ Type definitions
 - ✅ Example usage
@@ -320,12 +355,14 @@ A: Yes! All analysis is local, no API calls required.
 ## 📞 Support
 
 For questions:
+
 1. Check relevant markdown file above
 2. Review test cases for examples
 3. Check console logs (F12)
 4. Review code comments
 
 For bugs:
+
 1. Create minimal test case
 2. Check existing tests
 3. File issue with reproduction steps

@@ -1,26 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Prompt Enhancer",
-  "version": "1.2.4",
+  "name": "Prompt Grammarly",
+  "version": "0.2.0",
   "description": "Floating bubble to locally analyze and improve prompts in supported AI chat apps.",
-  "permissions": [
-    "activeTab",
-    "clipboardWrite",
-    "storage"
-  ],
-  "host_permissions": [
-    "http://127.0.0.1:3000/*",
-    "http://localhost:3000/*"
-  ],
-  "action": {
-    "default_icon": "icon.svg",
-    "default_title": "Prompt Enhancer"
-  },
-  "icons": {
-    "16": "icon.svg",
-    "48": "icon.svg",
-    "128": "icon.svg"
-  },
+  "permissions": ["activeTab", "clipboardWrite", "storage"],
+  "host_permissions": ["http://127.0.0.1:3000/*", "http://localhost:3000/*"],
+  "action": { "default_icon": "icon.svg", "default_title": "Prompt Grammarly" },
+  "icons": { "16": "icon.svg", "48": "icon.svg", "128": "icon.svg" },
   "content_scripts": [
     {
       "matches": [

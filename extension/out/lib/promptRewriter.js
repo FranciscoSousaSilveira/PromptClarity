@@ -3,13 +3,37 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.rewritePrompt = rewritePrompt;
 const spellChecker_1 = require("./spellChecker");
 const PORTUGUESE_MARKERS = [
-    'que', 'de', 'para', 'com', 'por', 'uma', 'está', 'preciso', 'você', 'me',
-    'como', 'sem', 'mais', 'já', 'também', 'ainda', 'sobre', 'depois', 'durante',
-    'mesmo', 'através', 'junto', 'segundo', 'diante', 'enquanto', 'onde', 'quando'
+    'que',
+    'de',
+    'para',
+    'com',
+    'por',
+    'uma',
+    'está',
+    'preciso',
+    'você',
+    'me',
+    'como',
+    'sem',
+    'mais',
+    'já',
+    'também',
+    'ainda',
+    'sobre',
+    'depois',
+    'durante',
+    'mesmo',
+    'através',
+    'junto',
+    'segundo',
+    'diante',
+    'enquanto',
+    'onde',
+    'quando'
 ];
 function detectLanguage(prompt) {
     const lower = prompt.toLowerCase();
-    if (/^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora)\b/.test(lower.trim()) ||
+    if (/^(quem|qual|onde|quando|como|por que|porque|o que|explica|escreve|compara|analisa|resume|cria|corrige|melhora|diz|diga|sugere|sugira|indica|indique|apresenta|apresente|mostra|lista|propõe)\b/.test(lower.trim()) ||
         /\b(que|qual)\b.{0,120}\bou\b/.test(lower)) {
         return 'pt';
     }
@@ -55,9 +79,14 @@ function roleForUseCase(useCase, prompt) {
                 return 'a debugging expert who explains root causes and provides step-by-step fixes';
             }
             if (hasFramework) {
-                return 'a senior engineer in ' + (lower.includes('react') ? 'React' :
-                    lower.includes('next') ? 'Next.js' :
-                        lower.includes('python') ? 'Python' : 'your chosen framework');
+                return ('a senior engineer in ' +
+                    (lower.includes('react')
+                        ? 'React'
+                        : lower.includes('next')
+                            ? 'Next.js'
+                            : lower.includes('python')
+                                ? 'Python'
+                                : 'your chosen framework'));
             }
             return 'a senior software engineer who is careful about debugging and implementation details';
         }
@@ -65,7 +94,13 @@ function roleForUseCase(useCase, prompt) {
             const hasTone = /formal|casual|friendly|professional|persuasive|conversational/.test(lower);
             const hasLength = /short|brief|long|detailed|paragraph|section|page/.test(lower);
             if (hasTone || hasLength) {
-                const tone = lower.includes('formal') ? 'formal' : lower.includes('casual') ? 'casual' : lower.includes('friendly') ? 'friendly' : 'appropriate';
+                const tone = lower.includes('formal')
+                    ? 'formal'
+                    : lower.includes('casual')
+                        ? 'casual'
+                        : lower.includes('friendly')
+                            ? 'friendly'
+                            : 'appropriate';
                 return `a sharp ${tone} writer and editor who matches style and audience`;
             }
             return 'a sharp editor who can match tone, audience, and structure';
@@ -73,22 +108,31 @@ function roleForUseCase(useCase, prompt) {
         case 'studying': {
             const hasLevel = /beginner|intermediate|advanced|grade|high school|college|university/.test(lower);
             if (hasLevel) {
-                const level = lower.includes('beginner') ? 'beginner' :
-                    lower.includes('advanced') ? 'advanced' : 'intermediate';
+                const level = lower.includes('beginner')
+                    ? 'beginner'
+                    : lower.includes('advanced')
+                        ? 'advanced'
+                        : 'intermediate';
                 return `a patient ${level}-friendly tutor who explains clearly and checks understanding`;
             }
             return 'a patient tutor who explains clearly and checks understanding';
         }
         case 'research': {
             const hasScope = /compare|comparison|analysis|evidence|sources?|study/.test(lower);
-            return hasScope ? 'a research analyst who compares sources, highlights evidence, and surfaces key differences' : 'a research analyst who compares sources and surfaces evidence';
+            return hasScope
+                ? 'a research analyst who compares sources, highlights evidence, and surfaces key differences'
+                : 'a research analyst who compares sources and surfaces evidence';
         }
         case 'business': {
             const hasAudience = /executive|founder|sales|marketing|customer|stakeholder/.test(lower);
             if (hasAudience) {
-                const audience = lower.includes('executive') ? 'executive' :
-                    lower.includes('founder') ? 'founder' :
-                        lower.includes('customer') ? 'customer-facing' : 'strategic';
+                const audience = lower.includes('executive')
+                    ? 'executive'
+                    : lower.includes('founder')
+                        ? 'founder'
+                        : lower.includes('customer')
+                            ? 'customer-facing'
+                            : 'strategic';
                 return `a ${audience}-focused business strategist who drives clear decisions`;
             }
             return 'a practical business strategist who focuses on clarity and action';
@@ -166,9 +210,9 @@ function outputFormatForUseCase(useCase, analysis, prompt) {
             const wantsNegative = /negative|avoid|not/.test(lower);
             return suggested
                 ? 'Keep the visual direction clear and specific, with aspect ratio if known.'
-                : (wantsNegative
+                : wantsNegative
                     ? 'Describe the desired image in detail, then list negative prompts (what to avoid).'
-                    : 'Provide a compact visual prompt with subject, style, composition, lighting, mood, and aspect ratio.');
+                    : 'Provide a compact visual prompt with subject, style, composition, lighting, mood, and aspect ratio.';
         }
         case 'general':
         default:
@@ -179,7 +223,6 @@ function outputFormatForUseCase(useCase, analysis, prompt) {
 }
 function buildTask(prompt, analysis, useCase) {
     const trimmed = prompt.trim();
-    const lower = trimmed.toLowerCase();
     if (isBlank(trimmed)) {
         return '[State the main task clearly]';
     }
@@ -252,7 +295,10 @@ function successCriteriaForUseCase(useCase) {
 }
 function normalizeComparisonOption(value, language) {
     const cleaned = value.trim().replace(/^[\s:,-]+|[\s?!.,]+$/g, '');
-    const key = cleaned.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const key = cleaned
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
     if (/^(aero|aeroespacial|aeronautica|engenharia aeroespacial)$/.test(key)) {
         return language === 'pt' ? 'Engenharia Aeroespacial' : 'Aerospace Engineering';
     }
@@ -265,7 +311,10 @@ function rewriteShortComparison(prompt, useCase, language) {
     const trimmed = prompt.trim().replace(/\s+/g, ' ');
     if (trimmed.split(/\s+/).length > 30)
         return null;
-    const segments = trimmed.split('?').map((segment) => segment.trim()).filter(Boolean);
+    const segments = trimmed
+        .split('?')
+        .map((segment) => segment.trim())
+        .filter(Boolean);
     const optionPattern = /^(.{2,50}?)\s+(ou|or|vs\.?|versus)\s+(.{2,50})$/i;
     const match = segments.map((segment) => segment.match(optionPattern)).find(Boolean);
     if (!match)
@@ -282,7 +331,10 @@ function rewriteShortComparison(prompt, useCase, language) {
     return `Compare ${firstOption} and ${secondOption} to determine which option creates broader career opportunities. Evaluate employability, range of industries, market demand, career progression, international mobility, and ease of moving between fields. Present a table of advantages and limitations, then give a recommendation based on the person's interests and goals. ${evidence}`;
 }
 function rewriteCourseComparison(prompt, language) {
-    const key = prompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const key = prompt
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
     const comparesAerospaceAndMechatronics = /\baero(?:espacial)?\b/.test(key) && /\b(mecha|mechat|mecatr)/.test(key);
     if (!comparesAerospaceAndMechatronics)
         return null;
@@ -302,10 +354,30 @@ function polishNaturalPrompt(prompt, language) {
     let polished = prompt.replace(/\s+/g, ' ').trim();
     if (language === 'pt') {
         polished = polished
+            .replace(/\banres\b/gi, 'antes')
+            .replace(/\bha forma\b/gi, 'há forma')
+            .replace(/\bnao\b/gi, 'não')
+            .replace(/\bfaz\s+la\b/gi, 'implementa essa solução')
+            .replace(/\bmdoelo\b/gi, 'modelo')
+            .replace(/\b(?:faz com que o )?modelo corra mais rapido\b/gi, 'faz com que o modelo responda mais rapidamente')
+            .replace(/\bpromtp\b/gi, 'prompt')
+            .replace(/\bconsegii\b/gi, 'consegui')
+            .replace(/\brapido\b/gi, 'rápido')
             .replace(/\bexplica\s+me\b/gi, 'Explica-me')
+            .replace(/\bdiz\s+me\b/gi, 'Diz-me')
+            .replace(/\bbrincalhoes\b/gi, 'brincalhões')
+            .replace(/\bnng\b/gi, 'ninguém')
+            .replace(/\bn\s+(?=quero|deve|pode|fica|seja|tem|é\b)/gi, 'não ')
+            .replace(/\btp\b[,.]?\s*/gi, '')
+            .replace(/\brelatorio\b/gi, 'relatório')
+            .replace(/\bpaginas\b/gi, 'páginas')
+            .replace(/\bcomecar\b/gi, 'começar')
+            .replace(/\bsmallville\b/gi, 'Smallville')
+            .replace(/\bcta\b/gi, 'CTA')
+            .replace(/\bai\b/gi, 'IA')
             .replace(/\bmechatronica\b/gi, 'Mecatrónica')
             .replace(/\bmecatronica\b/gi, 'Mecatrónica')
-            .replace(/\bsff\b/gi, '')
+            .replace(/\bsff\b/gi, 'por favor')
             .replace(/\s+([?!.,])/g, '$1')
             .replace(/\s{2,}/g, ' ')
             .trim();
@@ -374,21 +446,29 @@ function rewriteNaturalPrompt(prompt, useCase, analysis, language) {
                 additions.push('Make the image prompt include subject, style, composition, lighting, mood, and aspect ratio without changing the core intent.');
                 break;
             case 'general':
-            default: additions.push('Answer clearly and specifically, stating only assumptions that materially affect the result.');
+            default:
+                additions.push('Answer clearly and specifically, stating only assumptions that materially affect the result.');
         }
     }
     return [polished, ...additions].join(' ');
 }
 function roleForUseCasePt(useCase) {
     switch (useCase) {
-        case 'coding': return 'um engenheiro de software sénior, rigoroso na análise e na implementação';
-        case 'writing': return 'um editor experiente, atento ao tom, ao público e à estrutura';
-        case 'studying': return 'um tutor paciente que explica com clareza e confirma a compreensão';
-        case 'research': return 'um analista de investigação que compara evidência, fontes e limitações';
-        case 'business': return 'um estratega de negócios prático, focado em decisões e resultados';
-        case 'imageGeneration': return 'um especialista em prompts visuais, composição, luz e estilo';
+        case 'coding':
+            return 'um engenheiro de software sénior, rigoroso na análise e na implementação';
+        case 'writing':
+            return 'um editor experiente, atento ao tom, ao público e à estrutura';
+        case 'studying':
+            return 'um tutor paciente que explica com clareza e confirma a compreensão';
+        case 'research':
+            return 'um analista de investigação que compara evidência, fontes e limitações';
+        case 'business':
+            return 'um estratega de negócios prático, focado em decisões e resultados';
+        case 'imageGeneration':
+            return 'um especialista em prompts visuais, composição, luz e estilo';
         case 'general':
-        default: return 'um especialista prestável que produz respostas claras, específicas e úteis';
+        default:
+            return 'um especialista prestável que produz respostas claras, específicas e úteis';
     }
 }
 function outputFormatForUseCasePt(useCase, prompt) {
@@ -396,26 +476,40 @@ function outputFormatForUseCasePt(useCase, prompt) {
     if (/\b(email|e-mail)\b/.test(lower))
         return 'Escreve um email completo e pronto a enviar, incluindo assunto.';
     switch (useCase) {
-        case 'coding': return 'Usa as secções Resumo, Causa, Solução com código e Próximos passos.';
-        case 'writing': return 'Entrega diretamente o texto final e, se for útil, uma nota curta sobre as escolhas feitas.';
-        case 'studying': return 'Combina explicação, exemplos e perguntas rápidas para confirmar a compreensão.';
-        case 'research': return 'Usa uma visão geral, análise da evidência, limitações e conclusão.';
-        case 'business': return 'Usa um formato conciso e orientado à ação, adequado ao objetivo pedido.';
-        case 'imageGeneration': return 'Cria um prompt visual compacto com assunto, estilo, composição, iluminação, ambiente e proporção.';
+        case 'coding':
+            return 'Usa as secções Resumo, Causa, Solução com código e Próximos passos.';
+        case 'writing':
+            return 'Entrega diretamente o texto final e, se for útil, uma nota curta sobre as escolhas feitas.';
+        case 'studying':
+            return 'Combina explicação, exemplos e perguntas rápidas para confirmar a compreensão.';
+        case 'research':
+            return 'Usa uma visão geral, análise da evidência, limitações e conclusão.';
+        case 'business':
+            return 'Usa um formato conciso e orientado à ação, adequado ao objetivo pedido.';
+        case 'imageGeneration':
+            return 'Cria um prompt visual compacto com assunto, estilo, composição, iluminação, ambiente e proporção.';
         case 'general':
-        default: return 'Escolhe o formato mais útil para a tarefa: pontos, tabela, passos ou resposta curta.';
+        default:
+            return 'Escolhe o formato mais útil para a tarefa: pontos, tabela, passos ou resposta curta.';
     }
 }
 function successCriteriaForUseCasePt(useCase) {
     switch (useCase) {
-        case 'coding': return 'A resposta é correta, reproduzível e permite verificar o resultado.';
-        case 'writing': return 'O texto corresponde ao público, tom e objetivo, sem conteúdo desnecessário.';
-        case 'studying': return 'A explicação é correta, adequada ao nível pedido e fácil de confirmar.';
-        case 'research': return 'As conclusões distinguem factos, evidência, incerteza e limitações.';
-        case 'business': return 'O resultado está pronto a usar e torna clara a próxima ação.';
-        case 'imageGeneration': return 'O prompt dá direção visual concreta e preserva o assunto e ambiente pedidos.';
+        case 'coding':
+            return 'A resposta é correta, reproduzível e permite verificar o resultado.';
+        case 'writing':
+            return 'O texto corresponde ao público, tom e objetivo, sem conteúdo desnecessário.';
+        case 'studying':
+            return 'A explicação é correta, adequada ao nível pedido e fácil de confirmar.';
+        case 'research':
+            return 'As conclusões distinguem factos, evidência, incerteza e limitações.';
+        case 'business':
+            return 'O resultado está pronto a usar e torna clara a próxima ação.';
+        case 'imageGeneration':
+            return 'O prompt dá direção visual concreta e preserva o assunto e ambiente pedidos.';
         case 'general':
-        default: return 'A resposta resolve diretamente a tarefa e torna explícitas apenas as suposições necessárias.';
+        default:
+            return 'A resposta resolve diretamente a tarefa e torna explícitas apenas as suposições necessárias.';
     }
 }
 function rewritePortugueseStructuredPrompt(prompt, useCase, analysis) {
@@ -498,7 +592,15 @@ function rewritePrompt(prompt, useCase, analysis) {
     if (language === 'pt') {
         return rewritePortugueseStructuredPrompt(correctedPrompt, effectiveUseCase, analysis);
     }
-    const labels = { role: 'Role', context: 'Context', task: 'Task', constraints: 'Constraints', output: 'Output format', success: 'Success criteria', assumptions: 'Before answering, state only the assumptions that are strictly necessary.' };
+    const labels = {
+        role: 'Role',
+        context: 'Context',
+        task: 'Task',
+        constraints: 'Constraints',
+        output: 'Output format',
+        success: 'Success criteria',
+        assumptions: 'Before answering, state only the assumptions that are strictly necessary.'
+    };
     const sections = [
         formatSection(labels.role, `Act as ${roleForUseCase(effectiveUseCase, correctedPrompt)}.`),
         formatSection(labels.context, buildContext(correctedPrompt, analysis)),

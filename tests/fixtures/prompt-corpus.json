@@ -1,0 +1,54 @@
+[
+  { "id": "jfk", "prompt": "quem e o jfk", "mustInclude": ["JFK"] },
+  { "id": "names", "prompt": "diz me nomes mais brincalhoes", "mustInclude": ["nomes", "brincalh"] },
+  {
+    "id": "speed",
+    "prompt": "faz com que o mdoelo corra mais rapido sff",
+    "mustInclude": ["modelo", "rapid"]
+  },
+  {
+    "id": "warmup",
+    "prompt": "ha forma de aquecer o modelo anres de usar para nao esperar tanto?",
+    "mustInclude": ["modelo", "aquec"]
+  },
+  {
+    "id": "courses",
+    "prompt": "qual abre mais portas aero ou mechatronica na TUM",
+    "mustInclude": ["Aero", "Mecatr", "TUM"]
+  },
+  {
+    "id": "report",
+    "prompt": "faz um relatorio de 10 paginas sobre smallville bonito e clean",
+    "mustInclude": ["relat", "10", "Smallville"]
+  },
+  {
+    "id": "coding",
+    "prompt": "debug this typescript function and explain the cause",
+    "mustInclude": ["TypeScript", "cause"]
+  },
+  {
+    "id": "email",
+    "prompt": "write a concise follow up email to a client",
+    "mustInclude": ["email", "client"]
+  },
+  {
+    "id": "research",
+    "prompt": "compare solar and wind power using current sources",
+    "mustInclude": ["solar", "wind"]
+  },
+  {
+    "id": "image",
+    "prompt": "create an image prompt for a futuristic lisbon at night",
+    "mustInclude": ["Lisbon", "night"]
+  },
+  {
+    "id": "context-free",
+    "prompt": "quais sao as estancias de esqui mais proximas",
+    "mustInclude": ["esqui", "próxim"]
+  },
+  {
+    "id": "constraints",
+    "prompt": "explain quantum computing in under 100 words for a beginner",
+    "mustInclude": ["100", "beginner"]
+  }
+]

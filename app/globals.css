@@ -187,7 +187,11 @@ pre {
 .template-card,
 .use-case-card {
   border: 1px solid transparent;
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .primary-button,
@@ -456,6 +460,38 @@ pre {
   gap: 14px;
 }
 
+.performance-control {
+  margin-top: 18px;
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.performance-control > span {
+  color: var(--text);
+  font-weight: 700;
+}
+.performance-control select {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-strong);
+}
+.improved-editable {
+  width: 100%;
+  min-height: 190px;
+  padding: 16px;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1.65;
+}
+
 .more-issues summary {
   cursor: pointer;
   color: var(--blue);
@@ -474,7 +510,10 @@ pre {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid rgba(19, 33, 47, 0.08);
-  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition:
+    transform 120ms ease,
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
 .issue-card:hover {
@@ -543,7 +582,9 @@ pre {
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(24, 78, 119, 0.08);
   border-radius: 16px;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
 .spelling-issue-item:hover {
@@ -667,7 +708,9 @@ pre {
   border: 2px solid rgba(22, 124, 98, 0.3);
   background: linear-gradient(180deg, rgba(22, 124, 98, 0.08), rgba(255, 255, 255, 0.94));
   box-shadow: 0 4px 12px rgba(22, 124, 98, 0.08);
-  transition: box-shadow 120ms ease, border-color 120ms ease;
+  transition:
+    box-shadow 120ms ease,
+    border-color 120ms ease;
 }
 
 .corrected-card:hover {
