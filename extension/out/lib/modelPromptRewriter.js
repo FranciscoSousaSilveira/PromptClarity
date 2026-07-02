@@ -90,6 +90,11 @@ function tokensAreRelated(left, right) {
     return left.length >= 5 && right.length >= 5 && left.slice(0, 5) === right.slice(0, 5);
 }
 function isFaithfulToOriginal(original, rewritten) {
+    const criticalConcepts = [/\b(?:matr[ií]cula|enrollment|immatrikulation)\b/i, /\bcancel\w*\b/i];
+    for (const concept of criticalConcepts) {
+        if (concept.test(original) && !concept.test(rewritten))
+            return false;
+    }
     const originalTokens = [...new Set(meaningfulTokens(original))];
     const rewrittenTokens = [...new Set(meaningfulTokens(rewritten))];
     if (originalTokens.length === 0)

@@ -368,6 +368,12 @@ function rewriteCourseComparison(prompt: string, language: Language): string | n
     /\baero(?:espacial)?\b/.test(key) && /\b(mecha|mechat|mecatr)/.test(key);
   if (!comparesAerospaceAndMechatronics) return null;
 
+  const explicitlyRequestsComparison =
+    /\b(compara|comparar|comparacao|diferencas?|qual curso|que curso|abre mais portas|melhor curso)\b/.test(
+      key
+    ) || /\baero(?:espacial)?\b.{0,45}\b(ou|vs|versus)\b.{0,45}\b(mecha|mechat|mecatr)/.test(key);
+  if (!explicitlyRequestsComparison) return null;
+
   const mentionsTum = /\btum\b/.test(key);
   if (language === 'pt') {
     const scope = mentionsTum
@@ -380,6 +386,42 @@ function rewriteCourseComparison(prompt: string, language: Language): string | n
     ? 'at TUM, using current curricula and official university pages'
     : 'for the relevant institution and job market';
   return `Explain the main differences between Aerospace Engineering and Mechatronics Engineering ${scope}. Compare the curriculum, specializations, practical work, workload, admission requirements, internship opportunities, career paths, and flexibility to move into other industries. Present the comparison in a table and finish with recommendations for different student profiles, clearly marking anything that depends on the academic year or needs confirmation.`;
+}
+
+function rewriteContextualEnrollmentQuestion(prompt: string, language: Language): string | null {
+  const key = prompt
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const asksWhen = /\b(?:isto|isso)\s+(?:vai\s+)?ser\s+quando\b|\bquando\s+(?:e|vai ser)\b/.test(key);
+  const mentionsEnrollment = /\b(matricula|enrollment|immatrikulation)\b/.test(key);
+  if (!asksWhen || !mentionsEnrollment) return null;
+
+  if (language === 'pt') {
+    return 'Em que momento ocorre a efetivação da matrícula final (Enrollment/Immatrikulation) e qual é o prazo exato para decidir se mantenho as duas matrículas ou se cancelo a matrícula de Engenharia Mecatrónica para avançar apenas com Engenharia Aeroespacial? Indica a data ou fase do processo, os passos necessários e a fonte oficial. Se o prazo depender da universidade ou do ano letivo, explica exatamente onde devo confirmá-lo.';
+  }
+
+  return 'When does final enrollment or immatriculation take place, and what is the exact deadline for deciding whether to keep both enrollments or cancel Mechatronics Engineering and proceed only with Aerospace Engineering? State the date or process stage, the required steps, and the official source. If the deadline depends on the university or academic year, explain exactly where to confirm it.';
+}
+
+function rewriteApplicationDiplomaQuestion(prompt: string, language: Language): string | null {
+  const key = prompt
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const mentionsApplication = /\b(candidatura|application)\b/.test(key);
+  const mentionsDiploma = /\b(diploma|certificate)\b/.test(key);
+  const mentionsWaiting = /\b(mes|month|esper\w*|aguard\w*|wait\w*)\b/.test(key);
+  if (!mentionsApplication || !mentionsDiploma || !mentionsWaiting) return null;
+
+  const isPortuguese =
+    language === 'pt' || /\b(eu|devo|daqui|mes|minha|candidatura|pelo|diploma|certo)\b/.test(key);
+  if (isPortuguese) {
+    const institution = /\btum\b/.test(key) ? ' à TUM' : '';
+    return `Devo receber o meu diploma daqui a cerca de um mês. Posso deixar a minha candidatura${institution} no estado atual enquanto aguardo pelo diploma, sem perder nenhum prazo nem comprometer a candidatura? Explica o que devo fazer entretanto, que documentos provisórios podem ser aceites e quais são os prazos ou requisitos que devo confirmar nas fontes oficiais da universidade.`;
+  }
+
+  return 'I expect to receive my diploma in about one month. Can I leave my university application in its current state while waiting for the diploma without missing a deadline or jeopardizing the application? Explain what I should do in the meantime, which provisional documents may be accepted, and which deadlines or requirements I should confirm in the university’s official sources.';
 }
 
 function polishNaturalPrompt(prompt: string, language: Language): string {
@@ -672,6 +714,12 @@ export function rewritePrompt(prompt: string, useCase: UseCase, analysis: Prompt
   const language = detectLanguage(prompt);
   const correctedPrompt = correctSpelling(prompt, language, 0.88);
   const effectiveUseCase = inferUseCase(useCase, correctedPrompt);
+
+  const applicationQuestionRewrite = rewriteApplicationDiplomaQuestion(correctedPrompt, language);
+  if (applicationQuestionRewrite) return applicationQuestionRewrite;
+
+  const enrollmentQuestionRewrite = rewriteContextualEnrollmentQuestion(correctedPrompt, language);
+  if (enrollmentQuestionRewrite) return enrollmentQuestionRewrite;
 
   const courseComparisonRewrite = rewriteCourseComparison(correctedPrompt, language);
   if (courseComparisonRewrite) return courseComparisonRewrite;

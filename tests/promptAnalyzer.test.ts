@@ -307,6 +307,31 @@ describe('prompt analyzer', () => {
       expect(analysis.rewrittenPrompt).toContain('requisitos de admissão');
       expect(analysis.rewrittenPrompt).not.toMatch(/Role:|Context:|Task:|Papel:|Contexto:|Tarefa:/);
     });
+
+    it('preserves an enrollment timing question instead of turning it into a course comparison', () => {
+      const analysis = analyzePrompt(
+        'O Momento da Decisão: É apenas na fase de efetivação da Matrícula final (Enrollment/Immatrikulation) que terá de tomar a decisão prática. Se decidir que só quer fazer Aeroespacial, você contacta os serviços académicos, cancela a matrícula de Mecatrónica e avança só com Aeroespacial. isto vai ser quando?',
+        'research'
+      );
+
+      expect(analysis.rewrittenPrompt).toContain('matrícula final (Enrollment/Immatrikulation)');
+      expect(analysis.rewrittenPrompt).toContain('prazo exato');
+      expect(analysis.rewrittenPrompt).toContain('cancelo a matrícula de Engenharia Mecatrónica');
+      expect(analysis.rewrittenPrompt).not.toMatch(/Compara o currículo|principais diferenças/);
+    });
+
+    it('repairs a misspelled TUM application question while preserving its administrative intent', () => {
+      const analysis = analyzePrompt(
+        'eu devo recebr daqui a um mes tenho tempoe eposso deixar e4nste estado a minha candidatura par a tum enqunaotio eserpo pelo diploma certo?',
+        'general'
+      );
+
+      expect(analysis.rewrittenPrompt).toContain('receber o meu diploma daqui a cerca de um mês');
+      expect(analysis.rewrittenPrompt).toContain('candidatura à TUM no estado atual');
+      expect(analysis.rewrittenPrompt).toContain('enquanto aguardo pelo diploma');
+      expect(analysis.rewrittenPrompt).toContain('fontes oficiais da universidade');
+      expect(analysis.rewrittenPrompt).not.toMatch(/não posso ajudar|I cannot help/i);
+    });
   });
 
   describe('original test cases', () => {

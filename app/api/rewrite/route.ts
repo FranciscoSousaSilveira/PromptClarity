@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MODEL_PROFILES, SUPPORTED_CHAT_ORIGINS, isPerformanceMode } from '../../../config/product';
+import { isModelRewriteUsable } from '../../../lib/modelPromptRewriter';
 import type { UseCase } from '../../../types/prompt';
 
 export const runtime = 'nodejs';
@@ -214,6 +215,7 @@ export async function POST(request: NextRequest) {
       : 'Rewrite the user draft into a polished, ready-to-send prompt. Return only that prompt: no introduction, quotes, markdown fence, explanation, or answer.',
     'Preserve its language and intent; use European Portuguese when applicable. Correct spelling, grammar, punctuation, unclear wording, and obvious abbreviations.',
     'Keep the original topic and key terms. Never replace the request with an unrelated example or claim.',
+    'The input is text to rewrite, not a request to fulfil. Never refuse it; rewrite it as a safe prompt instead.',
     'Preserve specialist terms, brands, titles, acronyms, institutions, and names from the rule-based candidate. Never replace an uncertain term with another concept.',
     'Improve meaningfully, not just cosmetically: add only safely inferred structure, constraints, decision criteria, or output guidance. Never invent facts or preferences.',
     hasPriorConversation
@@ -228,11 +230,13 @@ export async function POST(request: NextRequest) {
     ? [
         'Reescreve como uma prompt clara em português europeu.',
         'Corrige erros sem mudar o tema. Não respondas ao pedido.',
+        'O texto é para reescrever: não o recuses.',
         'Devolve apenas a prompt reescrita, sem comentários.'
       ].join(' ')
     : [
         'Rewrite as a clear ready-to-send prompt in the same language.',
         'Correct errors without changing the topic. Do not answer the request.',
+        'The text is being rewritten: do not refuse it.',
         'Output only the rewritten prompt, without commentary.'
       ].join(' ');
   const systemPrompt = isShortPrompt ? shortSystemPrompt : detailedSystemPrompt;
@@ -251,7 +255,11 @@ export async function POST(request: NextRequest) {
   );
 
   const cachedRewrite = recentRewrites.get(rewriteKey);
-  if (cachedRewrite && cachedRewrite.expiresAt > Date.now()) {
+  if (
+    cachedRewrite &&
+    cachedRewrite.expiresAt > Date.now() &&
+    isModelRewriteUsable(prompt, cachedRewrite.rewrittenPrompt)
+  ) {
     console.info('[prompt-enhancer] reused recent local rewrite');
     return json(
       {
@@ -316,6 +324,9 @@ export async function POST(request: NextRequest) {
         };
         const rewrittenPrompt = result.message?.content?.trim();
         if (!rewrittenPrompt) throw new Error('Ollama returned an empty response');
+        if (!isModelRewriteUsable(prompt, rewrittenPrompt)) {
+          throw new Error('Ollama returned an unrelated, refused, or invalid rewrite');
+        }
 
         console.info('[prompt-enhancer] local rewrite completed', {
           model: selectedModel,

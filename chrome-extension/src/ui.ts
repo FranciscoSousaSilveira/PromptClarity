@@ -264,11 +264,13 @@ export class PromptEnhancerUI {
         ? 'Improving with local AI…'
         : content.sourceDetail === 'local-ai'
           ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
-          : content.rewriteStatus === 'fallback'
-            ? content.modelError
-              ? 'Local AI offline · rules fallback used'
-              : 'Improved instantly · local safety rules'
-            : 'Draft reviewed locally';
+          : content.sourceDetail === 'safety-fallback' && content.rewriteStatus === 'ready'
+            ? 'Model response rejected · safe local rewrite used'
+            : content.rewriteStatus === 'fallback'
+              ? content.modelError
+                ? 'Local AI offline · rules fallback used'
+                : 'Improved instantly · local safety rules'
+              : 'Draft reviewed locally';
 
     const headerHTML = `
       <div class="popup-header">

@@ -130,6 +130,17 @@ function tokensAreRelated(left: string, right: string): boolean {
 }
 
 function isFaithfulToOriginal(original: string, rewritten: string): boolean {
+  const criticalConcepts = [
+    /\b(?:matr[ií]cula|enrollment|immatrikulation)\b/i,
+    /\bcancel\w*\b/i,
+    /\bcandidatura\b|\bapplication\b/i,
+    /\bdiploma\b|\bcertificate\b/i,
+    /\btum\b/i
+  ];
+  for (const concept of criticalConcepts) {
+    if (concept.test(original) && !concept.test(rewritten)) return false;
+  }
+
   const originalTokens = [...new Set(meaningfulTokens(original))];
   const rewrittenTokens = [...new Set(meaningfulTokens(rewritten))];
   if (originalTokens.length === 0) return true;
@@ -140,7 +151,7 @@ function isFaithfulToOriginal(original: string, rewritten: string): boolean {
   return overlap >= (originalTokens.length <= 2 ? 1 : 2);
 }
 
-function isUsableRewrite(original: string, rewritten: string): boolean {
+export function isModelRewriteUsable(original: string, rewritten: string): boolean {
   if (rewritten.length < 3 || rewritten.length > 8_000) return false;
   if (
     /^(?:Resposta corrigida|Corrected (?:answer|response)|Aqui est[aá]|Here (?:is|are)|Esta resposta|This (?:answer|response)|The user's (?:answer|response))\b/i.test(
@@ -150,7 +161,12 @@ function isUsableRewrite(original: string, rewritten: string): boolean {
     return false;
   if (/^Para\b[\s\S]{0,180}\b(?:pode|podes)\s+(?:considerar|tentar|usar)\b/i.test(rewritten)) return false;
   if (original.length <= 240 && /(?:^|\n)\s*1[.)]\s|\*\*[^*]+\*\*/.test(rewritten)) return false;
-  if (/^(I cannot|I can't|As an AI|Não posso|Como (?:um|uma) IA)\b/i.test(rewritten)) return false;
+  if (
+    /^(?:(?:Eu|I)\s+)?(?:não|nao)\s+(?:posso|consigo)\b|^I\s+(?:cannot|can't|am unable)\b|^As an AI\b|^Como (?:um|uma) IA\b/i.test(
+      rewritten
+    )
+  )
+    return false;
 
   // A rewrite may be longer, but a huge response is usually the model answering
   // the prompt instead of improving it.
@@ -160,7 +176,7 @@ function isUsableRewrite(original: string, rewritten: string): boolean {
 
 export function rewriteValidationScore(original: string, rewritten: string): number {
   if (!rewritten.trim()) return 0;
-  return isUsableRewrite(original, rewritten) ? 92 : 35;
+  return isModelRewriteUsable(original, rewritten) ? 92 : 35;
 }
 
 function stripInventedPriorContext(rewritten: string): string {
@@ -253,7 +269,7 @@ export async function rewritePromptWithModel(
       cleanModelOutput(request.fallbackPrompt),
       request.hasPriorConversation === true
     );
-    if (isUsableRewrite(request.prompt, fastRewrite)) {
+    if (isModelRewriteUsable(request.prompt, fastRewrite)) {
       return {
         rewrittenPrompt: fastRewrite,
         source: 'rules',
@@ -317,10 +333,10 @@ export async function rewritePromptWithModel(
 
     const startStrict = request.prompt.length <= 240;
     let candidate = await requestRewrite(startStrict);
-    if (!startStrict && !isUsableRewrite(request.prompt, candidate.rewritten)) {
+    if (!startStrict && !isModelRewriteUsable(request.prompt, candidate.rewritten)) {
       candidate = await requestRewrite(true);
     }
-    if (!isUsableRewrite(request.prompt, candidate.rewritten)) {
+    if (!isModelRewriteUsable(request.prompt, candidate.rewritten)) {
       throw new Error('The model returned an unrelated, invalid, or excessively long rewrite');
     }
 

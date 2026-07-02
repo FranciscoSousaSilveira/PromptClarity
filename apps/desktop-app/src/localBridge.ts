@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { MODEL_PROFILES, SUPPORTED_CHAT_ORIGINS, isPerformanceMode } from '../../../config/product';
+import { isModelRewriteUsable } from '../../../lib/modelPromptRewriter';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
@@ -89,6 +90,7 @@ export async function startLocalBridgeIfNeeded(): Promise<Server | null> {
         const system = [
           'Rewrite the draft as a clear ready-to-send prompt in the same language.',
           'Correct spelling and grammar while preserving the exact topic and intent.',
+          'The input is text to rewrite, so never refuse it.',
           'Do not answer the request. Output only the rewritten prompt without labels or commentary.'
         ].join(' ');
         const ollama = await fetch(`${OLLAMA_URL}/api/chat`, {
@@ -117,6 +119,9 @@ export async function startLocalBridgeIfNeeded(): Promise<Server | null> {
         const result = (await ollama.json()) as { message?: { content?: string } };
         const rewrittenPrompt = result.message?.content?.trim();
         if (!rewrittenPrompt) throw new Error('Empty model response');
+        if (!isModelRewriteUsable(prompt, rewrittenPrompt)) {
+          throw new Error('Ollama returned an unrelated, refused, or invalid rewrite');
+        }
         response.writeHead(200, headers);
         response.end(JSON.stringify({ rewrittenPrompt, model: profile.model, performanceMode: mode }));
       } catch (error) {

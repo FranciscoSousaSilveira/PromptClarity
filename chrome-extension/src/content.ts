@@ -401,6 +401,10 @@ class PromptEnhancerExtension {
       ...reviewedPrompt,
       rewrittenPrompt: modelResult.rewrittenPrompt
     };
+    const hasPasteableSafetyFallback =
+      modelResult.sourceDetail === 'safety-fallback' &&
+      modelResult.validationScore >= 70 &&
+      modelResult.rewrittenPrompt.trim().length > 2;
     this.ui.showPopup(
       rect,
       {
@@ -409,7 +413,7 @@ class PromptEnhancerExtension {
         improvedPrompt: modelResult.rewrittenPrompt,
         copyableText: modelResult.rewrittenPrompt,
         rewriteSource: modelResult.source,
-        rewriteStatus: modelResult.error ? 'fallback' : 'ready',
+        rewriteStatus: modelResult.error && !hasPasteableSafetyFallback ? 'fallback' : 'ready',
         modelName: modelResult.model,
         modelError: modelResult.error,
         sourceDetail: modelResult.sourceDetail,

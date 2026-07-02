@@ -338,6 +338,9 @@ function rewriteCourseComparison(prompt, language) {
     const comparesAerospaceAndMechatronics = /\baero(?:espacial)?\b/.test(key) && /\b(mecha|mechat|mecatr)/.test(key);
     if (!comparesAerospaceAndMechatronics)
         return null;
+    const explicitlyRequestsComparison = /\b(compara|comparar|comparacao|diferencas?|qual curso|que curso|abre mais portas|melhor curso)\b/.test(key) || /\baero(?:espacial)?\b.{0,45}\b(ou|vs|versus)\b.{0,45}\b(mecha|mechat|mecatr)/.test(key);
+    if (!explicitlyRequestsComparison)
+        return null;
     const mentionsTum = /\btum\b/.test(key);
     if (language === 'pt') {
         const scope = mentionsTum
@@ -349,6 +352,20 @@ function rewriteCourseComparison(prompt, language) {
         ? 'at TUM, using current curricula and official university pages'
         : 'for the relevant institution and job market';
     return `Explain the main differences between Aerospace Engineering and Mechatronics Engineering ${scope}. Compare the curriculum, specializations, practical work, workload, admission requirements, internship opportunities, career paths, and flexibility to move into other industries. Present the comparison in a table and finish with recommendations for different student profiles, clearly marking anything that depends on the academic year or needs confirmation.`;
+}
+function rewriteContextualEnrollmentQuestion(prompt, language) {
+    const key = prompt
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    const asksWhen = /\b(?:isto|isso)\s+(?:vai\s+)?ser\s+quando\b|\bquando\s+(?:e|vai ser)\b/.test(key);
+    const mentionsEnrollment = /\b(matricula|enrollment|immatrikulation)\b/.test(key);
+    if (!asksWhen || !mentionsEnrollment)
+        return null;
+    if (language === 'pt') {
+        return 'Em que momento ocorre a efetivação da matrícula final (Enrollment/Immatrikulation) e qual é o prazo exato para decidir se mantenho as duas matrículas ou se cancelo a matrícula de Engenharia Mecatrónica para avançar apenas com Engenharia Aeroespacial? Indica a data ou fase do processo, os passos necessários e a fonte oficial. Se o prazo depender da universidade ou do ano letivo, explica exatamente onde devo confirmá-lo.';
+    }
+    return 'When does final enrollment or immatriculation take place, and what is the exact deadline for deciding whether to keep both enrollments or cancel Mechatronics Engineering and proceed only with Aerospace Engineering? State the date or process stage, the required steps, and the official source. If the deadline depends on the university or academic year, explain exactly where to confirm it.';
 }
 function polishNaturalPrompt(prompt, language) {
     let polished = prompt.replace(/\s+/g, ' ').trim();
@@ -577,6 +594,9 @@ function rewritePrompt(prompt, useCase, analysis) {
     const language = detectLanguage(prompt);
     const correctedPrompt = (0, spellChecker_1.correctSpelling)(prompt, language, 0.88);
     const effectiveUseCase = inferUseCase(useCase, correctedPrompt);
+    const enrollmentQuestionRewrite = rewriteContextualEnrollmentQuestion(correctedPrompt, language);
+    if (enrollmentQuestionRewrite)
+        return enrollmentQuestionRewrite;
     const courseComparisonRewrite = rewriteCourseComparison(correctedPrompt, language);
     if (courseComparisonRewrite)
         return courseComparisonRewrite;

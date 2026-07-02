@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { rewritePromptWithModel } from '../lib/modelPromptRewriter';
+import { isModelRewriteUsable, rewritePromptWithModel } from '../lib/modelPromptRewriter';
 
 describe('model rewrite validation', () => {
   it('rejects an unrelated short rewrite immediately', async () => {
@@ -102,5 +102,57 @@ describe('model rewrite validation', () => {
     expect(result.source).toBe('rules');
     expect(result.rewrittenPrompt).toContain('energia solar');
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('rejects a generic course comparison when the user asks about the enrollment deadline', async () => {
+    const original =
+      'O Momento da Decisão: É apenas na fase de efetivação da Matrícula final (Enrollment/Immatrikulation) que terá de tomar a decisão prática. Se decidir que só quer fazer Aeroespacial, cancela a matrícula de Mecatrónica e avança só com Aeroespacial. isto vai ser quando?';
+    const fallback =
+      'Em que momento ocorre a efetivação da matrícula final (Enrollment/Immatrikulation) e qual é o prazo exato para cancelar a matrícula de Engenharia Mecatrónica?';
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            rewrittenPrompt:
+              'Analise as diferenças entre Engenharia Aeroespacial e Engenharia Mecatrónica. Compare currículo, carga de trabalho, empregabilidade e mobilidade internacional.'
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+    );
+
+    const result = await rewritePromptWithModel(
+      { prompt: original, fallbackPrompt: fallback, useCase: 'research' },
+      { fetchImpl: fetchImpl as typeof fetch }
+    );
+
+    expect(result.source).toBe('rules');
+    expect(result.rewrittenPrompt).toBe(fallback);
+    expect(result.rewrittenPrompt).toContain('prazo exato');
+    expect(result.rewrittenPrompt).not.toContain('Compare currículo');
+  });
+
+  it('rejects model refusals for benign administrative prompts', async () => {
+    const original =
+      'eu devo recebr daqui a um mes tenho tempoe eposso deixar e4nste estado a minha candidatura par a tum enqunaotio eserpo pelo diploma certo?';
+    const fallback =
+      'Devo receber o meu diploma daqui a cerca de um mês. Posso deixar a minha candidatura à TUM no estado atual enquanto aguardo pelo diploma?';
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ rewrittenPrompt: 'Eu não posso ajudar com isso.' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+    );
+
+    const result = await rewritePromptWithModel(
+      { prompt: original, fallbackPrompt: fallback, useCase: 'general' },
+      { fetchImpl: fetchImpl as typeof fetch }
+    );
+
+    expect(result.source).toBe('rules');
+    expect(result.rewrittenPrompt).toBe(fallback);
+    expect(result.rewrittenPrompt).not.toContain('não posso ajudar');
+    expect(result.validationScore).toBeGreaterThanOrEqual(70);
+    expect(isModelRewriteUsable(original, 'Eu não posso ajudar com isso.')).toBe(false);
   });
 });
