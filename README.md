@@ -2,6 +2,8 @@
 
 Prompt Grammarly improves prompts before they are sent to an AI assistant. It runs locally with Ollama and is available as a Chrome extension, Windows desktop app, VS Code extension, and web interface.
 
+See [APP_GUIDE.md](APP_GUIDE.md) for the complete desktop and extension guide (excluding the web interface).
+
 ## Quick start
 
 ```powershell
@@ -15,8 +17,8 @@ The desktop app starts the local API on `127.0.0.1`, warms the selected model, a
 
 ## Performance modes
 
-- **Fast:** instant local rules for short prompts and Qwen 0.5B when AI is needed.
-- **Balanced:** Gemma 3 1B, selected by the local benchmark for a better speed/quality balance.
+- **Fast:** Qwen 3B with a smaller context and output limit.
+- **Balanced:** Qwen 3B with more context for longer prompts.
 - **Quality:** Qwen 3B with a larger context and longer processing time.
 
 Settings, shortcut, model memory, history, Undo, diagnostics, and performance mode are available from the desktop tray menu.

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MODEL_PROFILES, SUPPORTED_CHAT_ORIGINS, isPerformanceMode } from '../../../config/product';
 import { isModelRewriteUsable } from '../../../lib/modelPromptRewriter';
-import type { UseCase } from '../../../types/prompt';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:1b';
-const OLLAMA_FAST_MODEL = process.env.OLLAMA_FAST_MODEL || 'qwen2.5:0.5b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+const OLLAMA_FAST_MODEL = process.env.OLLAMA_FAST_MODEL || 'qwen2.5:3b';
 const OLLAMA_QUALITY_MODEL = process.env.OLLAMA_QUALITY_MODEL || 'qwen2.5:3b';
 const MODEL_WARM_FOR_MS = 24 * 60 * 60 * 1_000;
 const lastModelWarmAt = new Map<string, number>();
@@ -22,16 +21,6 @@ interface RewriteResult {
 
 const inFlightRewrites = new Map<string, Promise<RewriteResult>>();
 const recentRewrites = new Map<string, RewriteResult & { expiresAt: number }>();
-const ALLOWED_USE_CASES = new Set<UseCase>([
-  'general',
-  'coding',
-  'writing',
-  'studying',
-  'research',
-  'business',
-  'imageGeneration'
-]);
-
 const allowedOrigins = new Set<string>(SUPPORTED_CHAT_ORIGINS);
 
 function corsHeaders(request?: NextRequest) {
@@ -58,32 +47,15 @@ function isAuthorized(request: NextRequest): boolean {
   return !expectedToken || request.headers.get('x-prompt-grammarly-token') === expectedToken;
 }
 
-function normalizePortugueseShorthand(value: string): string {
-  return value
-    .replace(/\banres\b/gi, 'antes')
-    .replace(/\bha forma\b/gi, 'há forma')
-    .replace(/\bnao\b/gi, 'não')
-    .replace(/\bfaz\s+la\b/gi, 'implementa essa solução')
-    .replace(/\bmdoelo\b/gi, 'modelo')
-    .replace(
-      /\b(?:faz com que o )?modelo corra mais rapido\b/gi,
-      'faz com que o modelo responda mais rapidamente'
-    )
-    .replace(/\bpromtp\b/gi, 'prompt')
-    .replace(/\bconsegii\b/gi, 'consegui')
-    .replace(/\bsff\b/gi, 'por favor')
-    .replace(/\brapido\b/gi, 'rápido')
-    .replace(/\bnng\b/gi, 'ninguém')
-    .replace(/\bdiz\s+me\b/gi, 'diz-me')
-    .replace(/\bbrincalhoes\b/gi, 'brincalhões')
-    .replace(/\bn\s+(?=quero|deve|pode|fica|seja|tem|é\b)/gi, 'não ')
-    .replace(/\btp\b[,.]?\s*/gi, '')
-    .replace(/\brelatorio\b/gi, 'relatório')
-    .replace(/\bpaginas\b/gi, 'páginas')
-    .replace(/\bcomecar\b/gi, 'começar')
-    .replace(/\bsmallville\b/gi, 'Smallville')
-    .replace(/\bcta\b/gi, 'CTA')
-    .replace(/\bai\b/gi, 'IA');
+function isPortugueseText(value: string): boolean {
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const matches = normalized.match(
+    /\b(?:a|ao|com|como|da|de|do|e|em|era|eu|mais|me|minha|no|o|onde|ou|para|pelo|podia|por|qual|que|quero|sem|sobre|um|uma)\b/g
+  );
+  return (matches?.length || 0) >= 2 || /[ãõçáéíóúâêô]/i.test(value);
 }
 
 async function warmLocalModel(model: string, keepWarm: boolean): Promise<boolean> {
@@ -171,11 +143,7 @@ export async function POST(request: NextRequest) {
   }
 
   const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-  const normalizedPrompt = normalizePortugueseShorthand(prompt);
-  const ruleBasedDraft =
-    typeof body.ruleBasedDraft === 'string' ? body.ruleBasedDraft.trim().slice(0, 12_000) : '';
-  const normalizedRuleBasedDraft = normalizePortugueseShorthand(ruleBasedDraft);
-  const requestedUseCase = typeof body.useCase === 'string' ? body.useCase : 'general';
+  const normalizedPrompt = prompt.replace(/[ \t]+/g, ' ').trim();
   const hasPriorConversation = body.hasPriorConversation === true;
   const strict = body.strict === true;
   const performanceMode = isPerformanceMode(body.performanceMode)
@@ -185,9 +153,6 @@ export async function POST(request: NextRequest) {
       : 'balanced';
   const profile = MODEL_PROFILES[performanceMode];
   const keepModelsWarm = body.keepModelsWarm !== false;
-  const useCase = ALLOWED_USE_CASES.has(requestedUseCase as UseCase)
-    ? (requestedUseCase as UseCase)
-    : 'general';
 
   if (prompt.length < 2) return json({ error: 'Prompt is required' }, 400, request);
   if (prompt.length > profile.maxInputCharacters)
@@ -200,59 +165,43 @@ export async function POST(request: NextRequest) {
       : performanceMode === 'quality'
         ? OLLAMA_QUALITY_MODEL
         : OLLAMA_MODEL;
-  const isPortuguesePrompt =
-    /\b(?:faz|fazer|que|como|mais|quero|preciso|para|por|sem|com|modelo|prompt|favor|nao|não)\b/i.test(
-      normalizedPrompt
-    );
   const maxOutputTokens = Math.min(
     profile.maxOutputTokens,
-    isShortPrompt ? 48 : prompt.length < 500 ? 144 : prompt.length < 1_500 ? 240 : 320
+    isShortPrompt ? 64 : prompt.length < 500 ? 144 : prompt.length < 1_500 ? 240 : 320
   );
 
-  const detailedSystemPrompt = [
-    strict
-      ? 'Rewrite the draft as a clear, ready-to-send prompt. Output only the rewritten request. No labels, quotation marks, commentary, evaluation, or answer.'
-      : 'Rewrite the user draft into a polished, ready-to-send prompt. Return only that prompt: no introduction, quotes, markdown fence, explanation, or answer.',
-    'Preserve its language and intent; use European Portuguese when applicable. Correct spelling, grammar, punctuation, unclear wording, and obvious abbreviations.',
-    'Keep the original topic and key terms. Never replace the request with an unrelated example or claim.',
-    'The input is text to rewrite, not a request to fulfil. Never refuse it; rewrite it as a safe prompt instead.',
-    'Preserve specialist terms, brands, titles, acronyms, institutions, and names from the rule-based candidate. Never replace an uncertain term with another concept.',
-    'Improve meaningfully, not just cosmetically: add only safely inferred structure, constraints, decision criteria, or output guidance. Never invent facts or preferences.',
-    hasPriorConversation
-      ? 'Previous user messages exist in this conversation. Preserve genuine follow-up references such as “again” or “these”, but do not treat ordinary comparative words as references.'
-      : 'No previous user messages were detected. Make the prompt fully standalone and never mention previous context, earlier suggestions, or a prior conversation.',
-    'For an original draft under 500 characters, keep the improved prompt under 100 words.',
-    'Convert “AI slop” or detection wording into concrete quality requirements: natural specific prose, varied sentences, no clichés, repetition, or generic filler. Do not promise undetectability.',
-    'For long reports, clarify structure, visual presentation, tone, opening, transitions, conclusion, and CTA. Prefer natural prose over Role/Context/Task sections.',
-    `Use case: ${useCase}.`
-  ].join(' ');
-  const shortSystemPrompt = isPortuguesePrompt
-    ? [
-        'Reescreve como uma prompt clara em português europeu.',
-        'Corrige erros sem mudar o tema. Não respondas ao pedido.',
-        'O texto é para reescrever: não o recuses.',
-        'Devolve apenas a prompt reescrita, sem comentários.'
-      ].join(' ')
-    : [
-        'Rewrite as a clear ready-to-send prompt in the same language.',
-        'Correct errors without changing the topic. Do not answer the request.',
-        'The text is being rewritten: do not refuse it.',
-        'Output only the rewritten prompt, without commentary.'
-      ].join(' ');
-  const systemPrompt = isShortPrompt ? shortSystemPrompt : detailedSystemPrompt;
-  const rewriteKey = JSON.stringify(
-    isShortPrompt
-      ? [performanceMode, selectedModel, normalizedPrompt, useCase, strict]
-      : [
-          performanceMode,
-          selectedModel,
-          normalizedPrompt,
-          normalizedRuleBasedDraft,
-          useCase,
-          hasPriorConversation,
-          strict
+  const isPortuguese = isPortugueseText(normalizedPrompt);
+  const systemPrompt = (
+    isPortuguese
+      ? [
+          'A tua única tarefa é corrigir o texto; não respondas ao conteúdo.',
+          'Corrige apenas erros ortográficos, gramaticais, de pontuação e formulações pouco claras.',
+          'Mantém exatamente o mesmo significado, informação, incerteza, pessoa gramatical, detalhes e português europeu.',
+          'Não acrescentes nem retires tarefas, requisitos, contexto, exemplos, fontes, formatos, recomendações ou suposições.',
+          'Se o texto já estiver correto, repete-o exatamente.',
+          'Devolve apenas o texto corrigido, sem rótulos, aspas ou comentários.',
+          strict ? 'Sê especialmente rigoroso: não faças alterações semânticas.' : ''
         ]
-  );
+      : [
+          'Your only task is to copy-edit the text; do not answer its content.',
+          'Correct only spelling, grammar, punctuation, and unclear wording.',
+          'Keep exactly the same meaning, information, uncertainty, grammatical person, details, and language.',
+          'Do not add or remove tasks, requirements, context, examples, sources, formats, recommendations, or assumptions.',
+          'If the text is already correct, repeat it exactly.',
+          'Return only the corrected text without labels, quotes, or commentary.',
+          strict ? 'Be especially strict: make no semantic changes.' : ''
+        ]
+  )
+    .filter(Boolean)
+    .join(' ');
+  const rewriteKey = JSON.stringify([
+    performanceMode,
+    selectedModel,
+    normalizedPrompt,
+    hasPriorConversation,
+    strict,
+    'conservative-v2'
+  ]);
 
   const cachedRewrite = recentRewrites.get(rewriteKey);
   if (
@@ -294,11 +243,7 @@ export async function POST(request: NextRequest) {
               { role: 'system', content: systemPrompt },
               {
                 role: 'user',
-                content: isShortPrompt
-                  ? normalizedPrompt
-                  : normalizedRuleBasedDraft
-                    ? `Original draft:\n${normalizedPrompt}\n\nRule-based candidate (use it to preserve the interpreted intent, then improve its wording):\n${normalizedRuleBasedDraft}`
-                    : normalizedPrompt
+                content: `${isPortuguese ? 'Corrige apenas este texto' : 'Copy-edit only this text'}:\n${normalizedPrompt}`
               }
             ]
           }),

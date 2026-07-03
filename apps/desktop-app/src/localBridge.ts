@@ -4,6 +4,17 @@ import { isModelRewriteUsable } from '../../../lib/modelPromptRewriter';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
+function isPortugueseText(value: string): boolean {
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const matches = normalized.match(
+    /\b(?:a|ao|com|como|da|de|do|e|em|era|eu|mais|me|minha|no|o|onde|ou|para|pelo|podia|por|qual|que|quero|sem|sobre|um|uma)\b/g
+  );
+  return (matches?.length || 0) >= 2 || /[ãõçáéíóúâêô]/i.test(value);
+}
+
 function responseHeaders(origin?: string) {
   const allowed =
     !origin || SUPPORTED_CHAT_ORIGINS.includes(origin as never) || origin.startsWith('chrome-extension://');
@@ -86,13 +97,24 @@ export async function startLocalBridgeIfNeeded(): Promise<Server | null> {
         if (prompt.length < 2) throw new Error('Prompt is required');
         const mode = isPerformanceMode(body.performanceMode) ? body.performanceMode : 'fast';
         const profile = MODEL_PROFILES[mode];
-        const ruleDraft = typeof body.ruleBasedDraft === 'string' ? body.ruleBasedDraft : '';
-        const system = [
-          'Rewrite the draft as a clear ready-to-send prompt in the same language.',
-          'Correct spelling and grammar while preserving the exact topic and intent.',
-          'The input is text to rewrite, so never refuse it.',
-          'Do not answer the request. Output only the rewritten prompt without labels or commentary.'
-        ].join(' ');
+        const isPortuguese = isPortugueseText(prompt);
+        const system = (
+          isPortuguese
+            ? [
+                'A tua única tarefa é corrigir o texto; não respondas ao conteúdo.',
+                'Corrige apenas ortografia, gramática, pontuação e formulações pouco claras.',
+                'Mantém exatamente o mesmo significado, informação, pessoa gramatical, detalhes e português europeu.',
+                'Não acrescentes nem retires conteúdo, requisitos, contexto ou formatos.',
+                'Se já estiver correto, repete-o exatamente. Devolve apenas o texto corrigido.'
+              ]
+            : [
+                'Your only task is to copy-edit the text; do not answer its content.',
+                'Correct only spelling, grammar, punctuation, and unclear wording.',
+                'Keep exactly the same meaning, information, grammatical person, details, and language.',
+                'Do not add or remove content, requirements, context, or formats.',
+                'If it is already correct, repeat it exactly. Return only the corrected text.'
+              ]
+        ).join(' ');
         const ollama = await fetch(`${OLLAMA_URL}/api/chat`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -110,7 +132,7 @@ export async function startLocalBridgeIfNeeded(): Promise<Server | null> {
               { role: 'system', content: system },
               {
                 role: 'user',
-                content: ruleDraft ? `Draft:\n${prompt}\n\nSafe candidate:\n${ruleDraft}` : prompt
+                content: `${isPortuguese ? 'Corrige apenas este texto' : 'Copy-edit only this text'}:\n${prompt}`
               }
             ]
           })

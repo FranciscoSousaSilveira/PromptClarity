@@ -16,6 +16,7 @@ export interface ModelRewriteRequest {
 export interface ModelRewriteResult {
   rewrittenPrompt: string;
   source: 'model' | 'rules';
+  isAlreadyGood: boolean;
   model?: string;
   error?: string;
   validationScore: number;
@@ -44,28 +45,9 @@ function cleanModelOutput(value: string): string {
   if (wrappingQuote) cleaned = wrappingQuote[1].trim();
 
   cleaned = cleaned
-    .replace(/\banres\b/gi, 'antes')
-    .replace(/\bha forma\b/gi, 'há forma')
-    .replace(/\bnao\b/gi, 'não')
-    .replace(/\bfaz\s+la\b/gi, 'implementa essa solução')
-    .replace(/\bmdoelo\b/gi, 'modelo')
-    .replace(
-      /\b(?:faz com que o )?modelo corra mais rapido\b/gi,
-      'faz com que o modelo responda mais rapidamente'
-    )
-    .replace(/\bpromtp\b/gi, 'prompt')
-    .replace(/\bconsegii\b/gi, 'consegui')
-    .replace(/\bsff\b/gi, 'por favor')
-    .replace(/\brapido\b/gi, 'rápido')
-    .replace(/\bnng\b/gi, 'ninguém')
-    .replace(/\bn\s+(?=quero|deve|pode|fica|seja|tem|é\b)/gi, 'não ')
-    .replace(/\btp\b[,.]?\s*/gi, '')
-    .replace(/\brelatorio\b/gi, 'relatório')
-    .replace(/\bpaginas\b/gi, 'páginas')
-    .replace(/\bcomecar\b/gi, 'começar')
-    .replace(/\bsmallville\b/gi, 'Smallville')
-    .replace(/\bcta\b/gi, 'CTA')
-    .replace(/\bai\b/gi, 'IA');
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s+([,.;:?!])/g, '$1')
+    .trim();
 
   return cleaned;
 }
@@ -105,17 +87,6 @@ const SEMANTIC_STOP_WORDS = new Set([
 function meaningfulTokens(value: string): string[] {
   return (
     value
-      .replace(/\banres\b/gi, 'antes')
-      .replace(/\bha forma\b/gi, 'há forma')
-      .replace(/\bnao\b/gi, 'não')
-      .replace(/\bfaz\s+la\b/gi, 'implementa essa solução')
-      .replace(/\bmdoelo\b/gi, 'modelo')
-      .replace(
-        /\b(?:faz com que o )?modelo corra mais rapido\b/gi,
-        'faz com que o modelo responda mais rapidamente'
-      )
-      .replace(/\bpromtp\b/gi, 'prompt')
-      .replace(/\bconsegii\b/gi, 'consegui')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
@@ -126,21 +97,27 @@ function meaningfulTokens(value: string): string[] {
 
 function tokensAreRelated(left: string, right: string): boolean {
   if (left === right) return true;
-  return left.length >= 5 && right.length >= 5 && left.slice(0, 5) === right.slice(0, 5);
+  if (left.length >= 5 && right.length >= 5 && left.slice(0, 5) === right.slice(0, 5)) return true;
+  if (left.length < 4 || right.length < 4 || Math.abs(left.length - right.length) > 2) return false;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex++) {
+    let diagonal = previous[0];
+    previous[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
+      const above = previous[rightIndex];
+      previous[rightIndex] = Math.min(
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + 1,
+        diagonal + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1)
+      );
+      diagonal = above;
+    }
+  }
+  return previous[right.length] <= 2;
 }
 
 function isFaithfulToOriginal(original: string, rewritten: string): boolean {
-  const criticalConcepts = [
-    /\b(?:matr[ií]cula|enrollment|immatrikulation)\b/i,
-    /\bcancel\w*\b/i,
-    /\bcandidatura\b|\bapplication\b/i,
-    /\bdiploma\b|\bcertificate\b/i,
-    /\btum\b/i
-  ];
-  for (const concept of criticalConcepts) {
-    if (concept.test(original) && !concept.test(rewritten)) return false;
-  }
-
   const originalTokens = [...new Set(meaningfulTokens(original))];
   const rewrittenTokens = [...new Set(meaningfulTokens(rewritten))];
   if (originalTokens.length === 0) return true;
@@ -148,11 +125,19 @@ function isFaithfulToOriginal(original: string, rewritten: string): boolean {
   const overlap = originalTokens.filter((originalToken) =>
     rewrittenTokens.some((rewrittenToken) => tokensAreRelated(originalToken, rewrittenToken))
   ).length;
-  return overlap >= (originalTokens.length <= 2 ? 1 : 2);
+  const novelTokens = rewrittenTokens.filter(
+    (rewrittenToken) =>
+      !originalTokens.some((originalToken) => tokensAreRelated(originalToken, rewrittenToken))
+  ).length;
+  return (
+    overlap >= Math.max(1, Math.ceil(originalTokens.length * 0.5)) &&
+    novelTokens <= Math.max(3, Math.ceil(originalTokens.length * 0.35))
+  );
 }
 
 export function isModelRewriteUsable(original: string, rewritten: string): boolean {
-  if (rewritten.length < 3 || rewritten.length > 8_000) return false;
+  const trimmedRewrite = rewritten.trim();
+  if (trimmedRewrite.length < 3 || trimmedRewrite.length > 8_000) return false;
   if (
     /^(?:Resposta corrigida|Corrected (?:answer|response)|Aqui est[aá]|Here (?:is|are)|Esta resposta|This (?:answer|response)|The user's (?:answer|response))\b/i.test(
       rewritten
@@ -167,11 +152,30 @@ export function isModelRewriteUsable(original: string, rewritten: string): boole
     )
   )
     return false;
+  if (
+    /^(?:O que (?:você|tu) (?:está|estás) (?:buscando|a procurar|à procura)|Parece que (?:você|tu)|It (?:sounds|seems) like you(?:'re| are) looking for)\b/i.test(
+      trimmedRewrite
+    )
+  )
+    return false;
+  if (
+    !/[?!.]$/.test(trimmedRewrite) &&
+    /\b(?:como|por exemplo|incluindo|tais como|such as|including|for example|like)\s*$/i.test(trimmedRewrite)
+  )
+    return false;
+
+  const originalIsQuestion = /\?\s*$/.test(original.trim());
+  const rewriteIsRequest =
+    trimmedRewrite.includes('?') ||
+    /^(?:Ajuda|Identifica|Sugere|Explica|Analisa|Compara|Indica|Diz|Responde|Lista|Encontra|Escreve|Cria|Verifica|Considera|Help|Identify|Suggest|Explain|Analyze|Compare|State|Tell|Answer|List|Find|Write|Create|Check|Consider)\b/i.test(
+      trimmedRewrite
+    );
+  if (originalIsQuestion && !rewriteIsRequest) return false;
 
   // A rewrite may be longer, but a huge response is usually the model answering
   // the prompt instead of improving it.
-  const reasonableLimit = Math.max(1_200, original.length * 8);
-  return rewritten.length <= reasonableLimit && isFaithfulToOriginal(original, rewritten);
+  const reasonableLimit = Math.max(original.length + 80, original.length * 1.6);
+  return trimmedRewrite.length <= reasonableLimit && isFaithfulToOriginal(original, trimmedRewrite);
 }
 
 export function rewriteValidationScore(original: string, rewritten: string): number {
@@ -193,92 +197,46 @@ function stripInventedPriorContext(rewritten: string): string {
     .trim();
 }
 
-function rewriteKnownIntent(original: string): string | null {
-  const normalized = original
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-
-  if (
-    /\baquecer\b.{0,80}\bmodelo\b|\bmodelo\b.{0,80}\baquecer\b/.test(normalized) &&
-    /\btempo\b.{0,30}\bespera\b/.test(normalized)
-  ) {
-    return 'Verifica se é possível pré-aquecer o modelo antes da primeira utilização para reduzir o tempo de espera. Se for, implementa essa solução e garante que o aquecimento ocorre automaticamente ao iniciar a aplicação.';
-  }
-
-  return null;
+function normalizeForEquality(value: string): string {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
 }
 
-function preserveConversationReferences(
-  original: string,
-  rewritten: string,
-  hasPriorConversation: boolean
-): string {
-  const normalizedOriginal = original
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+function normalizedWordBag(value: string): string[] {
+  return (
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) || []
+  ).sort();
+}
 
-  const knownIntent = rewriteKnownIntent(original);
-  if (knownIntent) return knownIntent;
+function isMechanicallyWellFormed(value: string): boolean {
+  const trimmed = value.trim();
+  const firstLetter = trimmed.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/)?.[0];
+  return (
+    Boolean(firstLetter && firstLetter === firstLetter.toUpperCase()) &&
+    /[?!.]$/.test(trimmed) &&
+    !/\s{2,}/.test(trimmed) &&
+    !/\b(?:nao|sff|nng|tp)\b/i.test(trimmed)
+  );
+}
 
-  if (/\bmais\s+nomes\b/.test(normalizedOriginal)) {
-    return hasPriorConversation
-      ? 'Com base nos nomes sugeridos anteriormente, apresenta mais opções com um tom brincalhão e criativo. Evita nomes demasiado sérios ou genéricos e acrescenta uma breve explicação para cada sugestão.'
-      : 'Apresenta opções de nomes com um tom brincalhão e criativo. Evita nomes demasiado sérios ou genéricos e acrescenta uma breve explicação para cada sugestão.';
-  }
-
-  if (/\bmore\s+names\b/.test(normalizedOriginal)) {
-    return hasPriorConversation
-      ? 'Based on the names suggested earlier, provide more playful and creative options. Avoid names that feel overly serious or generic, and add a brief explanation for each suggestion.'
-      : 'Provide playful and creative name options. Avoid names that feel overly serious or generic, and add a brief explanation for each suggestion.';
-  }
-
-  if (!hasPriorConversation) return stripInventedPriorContext(rewritten);
-
-  const referencesEarlierContext =
-    /\b(?:diz(?:-me)?|mostra|sugere|apresenta)\s+mais\b|\b(novamente|outra vez|continua)\b/.test(
-      normalizedOriginal
-    );
-  const rewriteKeepsReference = /\b(mais|anterior|novamente|outra vez)\b/i.test(rewritten);
-  if (referencesEarlierContext && !rewriteKeepsReference) {
-    return `Com base no contexto anterior, ${rewritten.charAt(0).toLowerCase()}${rewritten.slice(1)}`;
-  }
-
-  return rewritten;
+function hasSameWords(left: string, right: string): boolean {
+  const leftWords = normalizedWordBag(left);
+  const rightWords = normalizedWordBag(right);
+  return (
+    leftWords.length === rightWords.length && leftWords.every((word, index) => word === rightWords[index])
+  );
 }
 
 export async function rewritePromptWithModel(
   request: ModelRewriteRequest,
   options: ModelRewriteOptions = {}
 ): Promise<ModelRewriteResult> {
-  const instantRewrite = rewriteKnownIntent(request.prompt);
-  if (instantRewrite) {
-    return {
-      rewrittenPrompt: instantRewrite,
-      source: 'rules',
-      validationScore: 100,
-      sourceDetail: 'instant-rules'
-    };
-  }
-
-  const wordCount = request.prompt.trim().split(/\s+/).filter(Boolean).length;
-  if (request.preferSpeed && request.prompt.length <= 120 && wordCount <= 16) {
-    const fastRewrite = preserveConversationReferences(
-      request.prompt,
-      cleanModelOutput(request.fallbackPrompt),
-      request.hasPriorConversation === true
-    );
-    if (isModelRewriteUsable(request.prompt, fastRewrite)) {
-      return {
-        rewrittenPrompt: fastRewrite,
-        source: 'rules',
-        validationScore: rewriteValidationScore(request.prompt, fastRewrite),
-        sourceDetail: 'instant-rules'
-      };
-    }
-  }
-
   const endpoint = options.endpoint || DEFAULT_REWRITE_ENDPOINT;
   // Small local models can take longer on their first request while weights
   // are loaded into memory. Subsequent requests are normally much faster.
@@ -320,11 +278,9 @@ export async function rewritePromptWithModel(
       const cleanedRewrite = cleanModelOutput(
         typeof payload.rewrittenPrompt === 'string' ? payload.rewrittenPrompt : ''
       );
-      const rewritten = preserveConversationReferences(
-        request.prompt,
-        cleanedRewrite,
-        request.hasPriorConversation === true
-      );
+      const rewritten = request.hasPriorConversation
+        ? cleanedRewrite
+        : stripInventedPriorContext(cleanedRewrite);
       return {
         rewritten,
         model: typeof payload.model === 'string' ? payload.model : undefined
@@ -340,9 +296,12 @@ export async function rewritePromptWithModel(
       throw new Error('The model returned an unrelated, invalid, or excessively long rewrite');
     }
 
+    const isAlreadyGood =
+      isMechanicallyWellFormed(request.prompt) && hasSameWords(request.prompt, candidate.rewritten);
     return {
-      rewrittenPrompt: candidate.rewritten,
+      rewrittenPrompt: isAlreadyGood ? request.prompt.trim() : candidate.rewritten,
       source: 'model',
+      isAlreadyGood,
       model: candidate.model,
       validationScore: rewriteValidationScore(request.prompt, candidate.rewritten),
       sourceDetail: 'local-ai'
@@ -352,6 +311,7 @@ export async function rewritePromptWithModel(
     return {
       rewrittenPrompt: request.fallbackPrompt,
       source: 'rules',
+      isAlreadyGood: normalizeForEquality(request.fallbackPrompt) === normalizeForEquality(request.prompt),
       error: message,
       validationScore: rewriteValidationScore(request.prompt, request.fallbackPrompt),
       sourceDetail: 'safety-fallback'

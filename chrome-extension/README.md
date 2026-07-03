@@ -1,13 +1,13 @@
 # Prompt Grammarly for Chrome
 
-The extension reviews prompt drafts directly inside supported AI chat apps. After you pause typing, it opens a suggestion card with a score, focused feedback, and a natural ready-to-send rewrite.
+The extension reviews prompt drafts directly inside supported AI chat apps. It corrects spelling, grammar, punctuation, and clarity without adding new instructions or content.
 
-Rewriting is local. Fast mode uses an instant deterministic rewrite for short prompts and Ollama when more reasoning is needed. Balanced and Quality modes use progressively larger local models. The enhanced prompt remains editable before Copy or Insert, and Insert supports Undo.
+Rewriting is local and always uses Ollama when available. Fast, Balanced, and Quality select progressively more capable local models. When no correction is needed, the popup shows a green checkmark. The corrected prompt remains editable before Copy or Insert, and Insert supports Undo.
 
 ## Local AI setup
 
 1. Install [Ollama](https://ollama.com/download) for your operating system.
-2. From the repository root, run `npm run model:pull` once. This downloads the Fast (`qwen2.5:0.5b`), Balanced (`gemma3:1b`), and Quality (`qwen2.5:3b`) models.
+2. From the repository root, run `npm run model:pull` once. This downloads Qwen 3B, used by all modes with different context and output limits.
 3. Run `npm run dev` and leave that terminal open while using the extension. This starts the local bridge at `http://127.0.0.1:3000/api/rewrite`.
 4. Build and reload the Chrome extension as described below.
 

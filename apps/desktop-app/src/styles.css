@@ -302,6 +302,38 @@ button {
   border-color: rgba(96, 165, 250, 0.45);
 }
 
+.prompt-good-state {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 12px;
+  color: #d1fae5;
+  background: rgba(16, 185, 129, 0.11);
+}
+
+.prompt-good-state > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.prompt-good-state small {
+  color: #a7f3d0;
+}
+
+.prompt-good-check {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: #059669;
+  font-size: 19px;
+  font-weight: 800;
+}
+
 .review-details {
   margin-top: 13px;
   border: 1px solid rgba(255, 255, 255, 0.08);

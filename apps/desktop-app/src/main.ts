@@ -385,6 +385,7 @@ async function analyzeSession(session: ActiveSession) {
       model: modelResult.model,
       sourceDetail: modelResult.sourceDetail,
       validationScore: modelResult.validationScore,
+      isAlreadyGood: modelResult.source === 'model' && modelResult.isAlreadyGood && !modelResult.error,
       canUndo: lastInsertion !== null,
       review: toReview(session.improvedText)
     });

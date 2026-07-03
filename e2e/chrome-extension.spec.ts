@@ -2,6 +2,17 @@ import { expect, test } from '@playwright/test';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('http://127.0.0.1:3000/api/rewrite', async (route) => {
+    const body = route.request().postDataJSON() as { prompt?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ rewrittenPrompt: body.prompt || '' })
+    });
+  });
+});
+
 test('opens a suggestion and inserts it in textarea', async ({ page }) => {
   await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
   const input = page.locator('#textarea1');
@@ -42,6 +53,82 @@ test('keeps a validated local fallback pasteable when the model response is unav
   await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
   const improved = page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea');
   await expect(improved).toBeVisible();
-  await expect(improved).toHaveValue(/candidatura à TUM/i);
+  await expect(improved).toHaveValue(/candidatura par a tum/i);
   await expect(page.locator('#prompt-enhancer-root').locator('#pe-insert-btn')).toBeEnabled();
+});
+
+test('does not throw when Chrome invalidates the extension during an async storage operation', async ({
+  page
+}) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    const runtime = { id: 'test-extension' };
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      value: {
+        runtime,
+        storage: {
+          local: {
+            get: async () => {
+              await new Promise((resolveDelay) => setTimeout(resolveDelay, 30));
+              return {};
+            },
+            set: async () => {
+              if (!runtime.id) throw new Error('Extension context invalidated.');
+            }
+          }
+        }
+      }
+    });
+  });
+
+  await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
+  const input = page.locator('#textarea1');
+  await input.fill('explica me energia solar em tres pontos');
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+  await expect(page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea')).toBeVisible();
+  await page.locator('#prompt-enhancer-root').locator('#pe-insert-btn').click();
+  await page.evaluate(() => {
+    (globalThis as typeof globalThis & { chrome: { runtime: { id: string } } }).chrome.runtime.id = '';
+  });
+  await page.waitForTimeout(100);
+
+  expect(pageErrors).toEqual([]);
+});
+
+test('rejects an incomplete game answer without inventing a replacement prompt', async ({ page }) => {
+  await page.route('http://127.0.0.1:3000/api/rewrite', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        rewrittenPrompt:
+          'O que você está buscando é um jogo online num navegador específico. Se estiver procurando por um jogo como'
+      })
+    });
+  });
+  await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
+  const input = page.locator('#textarea1');
+  await input.fill(
+    'qual era o jogo online no browser ond eu podia contruir casad com desgin tipo com blcoso e tem bom aspecto?'
+  );
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+  const improved = page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea');
+  await expect(improved).toBeVisible();
+  await expect(improved).toHaveValue(/jogo online no browser/i);
+  await expect(improved).toHaveValue(/contruir casad/i);
+  await expect(improved).not.toHaveValue(/O que você está buscando/i);
+  await expect(page.locator('#prompt-enhancer-root').locator('#pe-insert-btn')).toBeEnabled();
+});
+
+test('shows a checkmark when the model confirms that a clear prompt needs no changes', async ({ page }) => {
+  await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
+  await page.locator('#textarea1').fill('Explain photosynthesis clearly.');
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+
+  await expect(page.locator('#prompt-enhancer-root').locator('.prompt-good-state')).toBeVisible();
+  await expect(page.locator('#prompt-enhancer-root').locator('.prompt-good-state')).toContainText(
+    'already clear'
+  );
 });

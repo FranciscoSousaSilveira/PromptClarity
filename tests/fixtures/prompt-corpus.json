@@ -4,7 +4,7 @@
   {
     "id": "speed",
     "prompt": "faz com que o mdoelo corra mais rapido sff",
-    "mustInclude": ["modelo", "rapid"]
+    "mustInclude": ["mdoelo", "rapid"]
   },
   {
     "id": "warmup",
@@ -14,7 +14,7 @@
   {
     "id": "courses",
     "prompt": "qual abre mais portas aero ou mechatronica na TUM",
-    "mustInclude": ["Aero", "Mecatr", "TUM"]
+    "mustInclude": ["Aero", "mechat", "TUM"]
   },
   {
     "id": "report",
@@ -50,5 +50,10 @@
     "id": "constraints",
     "prompt": "explain quantum computing in under 100 words for a beginner",
     "mustInclude": ["100", "beginner"]
+  },
+  {
+    "id": "browser-game-identification",
+    "prompt": "qual era o jogo online no browser ond eu podia contruir casad com desgin tipo com blcoso e tem bom aspecto?",
+    "mustInclude": ["jogo", "browser", "contru", "casad", "blcos"]
   }
 ]

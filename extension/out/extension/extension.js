@@ -108,7 +108,8 @@ async function analyzeWithLocalModel(text) {
         copyableText: modelResult.rewrittenPrompt,
         rewriteSource: modelResult.source,
         modelName: modelResult.model,
-        modelError: modelResult.error
+        modelError: modelResult.error,
+        isAlreadyGood: modelResult.source === 'model' && modelResult.isAlreadyGood && !modelResult.error
     };
 }
 async function showPopup(text, context) {
@@ -126,6 +127,7 @@ async function showPopup(text, context) {
             original: text,
             improved: result.improvedPrompt,
             confidence: Math.round(result.detectionConfidence * 100),
+            isAlreadyGood: result.isAlreadyGood,
             analysis: result.analysis
         });
         return;
@@ -135,7 +137,7 @@ async function showPopup(text, context) {
         enableScripts: true,
         localResourceRoots: [context.extensionUri]
     });
-    popupPanel.webview.html = getWebviewContent(text, result.improvedPrompt, result.detectionConfidence, popupPanel.webview);
+    popupPanel.webview.html = getWebviewContent(text, result.improvedPrompt, result.detectionConfidence, result.isAlreadyGood === true, popupPanel.webview);
     popupPanel.webview.onDidReceiveMessage(async (message) => {
         switch (message.command) {
             case 'copy':
@@ -202,7 +204,7 @@ function insertTextInEditor(text) {
 /**
  * Generates the HTML for the webview popup
  */
-function getWebviewContent(original, improved, confidence, _webview) {
+function getWebviewContent(original, improved, confidence, isAlreadyGood, _webview) {
     const nonce = (0, crypto_1.randomBytes)(16).toString('base64');
     return `<!DOCTYPE html>
 <html lang="en">
@@ -328,7 +330,7 @@ function getWebviewContent(original, improved, confidence, _webview) {
 <body>
     <div class="container">
         <div class="header">
-            <span class="title">✨ Enhanced Prompt</span>
+            <span class="title" id="result-title">${isAlreadyGood ? '✓ Prompt looks good' : 'Corrected Prompt'}</span>
             <span class="confidence" id="confidence-value">${confidence}% confident</span>
         </div>
         
@@ -338,9 +340,9 @@ function getWebviewContent(original, improved, confidence, _webview) {
         </div>
         
         <div class="section">
-            <div class="section-label">Improved</div>
+            <div class="section-label" id="result-label">${isAlreadyGood ? 'No changes needed' : 'Corrected'}</div>
             <div class="text-box" id="improved-text">${escapeHtml(improved)}</div>
-            <div class="hint">Copy and paste the improved prompt in your chat.</div>
+            <div class="hint" id="result-hint">${isAlreadyGood ? 'The model found no spelling, grammar, or clarity changes to make.' : 'Copy and paste the corrected prompt in your chat.'}</div>
         </div>
         
         <div class="actions">
@@ -366,6 +368,11 @@ function getWebviewContent(original, improved, confidence, _webview) {
             document.getElementById('original-text').textContent = message.original;
             document.getElementById('improved-text').textContent = message.improved;
             document.getElementById('confidence-value').textContent = message.confidence + '% confident';
+            document.getElementById('result-title').textContent = message.isAlreadyGood ? '✓ Prompt looks good' : 'Corrected Prompt';
+            document.getElementById('result-label').textContent = message.isAlreadyGood ? 'No changes needed' : 'Corrected';
+            document.getElementById('result-hint').textContent = message.isAlreadyGood
+              ? 'The model found no spelling, grammar, or clarity changes to make.'
+              : 'Copy and paste the corrected prompt in your chat.';
         });
         
         function copy() {

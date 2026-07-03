@@ -10,6 +10,43 @@ import { getSiteAdapter } from './siteAdapters';
 declare const __CSS_TEXT__: string;
 declare const chrome: any;
 
+function isExtensionContextAvailable(): boolean {
+  try {
+    return typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id) && Boolean(chrome.storage?.local);
+  } catch {
+    return false;
+  }
+}
+
+function isExtensionContextInvalidated(error: unknown): boolean {
+  return /extension context invalidated/i.test(error instanceof Error ? error.message : String(error));
+}
+
+async function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> {
+  if (!isExtensionContextAvailable()) return {};
+  try {
+    return (await chrome.storage.local.get(keys)) as Record<string, unknown>;
+  } catch (error) {
+    if (!isExtensionContextInvalidated(error)) {
+      console.warn('[Prompt Grammarly] Could not read extension settings.', error);
+    }
+    return {};
+  }
+}
+
+async function safeStorageSet(values: Record<string, unknown>): Promise<boolean> {
+  if (!isExtensionContextAvailable()) return false;
+  try {
+    await chrome.storage.local.set(values);
+    return true;
+  } catch (error) {
+    if (!isExtensionContextInvalidated(error)) {
+      console.warn('[Prompt Grammarly] Could not save extension settings.', error);
+    }
+    return false;
+  }
+}
+
 class PromptEnhancerExtension {
   private ui = new PromptEnhancerUI();
   private activeElement: HTMLTextAreaElement | HTMLInputElement | HTMLElement | null = null;
@@ -33,12 +70,8 @@ class PromptEnhancerExtension {
 
   public async init() {
     // Load saved use case from storage if available
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      const data = await chrome.storage.local.get([
-        'defaultUseCase',
-        'autoEnhanceEnabled',
-        'performanceMode'
-      ]);
+    if (isExtensionContextAvailable()) {
+      const data = await safeStorageGet(['defaultUseCase', 'autoEnhanceEnabled', 'performanceMode']);
       if (data.defaultUseCase) {
         this.currentUseCase = data.defaultUseCase as UseCase;
       }
@@ -187,9 +220,7 @@ class PromptEnhancerExtension {
     this.currentUseCase = useCase;
 
     // Save to storage
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ defaultUseCase: useCase });
-    }
+    void safeStorageSet({ defaultUseCase: useCase });
 
     // Re-run analysis with new use case
     this.dismissedSignature = '';
@@ -198,9 +229,7 @@ class PromptEnhancerExtension {
 
   private handleAutoEnhanceChange(enabled: boolean) {
     this.autoEnhanceEnabled = enabled;
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      chrome.storage.local.set({ autoEnhanceEnabled: enabled });
-    }
+    void safeStorageSet({ autoEnhanceEnabled: enabled });
 
     if (!enabled) {
       this.clearAnalysisTimer();
@@ -217,9 +246,7 @@ class PromptEnhancerExtension {
 
   private handlePerformanceModeChange(mode: PerformanceMode) {
     this.performanceMode = mode;
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      chrome.storage.local.set({ performanceMode: mode });
-    }
+    void safeStorageSet({ performanceMode: mode });
     this.dismissedSignature = '';
     void this.runAnalysis(true);
   }
@@ -315,13 +342,12 @@ class PromptEnhancerExtension {
     this.lastInsertion = null;
   }
 
-  private saveHistory(improvedText: string) {
-    if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
-    void chrome.storage.local.get(['promptHistory']).then((data: { promptHistory?: unknown[] }) => {
-      const history = Array.isArray(data.promptHistory) ? data.promptHistory : [];
-      history.unshift({ improvedText, createdAt: new Date().toISOString(), site: this.siteAdapter.id });
-      return chrome.storage.local.set({ promptHistory: history.slice(0, 20) });
-    });
+  private async saveHistory(improvedText: string) {
+    const data = await safeStorageGet(['promptHistory']);
+    if (!isExtensionContextAvailable()) return;
+    const history = Array.isArray(data.promptHistory) ? data.promptHistory : [];
+    history.unshift({ improvedText, createdAt: new Date().toISOString(), site: this.siteAdapter.id });
+    await safeStorageSet({ promptHistory: history.slice(0, 20) });
   }
 
   private handleClose() {
@@ -397,10 +423,26 @@ class PromptEnhancerExtension {
 
     this.rememberGeneratedPrompt(modelResult.rewrittenPrompt);
     const reviewedPrompt = analyzePrompt(modelResult.rewrittenPrompt, this.currentUseCase);
-    const updatedAnalysis = {
-      ...reviewedPrompt,
-      rewrittenPrompt: modelResult.rewrittenPrompt
-    };
+    const promptIsAlreadyGood =
+      modelResult.source === 'model' &&
+      modelResult.isAlreadyGood &&
+      !modelResult.error &&
+      content.analysis.spellingIssues.length === 0 &&
+      !content.analysis.issues.some((issue) => issue.id === 'vague-task');
+    const updatedAnalysis = promptIsAlreadyGood
+      ? {
+          ...reviewedPrompt,
+          overallScore: 100,
+          label: 'Excellent' as const,
+          summary: 'The prompt is already clear and needs no changes.',
+          issues: [],
+          strengths: ['Clear wording and intent'],
+          rewrittenPrompt: modelResult.rewrittenPrompt
+        }
+      : {
+          ...reviewedPrompt,
+          rewrittenPrompt: modelResult.rewrittenPrompt
+        };
     const hasPasteableSafetyFallback =
       modelResult.sourceDetail === 'safety-fallback' &&
       modelResult.validationScore >= 70 &&
@@ -417,7 +459,8 @@ class PromptEnhancerExtension {
         modelName: modelResult.model,
         modelError: modelResult.error,
         sourceDetail: modelResult.sourceDetail,
-        validationScore: modelResult.validationScore
+        validationScore: modelResult.validationScore,
+        isAlreadyGood: promptIsAlreadyGood
       },
       this.currentUseCase,
       this.autoEnhanceEnabled,
@@ -617,4 +660,6 @@ class PromptEnhancerExtension {
 
 // Instantiate and initialize
 const extension = new PromptEnhancerExtension();
-extension.init().catch(console.error);
+extension.init().catch((error) => {
+  if (!isExtensionContextInvalidated(error)) console.error(error);
+});

@@ -47,7 +47,10 @@ function renderLoading(state: Extract<DesktopPopupState, { status: 'loading' }>)
       ? ['Reading your prompt…', 'Selecting and copying text from the active application.']
       : state.stage === 'validating'
         ? ['Validating the rewrite…', 'Checking meaning, language, and safety before enabling Insert.']
-        : ['Improving your prompt…', 'The local model is correcting and restructuring the selected text.'];
+        : [
+            'Checking your prompt…',
+            'The local model is correcting spelling, grammar, and clarity without adding instructions.'
+          ];
   return shell(
     `
     <div class="loading-state" role="status">
@@ -84,8 +87,9 @@ function renderSuccess(state: Extract<DesktopPopupState, { status: 'success' }>)
   return shell(
     `
     <div class="result-body">
+      ${state.isAlreadyGood ? '<div class="prompt-good-state"><span class="prompt-good-check">✓</span><span><strong>This prompt is already clear</strong><small>No changes were needed.</small></span></div>' : ''}
       <div class="section-heading">
-        <span>Enhanced prompt</span>
+        <span>${state.isAlreadyGood ? 'Your prompt' : 'Corrected prompt'}</span>
         ${state.model ? `<small>${escapeHtml(state.model)}</small>` : ''}
       </div>
       <textarea id="improved-prompt" aria-label="Editable enhanced prompt"></textarea>
@@ -112,7 +116,7 @@ function renderSuccess(state: Extract<DesktopPopupState, { status: 'success' }>)
       <button class="button primary" id="insert-button" type="button">Insert</button>
     </footer>
   `,
-    'Ready to use'
+    state.isAlreadyGood ? 'Prompt checked' : 'Ready to use'
   );
 }
 

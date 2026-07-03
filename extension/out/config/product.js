@@ -26,7 +26,7 @@ exports.MODEL_PROFILES = {
     fast: {
         mode: 'fast',
         label: 'Fast',
-        model: 'qwen2.5:0.5b',
+        model: 'qwen2.5:3b',
         maxInputCharacters: 1500,
         maxOutputTokens: 64,
         contextTokens: 1024,
@@ -36,7 +36,7 @@ exports.MODEL_PROFILES = {
     balanced: {
         mode: 'balanced',
         label: 'Balanced',
-        model: 'gemma3:1b',
+        model: 'qwen2.5:3b',
         maxInputCharacters: 6000,
         maxOutputTokens: 180,
         contextTokens: 2048,

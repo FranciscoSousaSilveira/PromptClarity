@@ -262,15 +262,17 @@ export class PromptEnhancerUI {
     const subtitle =
       content.rewriteStatus === 'loading'
         ? 'Improving with local AI…'
-        : content.sourceDetail === 'local-ai'
-          ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
-          : content.sourceDetail === 'safety-fallback' && content.rewriteStatus === 'ready'
-            ? 'Model response rejected · safe local rewrite used'
-            : content.rewriteStatus === 'fallback'
-              ? content.modelError
-                ? 'Local AI offline · rules fallback used'
-                : 'Improved instantly · local safety rules'
-              : 'Draft reviewed locally';
+        : content.isAlreadyGood
+          ? 'Prompt checked · no changes needed'
+          : content.sourceDetail === 'local-ai'
+            ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
+            : content.sourceDetail === 'safety-fallback' && content.rewriteStatus === 'ready'
+              ? 'Model response rejected · safe local rewrite used'
+              : content.rewriteStatus === 'fallback'
+                ? content.modelError
+                  ? 'Local AI offline · rules fallback used'
+                  : 'Improved instantly · local safety rules'
+                : 'Draft reviewed locally';
 
     const headerHTML = `
       <div class="popup-header">
@@ -304,7 +306,7 @@ export class PromptEnhancerUI {
           </div>
           <div class="model-loading-title">Improving your prompt…</div>
           <div class="model-loading-text">
-            The local model is correcting and restructuring the text. Copy and insert will become available when the final version is ready.
+            The local model is checking spelling, grammar, and clarity without adding new instructions. Copy and insert will become available when the final version is ready.
           </div>
           <div class="model-loading-dots" aria-hidden="true">
             <i></i><i></i><i></i>
@@ -399,9 +401,19 @@ export class PromptEnhancerUI {
 
     const bodyHTML = `
       <div class="popup-body">
+        ${
+          content.isAlreadyGood
+            ? `<div class="prompt-good-state" role="status">
+                <span class="prompt-good-check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" /></svg>
+                </span>
+                <span><strong>This prompt is already clear</strong><small>No spelling, grammar, or clarity changes were needed.</small></span>
+              </div>`
+            : ''
+        }
         <!-- Improved prompt is the primary result -->
         <div class="improved-box-section improved-box-primary">
-          <div class="section-label">Enhanced Prompt</div>
+          <div class="section-label">${content.isAlreadyGood ? 'Your Prompt' : 'Corrected Prompt'}</div>
           <div class="improved-container">
             <textarea class="improved-textarea" id="pe-improved-textarea" aria-label="Editable enhanced prompt">${this.escapeHtml(improvedPrompt || '')}</textarea>
           </div>

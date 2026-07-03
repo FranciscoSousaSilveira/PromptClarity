@@ -9,7 +9,7 @@ No cloud service is used. Selected prompts are sent only to `http://127.0.0.1:30
 - Windows 10 or 11
 - Node.js and npm
 - Ollama running locally
-- The `qwen2.5:0.5b`, `gemma3:1b`, and `qwen2.5:3b` Ollama models
+- The `qwen2.5:3b` Ollama model
 
 ## Install
 
@@ -70,7 +70,7 @@ npm run desktop:dev
 
 ## Troubleshooting
 
-- **Local AI unavailable:** keep `npm run dev` running and confirm `ollama list` includes `qwen2.5:0.5b`, `gemma3:1b`, and `qwen2.5:3b`.
+- **Local AI unavailable:** keep `npm run dev` running and confirm `ollama list` includes `qwen2.5:3b`.
 - **No text selected:** select text before pressing `Ctrl+Alt+P`. Some terminal applications use a different selection/copy mode.
 - **Shortcut does nothing:** another application may already use `Ctrl+Alt+P`. The tray app displays a Windows notification when registration fails.
 - **Insert does not return to an elevated application:** run the desktop helper with the same Windows privilege level as the target app.

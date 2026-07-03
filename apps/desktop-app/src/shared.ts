@@ -42,6 +42,7 @@ export type DesktopPopupState =
       model?: string;
       sourceDetail: 'local-ai' | 'instant-rules' | 'safety-fallback';
       validationScore: number;
+      isAlreadyGood: boolean;
       canUndo: boolean;
       review: PromptReview;
     }

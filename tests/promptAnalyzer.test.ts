@@ -225,13 +225,10 @@ describe('prompt analyzer', () => {
   });
 
   describe('rewriter output', () => {
-    it('produces a structured prompt from a vague input', () => {
+    it('does not invent structure for a vague input', () => {
       const analysis = analyzePrompt('Make this better.', 'general');
-      expect(analysis.rewrittenPrompt).toContain('Role:');
-      expect(analysis.rewrittenPrompt).toContain('Context:');
-      expect(analysis.rewrittenPrompt).toContain('Task:');
-      expect(analysis.rewrittenPrompt).toContain('Constraints:');
-      expect(analysis.rewrittenPrompt).toContain('Output format:');
+      expect(analysis.rewrittenPrompt).toBe('Make this better.');
+      expect(analysis.rewrittenPrompt).not.toMatch(/Role:|Context:|Constraints:|Output format:/);
     });
 
     it('preserves strong signals in the rewrite', () => {
@@ -241,10 +238,11 @@ describe('prompt analyzer', () => {
       expect(analysis.rewrittenPrompt).toContain('expert');
     });
 
-    it('includes placeholders for missing information', () => {
+    it('does not add placeholders for missing information', () => {
       const analysis = analyzePrompt('Help me.', 'general');
-      expect(analysis.rewrittenPrompt).toContain('[');
-      expect(analysis.rewrittenPrompt).toContain(']');
+      expect(analysis.rewrittenPrompt).toBe('Help me.');
+      expect(analysis.rewrittenPrompt).not.toContain('[');
+      expect(analysis.rewrittenPrompt).not.toContain(']');
     });
 
     it('produces a coherent business rewrite without contradictory feedback', () => {
@@ -255,56 +253,46 @@ describe('prompt analyzer', () => {
       expect(analysis.correctedPrompt).toBe(prompt);
       expect(analysis.issues.some((issue) => issue.id === 'missing-format')).toBe(false);
       expect(analysis.issues.some((issue) => issue.id === 'missing-audience')).toBe(false);
-      expect(analysis.rewrittenPrompt).toContain('ready-to-send email');
+      expect(analysis.rewrittenPrompt).toBe(prompt);
       expect(analysis.rewrittenPrompt).not.toMatch(/At as|wwrite|sstring|tstable/);
     });
 
-    it('keeps short factual questions compact and useful', () => {
+    it('keeps short factual questions compact without adding requirements', () => {
       const analysis = analyzePrompt('who is JFK', 'research');
 
-      expect(analysis.rewrittenPrompt).toContain('Answer the question: “Who is JFK?”');
-      expect(analysis.rewrittenPrompt).toContain('established facts');
-      expect(analysis.rewrittenPrompt).toContain('3–5 bullet points');
-      expect(analysis.rewrittenPrompt).not.toContain('Role:');
+      expect(analysis.rewrittenPrompt).toBe('Who is JFK');
+      expect(analysis.rewrittenPrompt).not.toMatch(/facts|bullet points|Role:/i);
     });
 
     it('corrects a short Portuguese factual question', () => {
       const analysis = analyzePrompt('quem  e o jfk', 'research');
 
-      expect(analysis.rewrittenPrompt).toContain('Responde à pergunta: “Quem é o JFK?”');
-      expect(analysis.rewrittenPrompt).toContain('factos estabelecidos');
-      expect(analysis.rewrittenPrompt).not.toContain('quem  e o jfk');
-      expect(analysis.rewrittenPrompt).not.toContain('Papel:');
+      expect(analysis.rewrittenPrompt).toBe('Quem e o jfk');
+      expect(analysis.rewrittenPrompt).not.toMatch(/factos estabelecidos|Papel:/);
     });
 
-    it('turns a conversational Portuguese course comparison into a useful prompt', () => {
+    it('does not expand a conversational course comparison', () => {
       const analysis = analyzePrompt('mas tum que curso abre mais portas? aero ou mechatronisc?', 'research');
 
-      expect(analysis.rewrittenPrompt).toContain('Engenharia Aeroespacial e Engenharia Mecatrónica');
-      expect(analysis.rewrittenPrompt).toContain('empregabilidade');
-      expect(analysis.rewrittenPrompt).toContain('mobilidade internacional');
-      expect(analysis.rewrittenPrompt).not.toContain('mechatronisc');
-      expect(analysis.rewrittenPrompt).not.toContain('Clarify the task');
-      expect(analysis.rewrittenPrompt).not.toContain('Papel:');
+      expect(analysis.rewrittenPrompt).toContain('aero ou mechatronisc');
+      expect(analysis.rewrittenPrompt).not.toMatch(/empregabilidade|mobilidade internacional|Papel:/);
     });
 
-    it('keeps structured Portuguese fallbacks fully localized', () => {
+    it('keeps Portuguese fallbacks natural and unstructured', () => {
       const analysis = analyzePrompt('ajuda-me com isto', 'studying');
 
-      expect(analysis.rewrittenPrompt).toContain('Papel: Atua como');
-      expect(analysis.rewrittenPrompt).toContain('Formato de saída:');
-      expect(analysis.rewrittenPrompt).not.toMatch(/Act as|Add relevant|Output format|Claims are/);
+      expect(analysis.rewrittenPrompt).toBe('Ajuda-me com isto');
+      expect(analysis.rewrittenPrompt).not.toMatch(/Papel:|Formato de saída:|Act as|Output format/);
     });
 
-    it('upgrades a clear TUM course question without using the template', () => {
+    it('only corrects wording in a clear TUM course question', () => {
       const analysis = analyzePrompt(
         'Explica me as principais diferenças entre Aeroespacial e Mechatronica na TUM sff',
         'research'
       );
 
-      expect(analysis.rewrittenPrompt).toContain('Engenharia Aeroespacial e Engenharia Mecatrónica na TUM');
-      expect(analysis.rewrittenPrompt).toContain('planos curriculares');
-      expect(analysis.rewrittenPrompt).toContain('requisitos de admissão');
+      expect(analysis.rewrittenPrompt).toContain('Aeroespacial e Mechatronica na TUM');
+      expect(analysis.rewrittenPrompt).not.toMatch(/planos curriculares|requisitos de admissão/);
       expect(analysis.rewrittenPrompt).not.toMatch(/Role:|Context:|Task:|Papel:|Contexto:|Tarefa:/);
     });
 
@@ -314,23 +302,35 @@ describe('prompt analyzer', () => {
         'research'
       );
 
-      expect(analysis.rewrittenPrompt).toContain('matrícula final (Enrollment/Immatrikulation)');
-      expect(analysis.rewrittenPrompt).toContain('prazo exato');
-      expect(analysis.rewrittenPrompt).toContain('cancelo a matrícula de Engenharia Mecatrónica');
-      expect(analysis.rewrittenPrompt).not.toMatch(/Compara o currículo|principais diferenças/);
+      expect(analysis.rewrittenPrompt.toLowerCase()).toContain(
+        'matrícula final (enrollment/immatrikulation)'
+      );
+      expect(analysis.rewrittenPrompt).toContain('isto vai ser quando?');
+      expect(analysis.rewrittenPrompt).not.toMatch(/prazo exato|Compara o currículo|principais diferenças/);
     });
 
-    it('repairs a misspelled TUM application question while preserving its administrative intent', () => {
+    it('preserves a misspelled TUM application question without inventing advice', () => {
       const analysis = analyzePrompt(
         'eu devo recebr daqui a um mes tenho tempoe eposso deixar e4nste estado a minha candidatura par a tum enqunaotio eserpo pelo diploma certo?',
         'general'
       );
 
-      expect(analysis.rewrittenPrompt).toContain('receber o meu diploma daqui a cerca de um mês');
-      expect(analysis.rewrittenPrompt).toContain('candidatura à TUM no estado atual');
-      expect(analysis.rewrittenPrompt).toContain('enquanto aguardo pelo diploma');
-      expect(analysis.rewrittenPrompt).toContain('fontes oficiais da universidade');
+      expect(analysis.rewrittenPrompt.toLowerCase()).toContain('candidatura par a tum');
+      expect(analysis.rewrittenPrompt.toLowerCase()).toContain('diploma certo?');
+      expect(analysis.rewrittenPrompt).not.toContain('fontes oficiais da universidade');
       expect(analysis.rewrittenPrompt).not.toMatch(/não posso ajudar|I cannot help/i);
+    });
+
+    it('preserves a misspelled browser-game request without adding search instructions', () => {
+      const analysis = analyzePrompt(
+        'qual era o jogo online no browser ond eu podia contruir casad com desgin tipo com blcoso e tem bom aspecto?',
+        'general'
+      );
+
+      expect(analysis.rewrittenPrompt.toLowerCase()).toContain('jogo online no browser');
+      expect(analysis.rewrittenPrompt.toLowerCase()).toContain('contruir casad');
+      expect(analysis.rewrittenPrompt).not.toContain('títulos mais prováveis');
+      expect(analysis.rewrittenPrompt).not.toMatch(/O que você está buscando|navegador específico/i);
     });
   });
 
@@ -352,18 +352,15 @@ describe('prompt analyzer', () => {
       expect(enhanced.overallScore).toBeGreaterThan(original.overallScore);
     });
 
-    it('cleans common Portuguese shorthand in the rules fallback', () => {
+    it('keeps the rules fallback conservative', () => {
       const analysis = analyzePrompt(
         'Quero um relatorio de 10 paginas sobre smallville tp clean, n quero AI slop e nng deve ver repetições. Tem que comecar bem e terminar com um cta.',
         'writing'
       );
 
-      expect(analysis.rewrittenPrompt).toContain('relatório de 10 páginas sobre Smallville');
-      expect(analysis.rewrittenPrompt).toContain('não quero IA slop');
-      expect(analysis.rewrittenPrompt).toContain('ninguém');
-      expect(analysis.rewrittenPrompt).toContain('começar');
-      expect(analysis.rewrittenPrompt).toContain('CTA');
-      expect(analysis.rewrittenPrompt).not.toMatch(/\btp\b|\bnng\b/);
+      expect(analysis.rewrittenPrompt).toContain('10 paginas sobre smallville');
+      expect(analysis.rewrittenPrompt).toContain('terminar com um cta');
+      expect(analysis.rewrittenPrompt).not.toMatch(/fontes credíveis|visão geral|conclusão prática/);
     });
 
     it('flags a vague prompt as weak', () => {
@@ -372,7 +369,7 @@ describe('prompt analyzer', () => {
       expect(analysis.label).toBe('Weak');
       expect(analysis.issues.some((issue) => issue.id === 'vague-task')).toBe(true);
       expect(analysis.issues.some((issue) => issue.id === 'missing-format')).toBe(true);
-      expect(analysis.rewrittenPrompt).toContain('Role:');
+      expect(analysis.rewrittenPrompt).toBe('Make this better.');
     });
 
     it('scores a structured coding prompt higher', () => {
@@ -386,11 +383,11 @@ describe('prompt analyzer', () => {
       expect(analysis.strengths.length).toBeGreaterThan(0);
     });
 
-    it('adds use-case relevant guidance for image prompts', () => {
+    it('reports missing image details without injecting them into the rewrite', () => {
       const analysis = analyzePrompt('Create a cool picture of a city.', 'imageGeneration');
 
       expect(analysis.issues.some((issue) => issue.id === 'image-missing-visuals')).toBe(true);
-      expect(analysis.rewrittenPrompt).toContain('image');
+      expect(analysis.rewrittenPrompt).toBe('Create a cool picture of a city.');
     });
 
     it('produces a stable score label for medium prompts', () => {

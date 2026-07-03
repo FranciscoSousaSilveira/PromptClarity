@@ -13,6 +13,7 @@ export interface ModelRewriteRequest {
 export interface ModelRewriteResult {
     rewrittenPrompt: string;
     source: 'model' | 'rules';
+    isAlreadyGood: boolean;
     model?: string;
     error?: string;
     validationScore: number;
@@ -25,6 +26,7 @@ interface ModelRewriteOptions {
     token?: string;
     signal?: AbortSignal;
 }
+export declare function isModelRewriteUsable(original: string, rewritten: string): boolean;
 export declare function rewriteValidationScore(original: string, rewritten: string): number;
 export declare function rewritePromptWithModel(request: ModelRewriteRequest, options?: ModelRewriteOptions): Promise<ModelRewriteResult>;
 export {};

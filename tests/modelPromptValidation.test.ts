@@ -1,158 +1,90 @@
 import { describe, expect, it, vi } from 'vitest';
 import { isModelRewriteUsable, rewritePromptWithModel } from '../lib/modelPromptRewriter';
 
-describe('model rewrite validation', () => {
-  it('rejects an unrelated short rewrite immediately', async () => {
-    const fetchImpl = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            rewrittenPrompt:
-              'Resposta corrigida: Meu sistema funciona melhor quando estou conectado a internet.'
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
-    );
+function response(rewrittenPrompt: string) {
+  return new Response(JSON.stringify({ rewrittenPrompt }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
 
+describe('conservative model rewrite validation', () => {
+  it('accepts corrections that preserve the same request', () => {
+    expect(
+      isModelRewriteUsable(
+        'faz com que o mdoelo corra mais rapido sff',
+        'Faz com que o modelo corra mais rápido, por favor.'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects unrelated rewrites', async () => {
+    const original = 'torna o programa mais rápido';
+    const fetchImpl = vi.fn(async () => response('O meu sistema funciona melhor com internet.'));
     const result = await rewritePromptWithModel(
-      {
-        prompt: 'torna mais rapido e ainda nao consegui meter a funcionar sem ter de selecionar tudo',
-        fallbackPrompt: 'Torna o sistema mais rapido.'
-      },
+      { prompt: original, fallbackPrompt: original },
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
     expect(result.source).toBe('rules');
-    expect(result.rewrittenPrompt).toBe('Torna o sistema mais rapido.');
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(fetchImpl.mock.calls[0][1]?.body as string).strict).toBe(true);
+    expect(result.rewrittenPrompt).toBe(original);
   });
 
-  it('understands a misspelled request to make the model respond faster', async () => {
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            rewrittenPrompt: 'Por favor, tente responder mais rapido.'
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
-    );
-
+  it('calls the model even in fast mode instead of using a case-based rewrite', async () => {
+    const original = 'explica como funciona a energia solar';
+    const corrected = 'Explica como funciona a energia solar.';
+    const fetchImpl = vi.fn(async () => response(corrected));
     const result = await rewritePromptWithModel(
-      {
-        prompt: 'faz com que o mdoelo corra mais rapido sff',
-        fallbackPrompt: 'Faz com que o modelo responda mais rapidamente, por favor.'
-      },
+      { prompt: original, fallbackPrompt: original, preferSpeed: true, performanceMode: 'fast' },
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(result.source).toBe('model');
-    expect(result.rewrittenPrompt).toContain('responder mais');
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.rewrittenPrompt).toBe(corrected);
   });
 
-  it('preserves a request to pre-warm the model instead of inventing a name', async () => {
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            rewrittenPrompt: 'Para evitar que o modelo Anreze espere, pode considerar uma estrategia rapida.'
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
-    );
-
-    const result = await rewritePromptWithModel(
-      {
-        prompt:
-          'ha forma de aquecer o modelo anres de ter de usar para nao ter tanto tempo de espera? se sim faz la',
-        fallbackPrompt: 'Ha forma de aquecer o modelo antes de o usar?'
-      },
-      { fetchImpl: fetchImpl as typeof fetch }
-    );
-
-    expect(result.source).toBe('rules');
-    expect(result.rewrittenPrompt).toContain('pré-aquecer o modelo');
-    expect(result.rewrittenPrompt).toContain('automaticamente ao iniciar a aplicação');
-    expect(result.rewrittenPrompt).not.toContain('Anreze');
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('uses the instant safe rewrite for short prompts in speed mode', async () => {
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            rewrittenPrompt: 'This response should never be used.'
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
-    );
-
-    const result = await rewritePromptWithModel(
-      {
-        prompt: 'explica como funciona a energia solar',
-        fallbackPrompt: 'Explica como funciona a energia solar de forma clara.',
-        preferSpeed: true
-      },
-      { fetchImpl: fetchImpl as typeof fetch }
-    );
-
-    expect(result.source).toBe('rules');
-    expect(result.rewrittenPrompt).toContain('energia solar');
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('rejects a generic course comparison when the user asks about the enrollment deadline', async () => {
+  it('rejects a generic course comparison for an enrollment question', async () => {
     const original =
-      'O Momento da Decisão: É apenas na fase de efetivação da Matrícula final (Enrollment/Immatrikulation) que terá de tomar a decisão prática. Se decidir que só quer fazer Aeroespacial, cancela a matrícula de Mecatrónica e avança só com Aeroespacial. isto vai ser quando?';
-    const fallback =
-      'Em que momento ocorre a efetivação da matrícula final (Enrollment/Immatrikulation) e qual é o prazo exato para cancelar a matrícula de Engenharia Mecatrónica?';
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            rewrittenPrompt:
-              'Analise as diferenças entre Engenharia Aeroespacial e Engenharia Mecatrónica. Compare currículo, carga de trabalho, empregabilidade e mobilidade internacional.'
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
-    );
-
+      'A matrícula final é depois do diploma e posso cancelar Mecatrónica nessa fase. Isto vai ser quando?';
+    const expanded =
+      'Compara Engenharia Aeroespacial e Engenharia Mecatrónica em currículo, empregabilidade e mobilidade.';
+    const fetchImpl = vi.fn(async () => response(expanded));
     const result = await rewritePromptWithModel(
-      { prompt: original, fallbackPrompt: fallback, useCase: 'research' },
+      { prompt: original, fallbackPrompt: original },
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
     expect(result.source).toBe('rules');
-    expect(result.rewrittenPrompt).toBe(fallback);
-    expect(result.rewrittenPrompt).toContain('prazo exato');
-    expect(result.rewrittenPrompt).not.toContain('Compare currículo');
+    expect(result.rewrittenPrompt).toBe(original);
   });
 
-  it('rejects model refusals for benign administrative prompts', async () => {
-    const original =
-      'eu devo recebr daqui a um mes tenho tempoe eposso deixar e4nste estado a minha candidatura par a tum enqunaotio eserpo pelo diploma certo?';
-    const fallback =
-      'Devo receber o meu diploma daqui a cerca de um mês. Posso deixar a minha candidatura à TUM no estado atual enquanto aguardo pelo diploma?';
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ rewrittenPrompt: 'Eu não posso ajudar com isso.' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        })
-    );
-
+  it('rejects refusals for benign prompts', async () => {
+    const original = 'Posso deixar a candidatura à TUM neste estado enquanto espero pelo diploma?';
+    const fetchImpl = vi.fn(async () => response('Eu não posso ajudar com isso.'));
     const result = await rewritePromptWithModel(
-      { prompt: original, fallbackPrompt: fallback, useCase: 'general' },
+      { prompt: original, fallbackPrompt: original },
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
     expect(result.source).toBe('rules');
-    expect(result.rewrittenPrompt).toBe(fallback);
-    expect(result.rewrittenPrompt).not.toContain('não posso ajudar');
-    expect(result.validationScore).toBeGreaterThanOrEqual(70);
-    expect(isModelRewriteUsable(original, 'Eu não posso ajudar com isso.')).toBe(false);
+    expect(result.rewrittenPrompt).toBe(original);
+  });
+
+  it('rejects incomplete model output', () => {
+    const original = 'Qual era o jogo online de browser onde podia construir casas com blocos?';
+    expect(
+      isModelRewriteUsable(
+        original,
+        'O que você está buscando é um jogo online num navegador específico, como'
+      )
+    ).toBe(false);
+  });
+
+  it('rejects added requirements, formats, and recommendations', () => {
+    const original = 'Explica as diferenças entre Aeroespacial e Mecatrónica.';
+    const expanded =
+      'Explica as diferenças entre Aeroespacial e Mecatrónica. Usa fontes atuais, apresenta uma tabela e recomenda o melhor curso.';
+    expect(isModelRewriteUsable(original, expanded)).toBe(false);
   });
 });

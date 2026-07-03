@@ -25,6 +25,7 @@ export interface PopupContent {
   modelError?: string;
   sourceDetail?: 'local-ai' | 'instant-rules' | 'safety-fallback';
   validationScore?: number;
+  isAlreadyGood?: boolean;
 }
 
 /**
