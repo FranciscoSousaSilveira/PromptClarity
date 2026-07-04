@@ -15,14 +15,15 @@ import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { analyzePrompt } from '../../../lib/promptAnalyzer';
 import { rewritePromptWithModel } from '../../../lib/modelPromptRewriter';
-import type { DesktopPopupState, PromptReview } from './shared';
+import type { DesktopPopupState, DesktopTooMuchFeedbackEntry, PromptReview } from './shared';
 import { WindowsAutomation } from './windowsAutomation';
 import { DesktopStore } from './desktopStore';
-import { PRODUCT } from '../../../config/product';
+import { DEFAULT_REWRITE_INTERVENTION, PRODUCT } from '../../../config/product';
 import type { DesktopSettingsView } from './shared';
 import { autoUpdater } from 'electron-updater';
 import { startLocalBridgeIfNeeded } from './localBridge';
 import type { Server } from 'node:http';
+import { buildTooMuchFeedbackEntry } from '../../../lib/popupState';
 
 const execFileAsync = promisify(execFile);
 const MAX_PROMPT_LENGTH = 12_000;
@@ -68,6 +69,7 @@ let captureInProgress = false;
 let modelAbortController: AbortController | null = null;
 let lastInsertion: LastInsertion | null = null;
 let embeddedBridge: Server | null = null;
+let currentTooMuchFeedback: DesktopTooMuchFeedbackEntry | null = null;
 const windowsAutomation = process.platform === 'win32' ? new WindowsAutomation() : null;
 
 // Use an app-specific profile instead of Electron's shared development cache.
@@ -375,6 +377,23 @@ async function analyzeSession(session: ActiveSession) {
     session.improvedText = modelResult.rewrittenPrompt.trim();
     session.sourceDetail = modelResult.sourceDetail;
     session.validationScore = modelResult.validationScore;
+    currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+      original: session.originalText,
+      rewritten: session.improvedText,
+      status: modelResult.status,
+      source:
+        modelResult.source === 'model'
+          ? 'model'
+          : modelResult.source === 'checkmark'
+            ? 'checkmark'
+            : modelResult.source === 'error'
+              ? 'error'
+              : 'local_fallback',
+      mode: settings.performanceMode,
+      intervention: modelResult.intervention,
+      validationReason: modelResult.validation.reason,
+      surface: 'desktop'
+    });
     console.log(
       `[desktop] Rewrite ready with ${modelResult.model || 'instant rules fallback'} (${session.improvedText.length} characters).`
     );
@@ -384,14 +403,27 @@ async function analyzeSession(session: ActiveSession) {
       improvedText: session.improvedText,
       model: modelResult.model,
       sourceDetail: modelResult.sourceDetail,
+      rewriteStatus: modelResult.error && modelResult.status === 'fallback' ? 'fallback' : modelResult.status,
+      intervention: modelResult.intervention,
+      validationReason: modelResult.validation.reason,
       validationScore: modelResult.validationScore,
-      isAlreadyGood: modelResult.source === 'model' && modelResult.isAlreadyGood && !modelResult.error,
+      isAlreadyGood: modelResult.status === 'no_change' && !modelResult.error,
       canUndo: lastInsertion !== null,
       review: toReview(session.improvedText)
     });
   } catch (error) {
     if (sequence !== analysisSequence || activeSession !== session) return;
     const detail = error instanceof Error ? error.message : 'Unknown local model error';
+    currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+      original: session.originalText,
+      rewritten: session.improvedText || session.originalText,
+      status: 'error',
+      source: 'error',
+      mode: desktopStore.settings.performanceMode,
+      intervention: DEFAULT_REWRITE_INTERVENTION,
+      validationReason: detail,
+      surface: 'desktop'
+    });
     await showState({
       status: 'error',
       title: 'Local AI unavailable',
@@ -411,6 +443,7 @@ async function captureAndAnalyze() {
     return;
   }
   captureInProgress = true;
+  currentTooMuchFeedback = null;
   const captureStartedAt = Date.now();
 
   analysisSequence++;
@@ -428,6 +461,16 @@ async function captureAndAnalyze() {
     const capture = await copySelectionAndCaptureWindow();
     if (capture.selectionState === 'EMPTY') {
       restoreClipboard(clipboardSnapshot);
+      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+        original: '',
+        rewritten: '',
+        status: 'error',
+        source: 'error',
+        mode: desktopStore.settings.performanceMode,
+        intervention: DEFAULT_REWRITE_INTERVENTION,
+        validationReason: 'selection_empty',
+        surface: 'desktop'
+      });
       await showState({
         status: 'error',
         title: 'Prompt not detected',
@@ -440,6 +483,16 @@ async function captureAndAnalyze() {
     const selectedText = await waitForCopiedText(sentinel);
     if (!selectedText) {
       restoreClipboard(clipboardSnapshot);
+      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+        original: '',
+        rewritten: '',
+        status: 'error',
+        source: 'error',
+        mode: desktopStore.settings.performanceMode,
+        intervention: DEFAULT_REWRITE_INTERVENTION,
+        validationReason: 'selection_copy_failed',
+        surface: 'desktop'
+      });
       await showState({
         status: 'error',
         title: 'Prompt not detected',
@@ -451,6 +504,16 @@ async function captureAndAnalyze() {
 
     if (!selectedText) {
       restoreClipboard(clipboardSnapshot);
+      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+        original: '',
+        rewritten: '',
+        status: 'error',
+        source: 'error',
+        mode: desktopStore.settings.performanceMode,
+        intervention: DEFAULT_REWRITE_INTERVENTION,
+        validationReason: 'selection_missing',
+        surface: 'desktop'
+      });
       await showState({
         status: 'error',
         title: 'Prompt not detected',
@@ -462,11 +525,22 @@ async function captureAndAnalyze() {
 
     if (selectedText.length > MAX_PROMPT_LENGTH) {
       restoreClipboard(clipboardSnapshot);
+      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+        original: selectedText,
+        rewritten: selectedText,
+        status: 'error',
+        source: 'error',
+        mode: desktopStore.settings.performanceMode,
+        intervention: DEFAULT_REWRITE_INTERVENTION,
+        validationReason: 'selection_too_long',
+        surface: 'desktop'
+      });
       await showState({
         status: 'error',
         title: 'Selection is too long',
         message: `Select no more than ${MAX_PROMPT_LENGTH.toLocaleString()} characters.`,
-        canRetry: false
+        canRetry: false,
+        originalText: selectedText
       });
       return;
     }
@@ -483,7 +557,23 @@ async function captureAndAnalyze() {
   } catch (error) {
     restoreClipboard(clipboardSnapshot);
     const message = error instanceof Error ? error.message : 'Could not read the selected text.';
-    await showState({ status: 'error', title: 'Could not capture selection', message, canRetry: false });
+    currentTooMuchFeedback = buildTooMuchFeedbackEntry({
+      original: activeSession?.originalText || '',
+      rewritten: activeSession?.improvedText || activeSession?.originalText || '',
+      status: 'error',
+      source: 'error',
+      mode: desktopStore.settings.performanceMode,
+      intervention: DEFAULT_REWRITE_INTERVENTION,
+      validationReason: message,
+      surface: 'desktop'
+    });
+    await showState({
+      status: 'error',
+      title: 'Could not capture selection',
+      message,
+      canRetry: false,
+      originalText: activeSession?.originalText || ''
+    });
   } finally {
     captureInProgress = false;
   }
@@ -496,6 +586,7 @@ async function closePopup() {
   popupWindow?.hide();
   if (activeSession) restoreClipboard(activeSession.clipboardSnapshot);
   activeSession = null;
+  currentTooMuchFeedback = null;
 }
 
 async function insertImprovedPrompt(editedText?: string): Promise<boolean> {
@@ -526,7 +617,13 @@ async function insertImprovedPrompt(editedText?: string): Promise<boolean> {
   } catch (error) {
     restoreClipboard(session.clipboardSnapshot);
     const message = error instanceof Error ? error.message : 'Could not paste into the original application.';
-    await showState({ status: 'error', title: 'Insert failed', message, canRetry: false });
+    await showState({
+      status: 'error',
+      title: 'Insert failed',
+      message,
+      canRetry: false,
+      originalText: session.originalText
+    });
     return false;
   }
 }
@@ -551,6 +648,13 @@ async function undoLastInsertion(): Promise<boolean> {
   }
 }
 
+async function recordTooMuchFeedback(): Promise<boolean> {
+  if (!currentTooMuchFeedback) return false;
+  desktopStore.addFeedback(currentTooMuchFeedback);
+  refreshTrayMenu();
+  return true;
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('copy-improved-prompt', async (_event, editedText?: string) => {
     if (!activeSession?.improvedText) return false;
@@ -569,6 +673,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle('insert-improved-prompt', (_event, editedText?: string) => insertImprovedPrompt(editedText));
   ipcMain.handle('undo-last-insertion', () => undoLastInsertion());
+  ipcMain.handle('too-much-feedback', () => recordTooMuchFeedback());
   ipcMain.handle('retry-analysis', async () => {
     if (activeSession) await analyzeSession(activeSession);
   });

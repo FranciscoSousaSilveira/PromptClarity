@@ -15,7 +15,7 @@ You can check the bridge by opening `http://127.0.0.1:3000/api/rewrite`. A succe
 
 The app warms only the selected model. Model memory can be disabled from settings when RAM usage matters more than latency.
 
-To favor quality over speed, start the app with `OLLAMA_MODEL=qwen2.5:3b`. You can use any other Ollama model in the same way, and change the Ollama server address with `OLLAMA_URL`.
+To favor quality over speed, start the app with `OLLAMA_MODEL=qwen2.5:3b`. You can use another local Ollama model in the same way. `OLLAMA_URL` accepts only loopback addresses (`127.0.0.1`, `localhost`, or `[::1]`); external values are ignored.
 
 ## Install locally
 

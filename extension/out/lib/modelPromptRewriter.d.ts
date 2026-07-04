@@ -1,5 +1,7 @@
 import type { UseCase } from '../types/prompt';
-import type { PerformanceMode } from '../config/product';
+import { type PerformanceMode, type RewriteIntervention } from '../config/product';
+import type { RewriteResult } from '../types/rewrite';
+export { isModelRewriteUsable, rewriteValidationScore, validateModelRewrite } from './rewriteValidator';
 export declare const DEFAULT_REWRITE_ENDPOINT = "http://127.0.0.1:3000/api/rewrite";
 export interface ModelRewriteRequest {
     prompt: string;
@@ -8,14 +10,12 @@ export interface ModelRewriteRequest {
     hasPriorConversation?: boolean;
     preferSpeed?: boolean;
     performanceMode?: PerformanceMode;
+    intervention?: RewriteIntervention;
     keepModelsWarm?: boolean;
 }
-export interface ModelRewriteResult {
+export interface ModelRewriteResult extends RewriteResult {
     rewrittenPrompt: string;
-    source: 'model' | 'rules';
     isAlreadyGood: boolean;
-    model?: string;
-    error?: string;
     validationScore: number;
     sourceDetail: 'local-ai' | 'instant-rules' | 'safety-fallback';
 }
@@ -26,8 +26,5 @@ interface ModelRewriteOptions {
     token?: string;
     signal?: AbortSignal;
 }
-export declare function isModelRewriteUsable(original: string, rewritten: string): boolean;
-export declare function rewriteValidationScore(original: string, rewritten: string): number;
 export declare function rewritePromptWithModel(request: ModelRewriteRequest, options?: ModelRewriteOptions): Promise<ModelRewriteResult>;
-export {};
 //# sourceMappingURL=modelPromptRewriter.d.ts.map

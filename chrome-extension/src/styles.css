@@ -775,6 +775,114 @@
   margin-top: 12px;
 }
 
+.result-state {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.result-state strong {
+  display: block;
+  font-size: 13px;
+}
+
+.result-state small {
+  color: #a7b3c7;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.result-state-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.24);
+  color: #eff6ff;
+  font-weight: 800;
+}
+
+.result-no_change {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.result-no_change .result-state-icon {
+  background: #059669;
+}
+
+.result-changed {
+  border-color: rgba(96, 165, 250, 0.28);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.result-fallback {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.result-error {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(239, 68, 68, 0.09);
+}
+
+.result-error .result-state-icon {
+  background: #dc2626;
+}
+
+.comparison-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-column {
+  display: grid;
+  gap: 6px;
+}
+
+.comparison-box,
+.text-box {
+  min-height: 84px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  color: #edf2f7;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.comparison-box-muted,
+.text-box-muted {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.comparison-box-check {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.error-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.error-actions .button {
+  flex: 1;
+}
+
 .improved-container {
   position: relative;
   flex: 1;

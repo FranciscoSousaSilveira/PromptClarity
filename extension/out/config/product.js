@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MODEL_PROFILES = exports.SUPPORTED_CHAT_ORIGINS = exports.PRODUCT = void 0;
+exports.MODEL_PROFILES = exports.DEFAULT_REWRITE_INTERVENTION = exports.SUPPORTED_CHAT_ORIGINS = exports.PRODUCT = void 0;
+exports.isRewriteIntervention = isRewriteIntervention;
 exports.isPerformanceMode = isPerformanceMode;
 exports.PRODUCT = {
     name: 'Prompt Grammarly',
@@ -22,6 +23,10 @@ exports.SUPPORTED_CHAT_ORIGINS = [
     'https://poe.com',
     'https://www.meta.ai'
 ];
+exports.DEFAULT_REWRITE_INTERVENTION = 'normal';
+function isRewriteIntervention(value) {
+    return value === 'strict' || value === 'normal' || value === 'polished';
+}
 exports.MODEL_PROFILES = {
     fast: {
         mode: 'fast',

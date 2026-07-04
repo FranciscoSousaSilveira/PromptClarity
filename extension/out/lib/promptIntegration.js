@@ -21,6 +21,7 @@ function analyzeForPopup(request) {
     const detection = (0, promptDetector_1.detectPrompt)(text);
     if (!(0, promptDetector_1.shouldShowPopup)(detection.confidence)) {
         return {
+            originalText: text,
             isPrompt: false,
             detectionConfidence: detection.confidence
         };
@@ -29,6 +30,7 @@ function analyzeForPopup(request) {
     try {
         const analysis = (0, promptAnalyzer_1.analyzePrompt)(text, useCase);
         return {
+            originalText: text,
             isPrompt: true,
             detectionConfidence: detection.confidence,
             analysis,
@@ -40,6 +42,7 @@ function analyzeForPopup(request) {
         // If analysis fails, still return the detected status
         console.error('Failed to analyze prompt:', error);
         return {
+            originalText: text,
             isPrompt: true,
             detectionConfidence: detection.confidence,
             improvedPrompt: text,

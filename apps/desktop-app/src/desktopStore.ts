@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { AppSettings } from '../../../types/settings';
 import { DEFAULT_SETTINGS } from '../../../types/settings';
+import type { DesktopTooMuchFeedbackEntry } from './shared';
 
 export interface PromptHistoryEntry {
   id: string;
@@ -13,6 +14,7 @@ export interface PromptHistoryEntry {
 interface StoredData {
   settings: AppSettings;
   history: PromptHistoryEntry[];
+  feedback: DesktopTooMuchFeedbackEntry[];
 }
 
 export class DesktopStore {
@@ -37,6 +39,10 @@ export class DesktopStore {
     return [...this.data.history];
   }
 
+  get feedback(): DesktopTooMuchFeedbackEntry[] {
+    return [...this.data.feedback];
+  }
+
   addHistory(entry: Omit<PromptHistoryEntry, 'id' | 'createdAt'>) {
     if (!this.data.settings.historyEnabled) return;
     this.data.history.unshift({
@@ -45,6 +51,15 @@ export class DesktopStore {
       createdAt: new Date().toISOString()
     });
     this.trimHistory();
+    this.write();
+  }
+
+  addFeedback(entry: Omit<DesktopTooMuchFeedbackEntry, 'timestamp'>) {
+    this.data.feedback.unshift({
+      ...entry,
+      timestamp: new Date().toISOString()
+    });
+    this.data.feedback = this.data.feedback.slice(0, 50);
     this.write();
   }
 
@@ -62,10 +77,11 @@ export class DesktopStore {
       const parsed = JSON.parse(readFileSync(this.filePath, 'utf8')) as Partial<StoredData>;
       return {
         settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
-        history: Array.isArray(parsed.history) ? parsed.history : []
+        history: Array.isArray(parsed.history) ? parsed.history : [],
+        feedback: Array.isArray(parsed.feedback) ? parsed.feedback : []
       };
     } catch {
-      return { settings: { ...DEFAULT_SETTINGS }, history: [] };
+      return { settings: { ...DEFAULT_SETTINGS }, history: [], feedback: [] };
     }
   }
 

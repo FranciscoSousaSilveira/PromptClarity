@@ -10,6 +10,7 @@ import type {
   SpellingIssue,
   UseCase
 } from '../types/prompt';
+import type { RewriteIntervention } from '../config/product';
 
 type Language = 'en' | 'pt';
 
@@ -1309,7 +1310,11 @@ function weightedAverage(scores: Record<CategoryKey, number>): number {
   return weightedTotal / totalWeight;
 }
 
-export function analyzePrompt(prompt: string, useCase: UseCase): PromptAnalysis {
+export function analyzePrompt(
+  prompt: string,
+  useCase: UseCase,
+  intervention: RewriteIntervention = 'normal'
+): PromptAnalysis {
   const normalized = prompt.trim();
   const language = detectLanguage(normalized);
   const tokens = tokenize(normalized);
@@ -1380,6 +1385,6 @@ export function analyzePrompt(prompt: string, useCase: UseCase): PromptAnalysis 
 
   return {
     ...core,
-    rewrittenPrompt: rewritePrompt(prompt, useCase, core)
+    rewrittenPrompt: rewritePrompt(prompt, useCase, core, intervention)
   };
 }

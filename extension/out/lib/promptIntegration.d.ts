@@ -3,24 +3,28 @@
  * This is the core logic for the VS Code popup: detect if text is a prompt,
  * analyze it, and generate an improved version.
  */
+import type { RewriteIntervention } from '../config/product';
 import type { PromptAnalysis, UseCase } from '../types/prompt';
 export interface PopupContentRequest {
     text: string;
     useCase?: UseCase;
 }
 export interface PopupContent {
+    originalText?: string;
     isPrompt: boolean;
     detectionConfidence: number;
     analysis?: PromptAnalysis;
     improvedPrompt?: string;
     copyableText?: string;
     rewriteSource?: 'model' | 'rules';
-    rewriteStatus?: 'loading' | 'ready' | 'fallback';
+    rewriteStatus?: 'loading' | 'changed' | 'no_change' | 'fallback' | 'error';
     modelName?: string;
     modelError?: string;
     sourceDetail?: 'local-ai' | 'instant-rules' | 'safety-fallback';
     validationScore?: number;
     isAlreadyGood?: boolean;
+    intervention?: RewriteIntervention;
+    validationReason?: string | null;
 }
 /**
  * Main entry point for the VS Code popup.

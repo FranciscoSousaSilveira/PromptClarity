@@ -6,6 +6,7 @@
 
 import { detectPrompt, shouldShowPopup } from './promptDetector';
 import { analyzePrompt } from './promptAnalyzer';
+import type { RewriteIntervention } from '../config/product';
 import type { PromptAnalysis, UseCase } from '../types/prompt';
 
 export interface PopupContentRequest {
@@ -14,18 +15,21 @@ export interface PopupContentRequest {
 }
 
 export interface PopupContent {
+  originalText?: string;
   isPrompt: boolean;
   detectionConfidence: number;
   analysis?: PromptAnalysis;
   improvedPrompt?: string;
   copyableText?: string;
   rewriteSource?: 'model' | 'rules';
-  rewriteStatus?: 'loading' | 'ready' | 'fallback';
+  rewriteStatus?: 'loading' | 'changed' | 'no_change' | 'fallback' | 'error';
   modelName?: string;
   modelError?: string;
   sourceDetail?: 'local-ai' | 'instant-rules' | 'safety-fallback';
   validationScore?: number;
   isAlreadyGood?: boolean;
+  intervention?: RewriteIntervention;
+  validationReason?: string | null;
 }
 
 /**
@@ -40,6 +44,7 @@ export function analyzeForPopup(request: PopupContentRequest): PopupContent {
 
   if (!shouldShowPopup(detection.confidence)) {
     return {
+      originalText: text,
       isPrompt: false,
       detectionConfidence: detection.confidence
     };
@@ -50,6 +55,7 @@ export function analyzeForPopup(request: PopupContentRequest): PopupContent {
     const analysis = analyzePrompt(text, useCase);
 
     return {
+      originalText: text,
       isPrompt: true,
       detectionConfidence: detection.confidence,
       analysis,
@@ -60,6 +66,7 @@ export function analyzeForPopup(request: PopupContentRequest): PopupContent {
     // If analysis fails, still return the detected status
     console.error('Failed to analyze prompt:', error);
     return {
+      originalText: text,
       isPrompt: true,
       detectionConfidence: detection.confidence,
       improvedPrompt: text,

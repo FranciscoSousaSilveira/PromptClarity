@@ -66,6 +66,30 @@ function renderLoading(state: Extract<DesktopPopupState, { status: 'loading' }>)
 }
 
 function renderSuccess(state: Extract<DesktopPopupState, { status: 'success' }>) {
+  const isCheckmark = state.rewriteStatus === 'no_change';
+  const isFallback = state.rewriteStatus === 'fallback';
+  const isErrorRewrite = state.rewriteStatus === 'error';
+  const statusLabel =
+    isErrorRewrite
+      ? 'Local rewrite unavailable'
+      : state.rewriteStatus === 'no_change'
+      ? 'Prompt checked'
+      : state.rewriteStatus === 'fallback'
+        ? 'Conservative local correction'
+        : 'Corrected prompt';
+  const statusMessage =
+    isErrorRewrite
+      ? 'The local service is unavailable right now.'
+      : state.rewriteStatus === 'no_change'
+      ? 'No changes were needed.'
+      : isFallback
+        ? 'A conservative local fallback was used.'
+        : 'The corrected prompt keeps the original intent.';
+  const meta = [
+    `Intervention: ${state.intervention.charAt(0).toUpperCase() + state.intervention.slice(1)}`,
+    state.validationReason || (isFallback ? 'Fallback used locally' : 'Local correction ready')
+  ].join(' · ');
+
   const issues = state.review.issues
     .map(
       (issue) => `
@@ -87,13 +111,25 @@ function renderSuccess(state: Extract<DesktopPopupState, { status: 'success' }>)
   return shell(
     `
     <div class="result-body">
-      ${state.isAlreadyGood ? '<div class="prompt-good-state"><span class="prompt-good-check">✓</span><span><strong>This prompt is already clear</strong><small>No changes were needed.</small></span></div>' : ''}
+      <div class="result-state result-${state.rewriteStatus}">
+        <span class="prompt-good-check" aria-hidden="true">${isCheckmark ? '✓' : 'i'}</span>
+        <span><strong>${escapeHtml(statusLabel)}</strong><small>${escapeHtml(statusMessage)}</small></span>
+      </div>
       <div class="section-heading">
-        <span>${state.isAlreadyGood ? 'Your prompt' : 'Corrected prompt'}</span>
+        <span>${isCheckmark ? 'Same prompt' : 'Original prompt'} / Corrected prompt</span>
         ${state.model ? `<small>${escapeHtml(state.model)}</small>` : ''}
       </div>
-      <textarea id="improved-prompt" aria-label="Editable enhanced prompt"></textarea>
-      <div class="result-meta">${escapeHtml(state.sourceDetail === 'local-ai' ? `Local AI · ${state.validationScore}% validated` : state.sourceDetail === 'instant-rules' ? 'Instant local rewrite' : 'Safety fallback')}</div>
+      <div class="comparison-stack">
+        <div class="comparison-column">
+          <div class="section-label">Original</div>
+          <div class="text-box text-box-muted" id="original-text">${escapeHtml(state.originalText)}</div>
+        </div>
+        <div class="comparison-column">
+          <div class="section-label">${isCheckmark ? 'Same text' : 'Corrected'}</div>
+          <textarea id="improved-prompt" aria-label="Editable enhanced prompt"></textarea>
+        </div>
+      </div>
+      <div class="result-meta">${escapeHtml(meta)}</div>
 
       <details class="review-details">
         <summary>
@@ -112,11 +148,12 @@ function renderSuccess(state: Extract<DesktopPopupState, { status: 'success' }>)
     </div>
     <footer class="actions">
       <button class="button secondary" id="copy-button" type="button">Copy</button>
+      <button class="button secondary" id="too-much-button" type="button">Too much</button>
       ${state.canUndo ? '<button class="button secondary" id="undo-button" type="button">Undo last</button>' : ''}
-      <button class="button primary" id="insert-button" type="button">Insert</button>
+      ${isErrorRewrite ? '' : '<button class="button primary" id="insert-button" type="button">Insert</button>'}
     </footer>
   `,
-    state.isAlreadyGood ? 'Prompt checked' : 'Ready to use'
+    isCheckmark ? 'Prompt checked' : 'Ready to use'
   );
 }
 
@@ -188,6 +225,11 @@ function renderError(state: Extract<DesktopPopupState, { status: 'error' }>) {
       <span class="error-icon">!</span>
       <h1>${escapeHtml(state.title)}</h1>
       <p>${escapeHtml(state.message)}</p>
+      ${state.originalText ? `<div class="text-box text-box-muted">${escapeHtml(state.originalText)}</div>` : ''}
+      <div class="actions error-actions">
+        <button class="button secondary" id="copy-button" type="button">Copy original</button>
+        <button class="button secondary" id="too-much-button" type="button">Too much</button>
+      </div>
       ${state.canRetry ? '<button class="button primary retry-button" id="retry-button" type="button">Try again</button>' : ''}
       <small class="shortcut-hint">Select text, or place the cursor at the end of a prompt, then press Ctrl+Alt+P.</small>
     </div>
@@ -196,7 +238,7 @@ function renderError(state: Extract<DesktopPopupState, { status: 'error' }>) {
   );
 }
 
-function bindEvents() {
+function bindEvents(state: DesktopPopupState) {
   document.querySelector('#close-button')?.addEventListener('click', () => void window.promptDesktop.close());
   document.querySelector('#retry-button')?.addEventListener('click', () => void window.promptDesktop.retry());
 
@@ -204,8 +246,20 @@ function bindEvents() {
   copyButton?.addEventListener('click', async () => {
     copyButton.disabled = true;
     copyButton.textContent = 'Copied';
-    const text = document.querySelector<HTMLTextAreaElement>('#improved-prompt')?.value;
+    const text =
+      state.status === 'error' || (state.status === 'success' && state.rewriteStatus === 'error')
+        ? state.originalText
+        : document.querySelector<HTMLTextAreaElement>('#improved-prompt')?.value || (state.status === 'success' ? state.improvedText : '');
     await window.promptDesktop.copy(text);
+  });
+
+  document.querySelector('#too-much-button')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement | null;
+    if (!button) return;
+    button.disabled = true;
+    const saved = await window.promptDesktop.tooMuch();
+    if (saved) button.textContent = 'Saved locally';
+    button.disabled = false;
   });
 
   const insertButton = document.querySelector<HTMLButtonElement>('#insert-button');
@@ -234,7 +288,7 @@ function bindEvents() {
       shortcut:
         document.querySelector<HTMLSelectElement>('#setting-shortcut')?.value || 'CommandOrControl+Alt+P',
       keepModelsWarm: document.querySelector<HTMLInputElement>('#setting-warm')?.checked ?? true,
-      historyEnabled: document.querySelector<HTMLInputElement>('#setting-history')?.checked ?? true
+      historyEnabled: document.querySelector<HTMLInputElement>('#setting-history')?.checked ?? false
     });
     await window.promptDesktop.close();
   });
@@ -262,14 +316,19 @@ function render(state: DesktopPopupState) {
   }
   window.getSelection()?.removeAllRanges();
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  bindEvents();
+  bindEvents(state);
 }
 
 window.promptDesktop.onState(render);
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'a' && event.ctrlKey) event.preventDefault();
   if (event.key === 'Escape') void window.promptDesktop.close();
-  if (event.key === 'Enter' && event.ctrlKey && currentState?.status === 'success') {
+  if (
+    event.key === 'Enter' &&
+    event.ctrlKey &&
+    currentState?.status === 'success' &&
+    currentState.rewriteStatus !== 'error'
+  ) {
     void window.promptDesktop.insert();
   }
 });

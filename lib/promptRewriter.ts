@@ -1,4 +1,5 @@
 import type { PromptAnalysisCore, UseCase } from '../types/prompt';
+import type { RewriteIntervention } from '../config/product';
 import { correctSpelling } from './spellChecker';
 
 type Language = 'en' | 'pt';
@@ -82,6 +83,12 @@ function polishWithoutExpanding(prompt: string, language: Language): string {
  * Produces a conservative local fallback. It only corrects writing and never
  * invents requirements, output formats, roles, facts, or extra instructions.
  */
-export function rewritePrompt(prompt: string, _useCase: UseCase, _analysis: PromptAnalysisCore): string {
+export function rewritePrompt(
+  prompt: string,
+  _useCase: UseCase,
+  _analysis: PromptAnalysisCore,
+  _intervention: RewriteIntervention = 'normal'
+): string {
+  // Polished intentionally shares the normal fallback until safe deterministic polishing exists.
   return polishWithoutExpanding(prompt, detectLanguage(prompt));
 }

@@ -1,3 +1,6 @@
+import type { RewriteIntervention } from '../../../config/product';
+import type { PopupSurface } from '../../../lib/popupState';
+
 export interface ReviewIssue {
   title: string;
   suggestion: string;
@@ -29,6 +32,19 @@ export interface DesktopHistoryEntry {
   source: string;
 }
 
+export interface DesktopTooMuchFeedbackEntry {
+  original: string;
+  rewritten: string;
+  source: 'model' | 'local_fallback' | 'checkmark' | 'error';
+  status: 'changed' | 'no_change' | 'fallback' | 'error';
+  mode: 'fast' | 'balanced' | 'quality';
+  intervention: RewriteIntervention;
+  validationReason: string | null;
+  timestamp: string;
+  reason: 'user_too_much';
+  surface: PopupSurface;
+}
+
 export type DesktopPopupState =
   | {
       status: 'loading';
@@ -41,6 +57,9 @@ export type DesktopPopupState =
       improvedText: string;
       model?: string;
       sourceDetail: 'local-ai' | 'instant-rules' | 'safety-fallback';
+      rewriteStatus: 'changed' | 'no_change' | 'fallback' | 'error';
+      intervention: RewriteIntervention;
+      validationReason: string | null;
       validationScore: number;
       isAlreadyGood: boolean;
       canUndo: boolean;
@@ -51,6 +70,7 @@ export type DesktopPopupState =
       title: string;
       message: string;
       canRetry: boolean;
+      originalText?: string;
     }
   | {
       status: 'settings';
@@ -70,6 +90,7 @@ export interface DesktopBridge {
   copy: (text?: string) => Promise<boolean>;
   insert: (text?: string) => Promise<boolean>;
   undo: () => Promise<boolean>;
+  tooMuch: () => Promise<boolean>;
   retry: () => Promise<void>;
   close: () => Promise<void>;
   saveSettings: (settings: Partial<DesktopSettingsView>) => Promise<DesktopSettingsView>;

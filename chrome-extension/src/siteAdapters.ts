@@ -6,6 +6,19 @@ export interface ChatSiteAdapter {
   richTextStrategy: 'native-input' | 'contenteditable' | 'paragraphs';
 }
 
+function normalizeHostname(hostname: string): string {
+  return hostname.trim().toLowerCase();
+}
+
+export function matchesChatSiteHost(hostname: string, adapterHost: string): boolean {
+  const normalizedHostname = normalizeHostname(hostname);
+  const normalizedAdapterHost = normalizeHostname(adapterHost);
+  return (
+    normalizedHostname === normalizedAdapterHost ||
+    normalizedHostname.endsWith(`.${normalizedAdapterHost}`)
+  );
+}
+
 const COMMON_COMPOSERS = ['textarea', 'input[type="text"]', '[contenteditable="true"]'];
 const COMMON_USER_MESSAGES = [
   '[data-message-author-role="user"]',
@@ -91,10 +104,13 @@ export const CHAT_SITE_ADAPTERS: ChatSiteAdapter[] = [
 ];
 
 export function getSiteAdapter(hostname = location.hostname): ChatSiteAdapter {
+  const normalizedHostname = normalizeHostname(hostname);
   return (
-    CHAT_SITE_ADAPTERS.find((adapter) => adapter.hosts.includes(hostname)) || {
+    CHAT_SITE_ADAPTERS.find((adapter) =>
+      adapter.hosts.some((adapterHost) => matchesChatSiteHost(normalizedHostname, adapterHost))
+    ) || {
       id: 'generic',
-      hosts: [hostname],
+      hosts: [normalizedHostname],
       composerSelectors: COMMON_COMPOSERS,
       userMessageSelectors: COMMON_USER_MESSAGES,
       richTextStrategy: 'contenteditable'

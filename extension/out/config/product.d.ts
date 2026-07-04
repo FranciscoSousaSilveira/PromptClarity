@@ -7,6 +7,9 @@ export declare const PRODUCT: {
 };
 export declare const SUPPORTED_CHAT_ORIGINS: readonly ["https://chatgpt.com", "https://chat.openai.com", "https://claude.ai", "https://gemini.google.com", "https://copilot.microsoft.com", "https://www.perplexity.ai", "https://chat.deepseek.com", "https://grok.com", "https://chat.mistral.ai", "https://poe.com", "https://www.meta.ai"];
 export type PerformanceMode = 'fast' | 'balanced' | 'quality';
+export type RewriteIntervention = 'strict' | 'normal' | 'polished';
+export declare const DEFAULT_REWRITE_INTERVENTION: RewriteIntervention;
+export declare function isRewriteIntervention(value: unknown): value is RewriteIntervention;
 export interface ModelProfile {
     mode: PerformanceMode;
     label: string;

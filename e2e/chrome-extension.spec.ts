@@ -35,6 +35,19 @@ test('supports contenteditable composers', async ({ page }) => {
   await expect(page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea')).toBeVisible();
 });
 
+test('supports generic input composers without creating duplicate bubbles', async ({ page }) => {
+  await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
+  const input = page.locator('#input1');
+  await input.fill('write a short status update');
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+
+  await expect(page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea')).toBeVisible();
+  await expect(page.locator('#prompt-enhancer-root')).toHaveCount(1);
+
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+  await expect(page.locator('#prompt-enhancer-root')).toHaveCount(1);
+});
+
 test('keeps a validated local fallback pasteable when the model response is unavailable', async ({
   page
 }) => {
@@ -127,8 +140,51 @@ test('shows a checkmark when the model confirms that a clear prompt needs no cha
   await page.locator('#textarea1').fill('Explain photosynthesis clearly.');
   await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
 
-  await expect(page.locator('#prompt-enhancer-root').locator('.prompt-good-state')).toBeVisible();
-  await expect(page.locator('#prompt-enhancer-root').locator('.prompt-good-state')).toContainText(
-    'already clear'
+  await expect(page.locator('#prompt-enhancer-root').locator('.result-no_change')).toBeVisible();
+  await expect(page.locator('#prompt-enhancer-root').locator('.result-no_change')).toContainText(
+    'Prompt checked'
   );
+});
+
+test('hides the popup when the active composer is removed from the DOM', async ({ page }) => {
+  await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
+  const input = page.locator('#textarea1');
+  await input.fill('explica me energia solar em tres pontos');
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+  await expect(page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea')).toBeVisible();
+
+  await page.evaluate(() => {
+    document.querySelector('#textarea1')?.remove();
+  });
+
+  await expect(page.locator('#prompt-enhancer-root').locator('.prompt-bubble')).not.toHaveClass(
+    /visible/
+  );
+  await expect(page.locator('#prompt-enhancer-root').locator('.prompt-popup')).not.toHaveClass(
+    /visible/
+  );
+});
+
+test('keeps insert disabled after a composer is replaced before reusing the popup', async ({ page }) => {
+  await page.goto(pathToFileURL(resolve('chrome-extension/test.html')).href);
+  const input = page.locator('#textarea1');
+  await input.fill('write a concise onboarding email');
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+  await expect(page.locator('#prompt-enhancer-root').locator('#pe-improved-textarea')).toBeVisible();
+
+  await page.evaluate(() => {
+    const original = document.querySelector('#textarea1');
+    original?.remove();
+    const replacement = document.createElement('textarea');
+    replacement.id = 'textarea1';
+    replacement.value = 'fresh composer';
+    document.body.appendChild(replacement);
+    replacement.focus();
+  });
+
+  await page.waitForTimeout(50);
+  await page.locator('#prompt-enhancer-root').locator('.prompt-bubble').click();
+  await expect(page.locator('#prompt-enhancer-root').locator('#pe-insert-btn')).toBeVisible();
+  await page.locator('#prompt-enhancer-root').locator('#pe-insert-btn').click();
+  await expect(page.locator('#textarea1')).toHaveValue(/fresh composer|onboarding email/);
 });

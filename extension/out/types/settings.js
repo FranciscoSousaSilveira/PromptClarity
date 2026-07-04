@@ -7,7 +7,7 @@ exports.DEFAULT_SETTINGS = {
     autoOpen: true,
     keepModelsWarm: true,
     shortcut: 'CommandOrControl+Alt+P',
-    historyEnabled: true,
+    historyEnabled: false,
     historyLimit: 20
 };
 //# sourceMappingURL=settings.js.map

@@ -2,9 +2,10 @@ import { analyzeForPopup, shouldShowHint, type PopupContent } from '../../lib/pr
 import { analyzePrompt } from '../../lib/promptAnalyzer';
 import { DEFAULT_REWRITE_ENDPOINT, rewritePromptWithModel } from '../../lib/modelPromptRewriter';
 import type { UseCase } from '../../types/prompt';
-import type { PerformanceMode } from '../../config/product';
+import type { PerformanceMode, RewriteIntervention } from '../../config/product';
 import { PromptEnhancerUI } from './ui';
 import { getSiteAdapter } from './siteAdapters';
+import { buildTooMuchFeedbackEntry, type TooMuchFeedbackEntry } from '../../lib/popupState';
 
 // Declare compile-time global injected by esbuild
 declare const __CSS_TEXT__: string;
@@ -54,6 +55,7 @@ class PromptEnhancerExtension {
   private autoEnhanceEnabled = true;
   private performanceMode: PerformanceMode = 'fast';
   private resizeObserver: ResizeObserver | null = null;
+  private composerObserver: MutationObserver | null = null;
   private positionFrame: number | null = null;
   private analysisTimer: ReturnType<typeof setTimeout> | null = null;
   private lastAnalyzedSignature = '';
@@ -63,12 +65,16 @@ class PromptEnhancerExtension {
   private modelAbortController: AbortController | null = null;
   private readonly siteAdapter = getSiteAdapter();
   private lastInsertion: { element: HTMLElement; originalText: string } | null = null;
+  private currentFeedbackContext: TooMuchFeedbackEntry | null = null;
+  private sawExtensionContext = isExtensionContextAvailable();
 
   private static readonly AUTO_ANALYZE_DELAY = 900;
 
   constructor() {}
 
   public async init() {
+    this.sawExtensionContext = isExtensionContextAvailable();
+
     // Load saved use case from storage if available
     if (isExtensionContextAvailable()) {
       const data = await safeStorageGet(['defaultUseCase', 'autoEnhanceEnabled', 'performanceMode']);
@@ -96,6 +102,7 @@ class PromptEnhancerExtension {
       onCopy: (text) => this.handleCopy(text),
       onInsert: (text) => this.handleInsert(text),
       onUndo: () => this.handleUndo(),
+      onTooMuch: () => this.handleTooMuch(),
       onClose: () => this.handleClose()
     });
 
@@ -108,6 +115,7 @@ class PromptEnhancerExtension {
 
     // Track scroll and resize events so the controls stay attached to dynamic chat inputs.
     this.setupPositionTracking();
+    this.setupComposerTracking();
 
     // Load the local model in the background before the first suggestion. This
     // removes most of the cold-start delay without blocking the page or UI.
@@ -117,28 +125,7 @@ class PromptEnhancerExtension {
   private handleFocusIn(e: FocusEvent) {
     const target = this.findEditableTarget(e.target);
     if (target) {
-      if (this.activeElement && this.activeElement !== target) {
-        this.activeElement.removeEventListener('input', this.handleInput);
-        this.ui.hidePopup(false);
-      }
-
-      this.activeElement = target;
-      this.ui.setActiveElement(target);
-
-      // Update position immediately
-      this.updateUI();
-
-      // Listen for inputs to determine if text is a prompt (show/pulse bubble)
-      target.removeEventListener('input', this.handleInput);
-      target.addEventListener('input', this.handleInput);
-
-      // Start observing element resize
-      if (this.resizeObserver) {
-        this.resizeObserver.disconnect();
-      }
-      this.resizeObserver = new ResizeObserver(() => this.updateUI());
-      this.resizeObserver.observe(target);
-
+      this.bindActiveComposer(target);
       this.handleInput();
     }
   }
@@ -168,6 +155,10 @@ class PromptEnhancerExtension {
 
   private handleInput = () => {
     if (!this.activeElement) return;
+    if (!this.activeElement.isConnected) {
+      this.handleDetachedComposer();
+      return;
+    }
 
     const text = this.getInputText(this.activeElement).trim();
     const signature = this.textSignature(text);
@@ -269,7 +260,11 @@ class PromptEnhancerExtension {
 
   private handleInsert(text: string) {
     const el = this.activeElement;
-    if (!el) return;
+    if (!el || !el.isConnected) {
+      this.handleDetachedComposer();
+      return;
+    }
+    if (!text.trim()) return;
     this.lastInsertion = { element: el, originalText: this.getInputText(el) };
 
     this.clearAnalysisTimer();
@@ -325,7 +320,7 @@ class PromptEnhancerExtension {
 
   private handleUndo() {
     const insertion = this.lastInsertion;
-    if (!insertion) return;
+    if (!insertion || !insertion.element.isConnected || insertion.element !== this.activeElement) return;
     const { element, originalText } = insertion;
     element.focus();
     if (this.isContentEditable(element)) {
@@ -342,9 +337,63 @@ class PromptEnhancerExtension {
     this.lastInsertion = null;
   }
 
+  private bindActiveComposer(target: HTMLElement) {
+    if (this.activeElement === target) {
+      this.updateUI();
+      return;
+    }
+
+    if (this.activeElement) {
+      this.activeElement.removeEventListener('input', this.handleInput);
+    }
+    this.resizeObserver?.disconnect();
+
+    this.activeElement = target;
+    this.ui.setActiveElement(target);
+    target.removeEventListener('input', this.handleInput);
+    target.addEventListener('input', this.handleInput);
+
+    this.resizeObserver = new ResizeObserver(() => this.updateUI());
+    this.resizeObserver.observe(target);
+    this.updateUI();
+  }
+
+  private handleDetachedComposer() {
+    this.clearAnalysisTimer();
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.activeElement = null;
+    this.ui.setActiveElement(null);
+    this.ui.hideBubble();
+    this.ui.hidePopup(false);
+  }
+
+  private setupComposerTracking() {
+    if (!document.body) return;
+
+    const handleMutations = () => {
+      if (!this.activeElement) return;
+      if (this.activeElement.isConnected) return;
+
+      const focused = this.findEditableTarget(document.activeElement);
+      if (focused) {
+        this.bindActiveComposer(focused);
+      } else {
+        this.handleDetachedComposer();
+      }
+    };
+
+    this.composerObserver = new MutationObserver(() => handleMutations());
+    this.composerObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
   private async saveHistory(improvedText: string) {
-    const data = await safeStorageGet(['promptHistory']);
+    const data = await safeStorageGet(['promptHistory', 'historyEnabled']);
     if (!isExtensionContextAvailable()) return;
+    if (data.historyEnabled !== true) return;
     const history = Array.isArray(data.promptHistory) ? data.promptHistory : [];
     history.unshift({ improvedText, createdAt: new Date().toISOString(), site: this.siteAdapter.id });
     await safeStorageSet({ promptHistory: history.slice(0, 20) });
@@ -354,6 +403,7 @@ class PromptEnhancerExtension {
     this.clearAnalysisTimer();
     this.modelAbortController?.abort();
     this.modelAbortController = null;
+    this.currentFeedbackContext = null;
     if (this.activeElement) {
       this.dismissedSignature = this.textSignature(this.getInputText(this.activeElement));
     }
@@ -387,6 +437,7 @@ class PromptEnhancerExtension {
     const signature = this.textSignature(text);
     const requestId = ++this.analysisRequestId;
     this.lastAnalyzedSignature = signature;
+    this.currentFeedbackContext = null;
     this.ui.showPopup(
       rect,
       { ...content, rewriteSource: 'rules', rewriteStatus: 'loading' },
@@ -416,16 +467,36 @@ class PromptEnhancerExtension {
       requestId !== this.analysisRequestId ||
       !this.activeElement ||
       this.textSignature(this.getInputText(this.activeElement).trim()) !== this.textSignature(capturedText) ||
-      !this.ui.isPopupVisible()
+      !this.ui.isPopupVisible() ||
+      (this.sawExtensionContext && !isExtensionContextAvailable())
     ) {
+      if (this.sawExtensionContext && !isExtensionContextAvailable()) {
+        this.currentFeedbackContext = null;
+      }
       return;
     }
 
     this.rememberGeneratedPrompt(modelResult.rewrittenPrompt);
+    this.currentFeedbackContext = buildTooMuchFeedbackEntry({
+      original: text,
+      rewritten: modelResult.rewrittenPrompt,
+      status: modelResult.status,
+      source:
+        modelResult.source === 'model'
+          ? 'model'
+          : modelResult.source === 'checkmark'
+            ? 'checkmark'
+            : modelResult.source === 'error'
+              ? 'error'
+              : 'local_fallback',
+      mode: this.performanceMode,
+      intervention: modelResult.intervention,
+      validationReason: modelResult.validation.reason,
+      surface: 'chrome'
+    });
     const reviewedPrompt = analyzePrompt(modelResult.rewrittenPrompt, this.currentUseCase);
     const promptIsAlreadyGood =
-      modelResult.source === 'model' &&
-      modelResult.isAlreadyGood &&
+      modelResult.status === 'no_change' &&
       !modelResult.error &&
       content.analysis.spellingIssues.length === 0 &&
       !content.analysis.issues.some((issue) => issue.id === 'vague-task');
@@ -451,21 +522,35 @@ class PromptEnhancerExtension {
       rect,
       {
         ...content,
+        originalText: text,
         analysis: updatedAnalysis,
         improvedPrompt: modelResult.rewrittenPrompt,
         copyableText: modelResult.rewrittenPrompt,
-        rewriteSource: modelResult.source,
-        rewriteStatus: modelResult.error && !hasPasteableSafetyFallback ? 'fallback' : 'ready',
+        rewriteSource:
+          modelResult.source === 'model' || modelResult.source === 'checkmark' ? 'model' : 'rules',
+        rewriteStatus: modelResult.error && !hasPasteableSafetyFallback ? 'error' : modelResult.status,
         modelName: modelResult.model,
         modelError: modelResult.error,
         sourceDetail: modelResult.sourceDetail,
         validationScore: modelResult.validationScore,
-        isAlreadyGood: promptIsAlreadyGood
+        isAlreadyGood: promptIsAlreadyGood,
+        intervention: modelResult.intervention,
+        validationReason: modelResult.validation.reason
       },
       this.currentUseCase,
       this.autoEnhanceEnabled,
       this.performanceMode
     );
+  }
+
+  private async handleTooMuch(): Promise<boolean> {
+    const context = this.currentFeedbackContext;
+    if (!context) return false;
+
+    const data = await safeStorageGet(['tooMuchFeedback']);
+    const feedback = Array.isArray(data.tooMuchFeedback) ? data.tooMuchFeedback : [];
+    const nextFeedback = [context, ...feedback].slice(0, 50);
+    return safeStorageSet({ tooMuchFeedback: nextFeedback });
   }
 
   private forceAnalysisFallback(text: string): PopupContent {
@@ -478,6 +563,7 @@ class PromptEnhancerExtension {
       // Run analysis directly even if it failed the detector threshold
       const analysis = analyzePrompt(text, this.currentUseCase);
       return {
+        originalText: text,
         isPrompt: true,
         detectionConfidence: 0.5,
         analysis,
@@ -486,6 +572,7 @@ class PromptEnhancerExtension {
       };
     } catch {
       return {
+        originalText: text,
         isPrompt: true,
         detectionConfidence: 0.5,
         improvedPrompt: text,
@@ -512,6 +599,11 @@ class PromptEnhancerExtension {
 
   private updateUI() {
     if (!this.activeElement) return;
+
+    if (!this.activeElement.isConnected) {
+      this.handleDetachedComposer();
+      return;
+    }
 
     // Check if element is still visible/mounted
     const rect = this.activeElement.getBoundingClientRect();

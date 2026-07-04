@@ -10,6 +10,7 @@ const bridge: DesktopBridge = {
   copy: (text) => ipcRenderer.invoke('copy-improved-prompt', text),
   insert: (text) => ipcRenderer.invoke('insert-improved-prompt', text),
   undo: () => ipcRenderer.invoke('undo-last-insertion'),
+  tooMuch: () => ipcRenderer.invoke('too-much-feedback'),
   retry: () => ipcRenderer.invoke('retry-analysis'),
   close: () => ipcRenderer.invoke('close-popup'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),

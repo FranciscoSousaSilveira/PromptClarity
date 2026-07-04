@@ -16,6 +16,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoOpen: true,
   keepModelsWarm: true,
   shortcut: 'CommandOrControl+Alt+P',
-  historyEnabled: true,
+  historyEnabled: false,
   historyLimit: 20
 };

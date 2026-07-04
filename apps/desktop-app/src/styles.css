@@ -202,6 +202,96 @@ button {
   padding: 16px;
   overflow-y: auto;
 }
+
+.result-state {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.result-state strong {
+  display: block;
+  font-size: 13px;
+}
+
+.result-state small {
+  color: #8f9bb0;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.result-no_change {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.result-fallback {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.result-error {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.comparison-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-column {
+  display: grid;
+  gap: 6px;
+}
+
+.comparison-box,
+.text-box {
+  min-height: 84px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  color: #edf2f7;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.comparison-box-muted,
+.text-box-muted {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.error-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.error-actions .button {
+  flex: 1;
+}
+
+.prompt-good-check {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: #059669;
+  font-size: 18px;
+  font-weight: 800;
+}
 .section-heading {
   margin-bottom: 8px;
   display: flex;

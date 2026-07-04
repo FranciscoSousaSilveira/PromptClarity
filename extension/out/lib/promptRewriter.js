@@ -75,7 +75,8 @@ function polishWithoutExpanding(prompt, language) {
  * Produces a conservative local fallback. It only corrects writing and never
  * invents requirements, output formats, roles, facts, or extra instructions.
  */
-function rewritePrompt(prompt, _useCase, _analysis) {
+function rewritePrompt(prompt, _useCase, _analysis, _intervention = 'normal') {
+    // Polished intentionally shares the normal fallback until safe deterministic polishing exists.
     return polishWithoutExpanding(prompt, detectLanguage(prompt));
 }
 //# sourceMappingURL=promptRewriter.js.map

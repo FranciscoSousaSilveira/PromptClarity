@@ -43,9 +43,11 @@ const vscode = __importStar(require("vscode"));
 const crypto_1 = require("crypto");
 const promptIntegration_1 = require("../lib/promptIntegration");
 const modelPromptRewriter_1 = require("../lib/modelPromptRewriter");
+const vscodePresentation_1 = require("../lib/vscodePresentation");
 let popupPanel;
 let lastAnalyzedText = '';
 let currentImprovedPrompt = '';
+let currentPresentation;
 let debounceTimer;
 function activate(context) {
     console.log('Prompt Enhancement extension activated');
@@ -101,15 +103,36 @@ async function analyzeWithLocalModel(text) {
         performanceMode,
         keepModelsWarm: configuration.get('keepModelsWarm', true)
     });
+    const presentation = (0, vscodePresentation_1.describeVscodeRewritePresentation)({
+        original: text,
+        rewritten: modelResult.rewrittenPrompt,
+        status: modelResult.status,
+        source: modelResult.source === 'model'
+            ? 'model'
+            : modelResult.source === 'checkmark'
+                ? 'checkmark'
+                : modelResult.source === 'error'
+                    ? 'error'
+                    : 'local_fallback',
+        mode: performanceMode,
+        intervention: modelResult.intervention,
+        validationReason: modelResult.validation.reason,
+        error: modelResult.error
+    });
     return {
         ...result,
         analysis: { ...result.analysis, rewrittenPrompt: modelResult.rewrittenPrompt },
         improvedPrompt: modelResult.rewrittenPrompt,
-        copyableText: modelResult.rewrittenPrompt,
-        rewriteSource: modelResult.source,
+        copyableText: presentation.copyText,
+        rewriteSource: modelResult.source === 'model' || modelResult.source === 'checkmark' ? 'model' : 'rules',
         modelName: modelResult.model,
         modelError: modelResult.error,
-        isAlreadyGood: modelResult.source === 'model' && modelResult.isAlreadyGood && !modelResult.error
+        isAlreadyGood: modelResult.status === 'no_change' && !modelResult.error,
+        rewriteStatus: modelResult.error && modelResult.status === 'error' ? 'error' : modelResult.status,
+        mode: performanceMode,
+        intervention: presentation.intervention,
+        validationReason: presentation.validationReasonText,
+        presentation
     };
 }
 async function showPopup(text, context) {
@@ -119,16 +142,42 @@ async function showPopup(text, context) {
         vscode.window.showInformationMessage('Text does not appear to be a prompt');
         return;
     }
-    currentImprovedPrompt = result.improvedPrompt;
+    const presentation = 'presentation' in result
+        ? result.presentation
+        : (0, vscodePresentation_1.describeVscodeRewritePresentation)({
+            original: text,
+            rewritten: currentImprovedPrompt || text,
+            status: result.rewriteStatus && result.rewriteStatus !== 'loading'
+                ? result.rewriteStatus
+                : 'changed',
+            source: result.rewriteSource === 'model' ? 'model' : 'local_fallback',
+            mode: 'fast',
+            intervention: result.intervention,
+            validationReason: result.validationReason,
+            error: result.modelError
+        });
+    currentImprovedPrompt = result.copyableText || result.improvedPrompt || text;
+    currentPresentation = presentation;
     if (popupPanel) {
         popupPanel.reveal(vscode.ViewColumn.Beside);
         popupPanel.webview.postMessage({
             type: 'update',
             original: text,
             improved: result.improvedPrompt,
+            copyableText: currentImprovedPrompt,
             confidence: Math.round(result.detectionConfidence * 100),
             isAlreadyGood: result.isAlreadyGood,
-            analysis: result.analysis
+            analysis: result.analysis,
+            rewriteStatus: result.rewriteStatus,
+            intervention: result.intervention,
+            validationReason: result.validationReason,
+            title: presentation.title,
+            subtitle: presentation.subtitle,
+            message: presentation.message,
+            copyLabel: presentation.copyLabel,
+            insertLabel: presentation.insertLabel,
+            canInsert: presentation.canInsert,
+            canCopy: presentation.canCopy
         });
         return;
     }
@@ -137,7 +186,7 @@ async function showPopup(text, context) {
         enableScripts: true,
         localResourceRoots: [context.extensionUri]
     });
-    popupPanel.webview.html = getWebviewContent(text, result.improvedPrompt, result.detectionConfidence, result.isAlreadyGood === true, popupPanel.webview);
+    popupPanel.webview.html = getWebviewContent(text, currentImprovedPrompt, result.detectionConfidence, presentation, popupPanel.webview);
     popupPanel.webview.onDidReceiveMessage(async (message) => {
         switch (message.command) {
             case 'copy':
@@ -147,10 +196,17 @@ async function showPopup(text, context) {
                 }
                 break;
             case 'insert':
-                if (currentImprovedPrompt) {
+                if (currentImprovedPrompt && currentPresentation?.canInsert !== false) {
                     insertTextInEditor(currentImprovedPrompt);
                 }
                 break;
+            case 'tooMuch': {
+                const saved = await recordVsCodeTooMuchFeedback(context, text, result);
+                if (saved) {
+                    vscode.window.showInformationMessage('Saved locally');
+                }
+                break;
+            }
             case 'close':
                 if (popupPanel) {
                     popupPanel.dispose();
@@ -161,7 +217,28 @@ async function showPopup(text, context) {
     });
     popupPanel.onDidDispose(() => {
         popupPanel = undefined;
+        currentPresentation = undefined;
     });
+}
+async function recordVsCodeTooMuchFeedback(context, original, result) {
+    const presentation = result.presentation;
+    if (!presentation)
+        return false;
+    const entry = (0, vscodePresentation_1.buildVscodeTooMuchFeedbackEntry)({
+        original,
+        rewritten: result.copyableText || result.improvedPrompt || original,
+        source: presentation.source,
+        status: result.rewriteStatus || 'error',
+        mode: result.mode || 'fast',
+        intervention: presentation.intervention,
+        validationReason: presentation.validationReasonText,
+        timestamp: new Date().toISOString(),
+        reason: 'user_too_much'
+    });
+    const existing = context.workspaceState.get('promptGrammarly.tooMuchFeedback');
+    const feedback = Array.isArray(existing) ? existing : [];
+    await context.workspaceState.update('promptGrammarly.tooMuchFeedback', [entry, ...feedback].slice(0, 50));
+    return true;
 }
 /**
  * Debounced analysis for automatic hints
@@ -204,8 +281,11 @@ function insertTextInEditor(text) {
 /**
  * Generates the HTML for the webview popup
  */
-function getWebviewContent(original, improved, confidence, isAlreadyGood, _webview) {
+function getWebviewContent(original, improved, confidence, presentation, _webview) {
     const nonce = (0, crypto_1.randomBytes)(16).toString('base64');
+    const isError = presentation.status === 'error';
+    const showInsert = presentation.canInsert && !isError;
+    const showCopy = presentation.canCopy;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -253,6 +333,24 @@ function getWebviewContent(original, improved, confidence, isAlreadyGood, _webvi
             padding: 2px 8px;
             border-radius: 4px;
         }
+
+        .status-banner {
+          padding: 12px;
+          border-radius: 10px;
+          margin-bottom: 16px;
+          background: var(--vscode-input-background);
+          border: 1px solid var(--vscode-input-border);
+        }
+
+        .status-banner strong {
+          display: block;
+          font-size: 13px;
+          margin-bottom: 2px;
+        }
+
+        .status-banner small {
+          color: var(--vscode-descriptionForeground);
+        }
         
         .section {
             margin-bottom: 20px;
@@ -280,6 +378,15 @@ function getWebviewContent(original, improved, confidence, isAlreadyGood, _webvi
             max-height: 120px;
             overflow-y: auto;
         }
+
+          .comparison {
+            display: grid;
+            gap: 12px;
+          }
+
+          .comparison .text-box {
+            max-height: 180px;
+          }
         
         .actions {
             display: flex;
@@ -330,27 +437,34 @@ function getWebviewContent(original, improved, confidence, isAlreadyGood, _webvi
 <body>
     <div class="container">
         <div class="header">
-            <span class="title" id="result-title">${isAlreadyGood ? '✓ Prompt looks good' : 'Corrected Prompt'}</span>
+      <span class="title" id="result-title">${escapeHtml(presentation.title)}</span>
             <span class="confidence" id="confidence-value">${confidence}% confident</span>
         </div>
+    <div class="status-banner" id="status-banner">
+      <strong id="result-subtitle">${escapeHtml(presentation.subtitle)}</strong>
+      <small id="result-message">${escapeHtml(presentation.message)}</small>
+    </div>
         
         <div class="section">
-            <div class="section-label">Original</div>
+      <div class="section-label" id="original-label">${escapeHtml(presentation.originalLabel)}</div>
             <div class="text-box" id="original-text">${escapeHtml(original)}</div>
         </div>
         
         <div class="section">
-            <div class="section-label" id="result-label">${isAlreadyGood ? 'No changes needed' : 'Corrected'}</div>
+      <div class="section-label" id="result-label">${escapeHtml(presentation.rewrittenLabel)}</div>
             <div class="text-box" id="improved-text">${escapeHtml(improved)}</div>
-            <div class="hint" id="result-hint">${isAlreadyGood ? 'The model found no spelling, grammar, or clarity changes to make.' : 'Copy and paste the corrected prompt in your chat.'}</div>
+      <div class="hint" id="result-hint">${escapeHtml(presentation.validationReasonText || presentation.message)}</div>
         </div>
         
         <div class="actions">
-            <button class="btn-primary" id="copy-button">
-                📋 Copy Improved
+      <button class="btn-primary" id="copy-button" ${showCopy ? '' : 'hidden'}>
+        📋 ${escapeHtml(presentation.copyLabel)}
             </button>
-            <button class="btn-secondary" id="insert-button">
-                Insert
+      <button class="btn-secondary" id="insert-button" ${showInsert ? '' : 'hidden'}>
+        ${escapeHtml(presentation.insertLabel)}
+      </button>
+      <button class="btn-secondary" id="too-much-button" type="button">
+        Too much
             </button>
             <button class="btn-secondary" id="close-button">
                 Close
@@ -368,11 +482,24 @@ function getWebviewContent(original, improved, confidence, isAlreadyGood, _webvi
             document.getElementById('original-text').textContent = message.original;
             document.getElementById('improved-text').textContent = message.improved;
             document.getElementById('confidence-value').textContent = message.confidence + '% confident';
-            document.getElementById('result-title').textContent = message.isAlreadyGood ? '✓ Prompt looks good' : 'Corrected Prompt';
-            document.getElementById('result-label').textContent = message.isAlreadyGood ? 'No changes needed' : 'Corrected';
-            document.getElementById('result-hint').textContent = message.isAlreadyGood
-              ? 'The model found no spelling, grammar, or clarity changes to make.'
-              : 'Copy and paste the corrected prompt in your chat.';
+            document.getElementById('result-title').textContent = message.title || 'Prompt result';
+            document.getElementById('result-subtitle').textContent = message.subtitle || '';
+            document.getElementById('result-message').textContent = message.message || '';
+            document.getElementById('original-label').textContent = message.originalLabel || 'Original prompt';
+            document.getElementById('result-label').textContent = message.rewrittenLabel || 'Corrected prompt';
+            document.getElementById('result-hint').textContent = message.validationReason || message.message || '';
+
+            const copyButton = document.getElementById('copy-button');
+            if (copyButton) {
+              copyButton.hidden = message.canCopy === false;
+              copyButton.textContent = message.copyLabel ? '📋 ' + message.copyLabel : '📋 Copy';
+            }
+
+            const insertButton = document.getElementById('insert-button');
+            if (insertButton) {
+              insertButton.hidden = message.canInsert === false;
+              insertButton.textContent = message.insertLabel || 'Insert';
+            }
         });
         
         function copy() {
@@ -382,13 +509,18 @@ function getWebviewContent(original, improved, confidence, isAlreadyGood, _webvi
         function insert() {
             vscode.postMessage({ command: 'insert' });
         }
+
+        function tooMuch() {
+          vscode.postMessage({ command: 'tooMuch' });
+        }
         
         function close() {
             vscode.postMessage({ command: 'close' });
         }
 
         document.getElementById('copy-button').addEventListener('click', copy);
-        document.getElementById('insert-button').addEventListener('click', insert);
+        document.getElementById('insert-button')?.addEventListener('click', insert);
+        document.getElementById('too-much-button').addEventListener('click', tooMuch);
         document.getElementById('close-button').addEventListener('click', close);
     </script>
 </body>

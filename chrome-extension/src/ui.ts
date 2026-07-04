@@ -1,6 +1,7 @@
 import type { UseCase } from '../../types/prompt';
 import type { PopupContent } from '../../lib/promptIntegration';
 import type { PerformanceMode } from '../../config/product';
+import { describeRewritePresentation } from '../../lib/popupState';
 
 declare const __APP_VERSION__: string;
 
@@ -27,6 +28,7 @@ export class PromptEnhancerUI {
   private onCopy: (text: string) => void = () => {};
   private onInsert: (text: string) => void = () => {};
   private onUndo: () => void = () => {};
+  private onTooMuch: () => Promise<boolean> | boolean = () => false;
   private onClose: () => void = () => {};
 
   constructor() {}
@@ -40,6 +42,7 @@ export class PromptEnhancerUI {
       onCopy: (text: string) => void;
       onInsert: (text: string) => void;
       onUndo: () => void;
+      onTooMuch: () => Promise<boolean> | boolean;
       onClose: () => void;
     }
   ) {
@@ -49,6 +52,7 @@ export class PromptEnhancerUI {
     this.onCopy = callbacks.onCopy;
     this.onInsert = callbacks.onInsert;
     this.onUndo = callbacks.onUndo;
+    this.onTooMuch = callbacks.onTooMuch;
     this.onClose = callbacks.onClose;
 
     // Check if container already exists
@@ -258,21 +262,36 @@ export class PromptEnhancerUI {
   ) {
     if (!this.popup) return;
 
+    const originalText = content.originalText || '';
+    const rewrittenText = content.improvedPrompt || content.copyableText || originalText;
+    const presentation =
+      content.rewriteStatus && content.rewriteStatus !== 'loading'
+        ? describeRewritePresentation({
+            original: originalText,
+            rewritten: rewrittenText,
+            status: content.rewriteStatus,
+            source:
+              content.rewriteStatus === 'no_change'
+                ? 'checkmark'
+                : content.rewriteStatus === 'error'
+                  ? 'error'
+                  : content.rewriteSource === 'model'
+                    ? 'model'
+                    : 'local_fallback',
+            mode: performanceMode,
+            intervention: content.intervention,
+            validationReason: content.validationReason,
+            error: content.modelError || null
+          })
+        : null;
+
     // Header HTML
     const subtitle =
       content.rewriteStatus === 'loading'
         ? 'Improving with local AI…'
-        : content.isAlreadyGood
-          ? 'Prompt checked · no changes needed'
-          : content.sourceDetail === 'local-ai'
-            ? `Improved by local AI${content.modelName ? ` · ${this.escapeHtml(content.modelName)}` : ''}`
-            : content.sourceDetail === 'safety-fallback' && content.rewriteStatus === 'ready'
-              ? 'Model response rejected · safe local rewrite used'
-              : content.rewriteStatus === 'fallback'
-                ? content.modelError
-                  ? 'Local AI offline · rules fallback used'
-                  : 'Improved instantly · local safety rules'
-                : 'Draft reviewed locally';
+        : presentation
+          ? `${presentation.subtitle} · ${this.formatMode(performanceMode)} · ${this.formatIntervention(presentation.intervention)}`
+          : 'Draft reviewed locally';
 
     const headerHTML = `
       <div class="popup-header">
@@ -317,16 +336,26 @@ export class PromptEnhancerUI {
       return;
     }
 
-    if (content.rewriteStatus === 'fallback') {
+    if (content.rewriteStatus === 'error') {
       this.popup.innerHTML = `
         ${headerHTML}
-        <div class="model-error-state" role="alert">
-          <div class="model-error-icon" aria-hidden="true">!</div>
-          <div class="model-loading-title">The model did not respond</div>
-          <div class="model-loading-text">
-            The temporary rules draft cannot be pasted. Check that Ollama and the local server are running, then try again.
+        <div class="popup-body">
+          <div class="result-state result-error" role="alert">
+            <div class="result-state-icon" aria-hidden="true">!</div>
+            <div>
+              <strong>${this.escapeHtml(presentation?.title || 'Local rewrite unavailable')}</strong>
+              <small>${this.escapeHtml(presentation?.message || 'The local service is unavailable right now.')}</small>
+            </div>
           </div>
-          <button class="model-retry-btn" id="pe-retry-btn" type="button">Try again</button>
+
+          <div class="comparison-stack">
+            <div class="comparison-column">
+              <div class="section-label">Original</div>
+              <div class="comparison-box comparison-box-muted">${this.escapeHtml(originalText)}</div>
+            </div>
+          </div>
+
+          <div class="result-meta">${this.escapeHtml(presentation?.validationReasonText || 'Local rewrite unavailable')}</div>
         </div>
       `;
       this.bindPopupEvents(content);
@@ -365,7 +394,7 @@ export class PromptEnhancerUI {
       return;
     }
 
-    const { analysis, improvedPrompt } = content;
+    const { analysis } = content;
     const score = analysis.overallScore;
     const label = analysis.label;
     const labelLower = label.toLowerCase() as 'weak' | 'decent' | 'strong' | 'excellent';
@@ -399,28 +428,53 @@ export class PromptEnhancerUI {
       )
       .join('');
 
-    const bodyHTML = `
-      <div class="popup-body">
-        ${
-          content.isAlreadyGood
-            ? `<div class="prompt-good-state" role="status">
-                <span class="prompt-good-check" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" /></svg>
-                </span>
-                <span><strong>This prompt is already clear</strong><small>No spelling, grammar, or clarity changes were needed.</small></span>
-              </div>`
-            : ''
-        }
-        <!-- Improved prompt is the primary result -->
-        <div class="improved-box-section improved-box-primary">
-          <div class="section-label">${content.isAlreadyGood ? 'Your Prompt' : 'Corrected Prompt'}</div>
-          <div class="improved-container">
-            <textarea class="improved-textarea" id="pe-improved-textarea" aria-label="Editable enhanced prompt">${this.escapeHtml(improvedPrompt || '')}</textarea>
+    const comparisonHTML =
+      presentation && presentation.showComparison
+        ? `
+          <div class="comparison-stack">
+            <div class="comparison-column">
+              <div class="section-label">${this.escapeHtml(presentation.originalLabel)}</div>
+              <div class="comparison-box ${presentation.kind === 'no_change' ? 'comparison-box-check' : ''}">${this.escapeHtml(
+                originalText
+              )}</div>
+            </div>
+            <div class="comparison-column">
+              <div class="section-label">${this.escapeHtml(presentation.rewrittenLabel)}</div>
+              <textarea class="improved-textarea" id="pe-improved-textarea" aria-label="Editable enhanced prompt">${this.escapeHtml(
+                rewrittenText
+              )}</textarea>
+            </div>
+          </div>
+        `
+        : '';
+
+    const statusHTML = presentation
+      ? `
+        <div class="result-state result-${presentation.kind}">
+          <div class="result-state-icon" aria-hidden="true">${presentation.showCheckmark ? '✓' : 'i'}</div>
+          <div>
+            <strong>${this.escapeHtml(presentation.title)}</strong>
+            <small>${this.escapeHtml(presentation.message)}</small>
           </div>
         </div>
+        <div class="result-meta">${this.escapeHtml(
+          presentation.validationReasonText || `Intervention: ${this.formatIntervention(presentation.intervention)}`
+        )}</div>
+      `
+      : '';
+
+    const isError = presentation?.kind === 'error';
+    const copyButtonLabel = isError ? 'Copy Original' : 'Copy';
+    const insertButtonLabel = presentation?.kind === 'no_change' ? 'Insert Original' : 'Insert Prompt';
+    const insertHidden = isError || presentation?.showInsert === false;
+
+    const bodyHTML = `
+      <div class="popup-body">
+        ${statusHTML}
+        ${comparisonHTML}
 
         <!-- Review stays collapsed until requested -->
-        <details class="prompt-review-details">
+        <details class="prompt-review-details" ${isError ? 'hidden' : ''}>
           <summary>
             <span class="review-summary-copy">
               <span class="review-closed-label">View prompt review</span>
@@ -490,13 +544,14 @@ export class PromptEnhancerUI {
           <svg fill="none" viewBox="0 0 24 24">
             <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m-7 8H8" stroke="round" stroke-linejoin="round"/>
           </svg>
-          Copy
+          ${copyButtonLabel}
         </button>
-        <button class="footer-btn btn-primary" id="pe-insert-btn">
+        <button class="footer-btn btn-secondary" id="pe-too-much-btn" type="button">Too much</button>
+        <button class="footer-btn btn-primary" id="pe-insert-btn" ${insertHidden ? 'hidden' : ''}>
           <svg fill="none" viewBox="0 0 24 24">
             <path d="M12 4v16m8-8H4" stroke="round" stroke-linejoin="round"/>
           </svg>
-          Insert Prompt
+          ${insertButtonLabel}
         </button>
       </div>
     `;
@@ -544,7 +599,12 @@ export class PromptEnhancerUI {
     const copyBtn = this.popup.querySelector('#pe-copy-btn') as HTMLButtonElement | null;
     copyBtn?.addEventListener('click', () => {
       const textarea = this.popup?.querySelector('#pe-improved-textarea') as HTMLTextAreaElement | null;
-      const textToCopy = textarea ? textarea.value : content.improvedPrompt || '';
+      const textToCopy =
+        content.rewriteStatus === 'error'
+          ? content.originalText || ''
+          : textarea
+            ? textarea.value
+            : content.improvedPrompt || content.originalText || '';
 
       if (textToCopy) {
         this.onCopy(textToCopy);
@@ -572,13 +632,36 @@ export class PromptEnhancerUI {
     // Insert Button
     const insertBtn = this.popup.querySelector('#pe-insert-btn') as HTMLButtonElement | null;
     const undoBtn = this.popup.querySelector('#pe-undo-btn') as HTMLButtonElement | null;
+    const tooMuchBtn = this.popup.querySelector('#pe-too-much-btn') as HTMLButtonElement | null;
+
+    tooMuchBtn?.addEventListener('click', () => {
+      const saved = this.onTooMuch();
+      Promise.resolve(saved).then((didSave) => {
+        if (!didSave || !tooMuchBtn) return;
+        const originalHTML = tooMuchBtn.innerHTML;
+        tooMuchBtn.innerHTML = 'Saved locally';
+        tooMuchBtn.style.background = '#0f766e';
+        tooMuchBtn.style.color = '#ffffff';
+        setTimeout(() => {
+          tooMuchBtn.innerHTML = originalHTML;
+          tooMuchBtn.style.background = '';
+          tooMuchBtn.style.color = '';
+        }, 1500);
+      });
+    });
+
     undoBtn?.addEventListener('click', () => {
       this.onUndo();
       undoBtn.hidden = true;
     });
     insertBtn?.addEventListener('click', () => {
       const textarea = this.popup?.querySelector('#pe-improved-textarea') as HTMLTextAreaElement | null;
-      const textToInsert = textarea ? textarea.value : content.improvedPrompt || '';
+      const textToInsert =
+        content.rewriteStatus === 'error'
+          ? ''
+          : textarea
+            ? textarea.value
+            : content.improvedPrompt || content.originalText || '';
 
       if (textToInsert) {
         this.onInsert(textToInsert);
@@ -621,6 +704,16 @@ export class PromptEnhancerUI {
         <span class="auto-enhance-switch" aria-hidden="true"></span>
       </label>
     `;
+  }
+
+  private formatMode(mode: PerformanceMode): string {
+    return mode.charAt(0).toUpperCase() + mode.slice(1);
+  }
+
+  private formatIntervention(intervention: string): string {
+    if (intervention === 'strict') return 'Strict intervention';
+    if (intervention === 'polished') return 'Polished intervention';
+    return 'Normal intervention';
   }
 
   private escapeHtml(value: string): string {

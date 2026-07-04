@@ -1017,7 +1017,7 @@ function weightedAverage(scores) {
     const totalWeight = Object.values(CATEGORY_WEIGHTS).reduce((total, weight) => total + weight, 0);
     return weightedTotal / totalWeight;
 }
-function analyzePrompt(prompt, useCase) {
+function analyzePrompt(prompt, useCase, intervention = 'normal') {
     const normalized = prompt.trim();
     const language = detectLanguage(normalized);
     const tokens = tokenize(normalized);
@@ -1076,7 +1076,7 @@ function analyzePrompt(prompt, useCase) {
     };
     return {
         ...core,
-        rewrittenPrompt: (0, promptRewriter_1.rewritePrompt)(prompt, useCase, core)
+        rewrittenPrompt: (0, promptRewriter_1.rewritePrompt)(prompt, useCase, core, intervention)
     };
 }
 //# sourceMappingURL=promptAnalyzer.js.map

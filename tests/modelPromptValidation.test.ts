@@ -26,7 +26,7 @@ describe('conservative model rewrite validation', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('rules');
+    expect(result.source).toBe('local_fallback');
     expect(result.rewrittenPrompt).toBe(original);
   });
 
@@ -55,7 +55,7 @@ describe('conservative model rewrite validation', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('rules');
+    expect(result.source).toBe('local_fallback');
     expect(result.rewrittenPrompt).toBe(original);
   });
 
@@ -67,7 +67,7 @@ describe('conservative model rewrite validation', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('rules');
+    expect(result.source).toBe('local_fallback');
     expect(result.rewrittenPrompt).toBe(original);
   });
 

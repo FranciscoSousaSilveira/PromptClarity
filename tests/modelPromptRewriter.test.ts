@@ -9,6 +9,38 @@ function modelResponse(rewrittenPrompt: string, model = 'qwen2.5:1.5b') {
 }
 
 describe('rewritePromptWithModel', () => {
+  it('consumes the normalized result returned by the shared API pipeline', async () => {
+    const original = 'diz me mais nomes brincalhoes';
+    const corrected = 'Diz-me mais nomes brincalhões.';
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            status: 'changed',
+            original,
+            rewritten: corrected,
+            source: 'model',
+            latencyMs: 18,
+            mode: 'fast',
+            validation: { passed: true, reason: 'model_output_valid' },
+            model: 'qwen2.5:3b'
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+    );
+
+    const result = await rewritePromptWithModel(
+      { prompt: original, fallbackPrompt: original },
+      { fetchImpl: fetchImpl as typeof fetch }
+    );
+
+    expect(result.status).toBe('changed');
+    expect(result.source).toBe('model');
+    expect(result.rewrittenPrompt).toBe(corrected);
+    expect(result.validation).toEqual({ passed: true, reason: 'model_output_valid' });
+    expect(result.latencyMs).toBe(18);
+  });
+
   it('accepts a conservative spelling and grammar correction', async () => {
     const original = 'qual era o jogo online no browser ond eu podia contruir casad com blocos?';
     const corrected = 'Qual era o jogo online no browser onde eu podia construir casas com blocos?';
@@ -33,8 +65,9 @@ describe('rewritePromptWithModel', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('model');
+    expect(result.source).toBe('checkmark');
     expect(result.rewrittenPrompt).toBe(original);
+    expect(result.status).toBe('no_change');
     expect(result.isAlreadyGood).toBe(true);
   });
 
@@ -53,7 +86,7 @@ describe('rewritePromptWithModel', () => {
     expect(result.rewrittenPrompt).not.toContain('explicação');
   });
 
-  it('removes invented previous-context labels in a new conversation', async () => {
+  it('rejects invented previous-context labels in a new conversation', async () => {
     const original = 'Quais são as estâncias de esqui mais próximas?';
     const fetchImpl = vi.fn(async () =>
       modelResponse(`Com base no contexto anterior, pergunta: ${original}`)
@@ -65,7 +98,9 @@ describe('rewritePromptWithModel', () => {
     );
 
     expect(result.rewrittenPrompt).toBe(original);
-    expect(result.isAlreadyGood).toBe(true);
+    expect(result.status).toBe('fallback');
+    expect(result.source).toBe('local_fallback');
+    expect(result.isAlreadyGood).toBe(false);
   });
 
   it('uses the conservative fallback when the service is offline', async () => {
@@ -78,7 +113,7 @@ describe('rewritePromptWithModel', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('rules');
+    expect(result.source).toBe('local_fallback');
     expect(result.rewrittenPrompt).toBe('Quem e jfk');
     expect(result.error).toContain('connection refused');
   });
@@ -93,7 +128,7 @@ describe('rewritePromptWithModel', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('rules');
+    expect(result.source).toBe('local_fallback');
     expect(result.rewrittenPrompt).toBe(original);
   });
 
@@ -104,7 +139,7 @@ describe('rewritePromptWithModel', () => {
       { fetchImpl: fetchImpl as typeof fetch }
     );
 
-    expect(result.source).toBe('rules');
+    expect(result.source).toBe('local_fallback');
     expect(result.rewrittenPrompt).toBe('Olá');
   });
 });
