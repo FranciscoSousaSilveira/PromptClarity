@@ -50,6 +50,8 @@ let popupPanel;
 let lastAnalyzedText = '';
 let currentImprovedPrompt = '';
 let currentPresentation;
+let currentTargetEditor;
+let currentTargetSelection;
 let debounceTimer;
 let lastRewriteDiagnostics = { ...diagnostics_1.EMPTY_REWRITE_DIAGNOSTICS };
 function activate(context) {
@@ -67,6 +69,8 @@ function activate(context) {
             vscode.window.showInformationMessage('Please select text to enhance');
             return;
         }
+        currentTargetEditor = editor;
+        currentTargetSelection = new vscode.Selection(editor.selection.start, editor.selection.end);
         await showPopup(selectedText, context);
     });
     // Command: Analyze and copy to clipboard
@@ -185,6 +189,8 @@ async function showPopup(text, context) {
     lastAnalyzedText = text;
     const result = await analyzeWithLocalModel(text);
     if (!result.isPrompt || !result.improvedPrompt) {
+        currentTargetEditor = undefined;
+        currentTargetSelection = undefined;
         vscode.window.showInformationMessage('Text does not appear to be a prompt');
         return;
     }
@@ -241,7 +247,7 @@ async function showPopup(text, context) {
                 break;
             case 'insert':
                 if (currentImprovedPrompt && currentPresentation?.canInsert !== false) {
-                    insertTextInEditor(currentImprovedPrompt);
+                    await insertTextInEditor(currentImprovedPrompt);
                 }
                 break;
             case 'tooMuch': {
@@ -262,6 +268,8 @@ async function showPopup(text, context) {
     popupPanel.onDidDispose(() => {
         popupPanel = undefined;
         currentPresentation = undefined;
+        currentTargetEditor = undefined;
+        currentTargetSelection = undefined;
     });
 }
 async function recordVsCodeTooMuchFeedback(context, original, result) {
@@ -310,17 +318,16 @@ function debounceAnalysis(text) {
 /**
  * Inserts improved prompt into the active editor
  */
-function insertTextInEditor(text) {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor)
+async function insertTextInEditor(text) {
+    const editor = currentTargetEditor || vscode.window.activeTextEditor;
+    const selection = currentTargetSelection || editor?.selection;
+    if (!editor || !selection)
         return;
-    editor.edit((editBuilder) => {
-        editBuilder.replace(editor.selection, text);
+    const inserted = await editor.edit((editBuilder) => {
+        editBuilder.replace(selection, text);
     });
-    if (popupPanel) {
+    if (inserted && popupPanel)
         popupPanel.dispose();
-        popupPanel = undefined;
-    }
 }
 /**
  * Generates the HTML for the webview popup

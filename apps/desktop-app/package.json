@@ -21,9 +21,7 @@
     "esbuild": "^0.28.0",
     "typescript": "^5.8.3"
   },
-  "dependencies": {
-    "electron-updater": "^6.8.9"
-  },
+  "dependencies": {},
   "build": {
     "appId": "com.promptgrammarly.desktop",
     "productName": "Prompt Grammarly",
@@ -46,13 +44,6 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "grammarlydev",
-        "repo": "grammarly-prompts"
-      }
-    ]
+    }
   }
 }

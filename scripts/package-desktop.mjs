@@ -1,5 +1,5 @@
 import { existsSync, statfsSync } from 'node:fs';
-import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, rm, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -61,8 +61,13 @@ try {
   );
 
   await mkdir(finalDirectory, { recursive: true });
+  for (const existing of await readdir(finalDirectory, { withFileTypes: true })) {
+    if (existing.isFile() && /\.(exe|blockmap|yml)$/i.test(existing.name)) {
+      await unlink(join(finalDirectory, existing.name));
+    }
+  }
   for (const entry of await readdir(temporaryOutput, { withFileTypes: true })) {
-    if (!entry.isFile() || !/\.(exe|blockmap|yml)$/i.test(entry.name)) continue;
+    if (!entry.isFile() || !/\.(exe|blockmap)$/i.test(entry.name)) continue;
     await copyFile(join(temporaryOutput, entry.name), join(finalDirectory, entry.name));
   }
   console.log(`Desktop installer copied to ${finalDirectory}`);
