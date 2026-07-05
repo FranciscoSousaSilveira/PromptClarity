@@ -1,4 +1,8 @@
-import { DEFAULT_REWRITE_INTERVENTION, type PerformanceMode, type RewriteIntervention } from '../config/product';
+import {
+  DEFAULT_REWRITE_INTERVENTION,
+  type PerformanceMode,
+  type RewriteIntervention
+} from '../config/product';
 import type { RewriteSource, RewriteStatus } from '../types/rewrite';
 
 export type PopupSurface = 'chrome' | 'desktop' | 'vscode' | 'unknown';

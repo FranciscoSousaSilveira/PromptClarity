@@ -43,14 +43,18 @@ const vscode = __importStar(require("vscode"));
 const crypto_1 = require("crypto");
 const promptIntegration_1 = require("../lib/promptIntegration");
 const modelPromptRewriter_1 = require("../lib/modelPromptRewriter");
+const product_1 = require("../config/product");
 const vscodePresentation_1 = require("../lib/vscodePresentation");
+const diagnostics_1 = require("../lib/diagnostics");
 let popupPanel;
 let lastAnalyzedText = '';
 let currentImprovedPrompt = '';
 let currentPresentation;
 let debounceTimer;
+let lastRewriteDiagnostics = { ...diagnostics_1.EMPTY_REWRITE_DIAGNOSTICS };
 function activate(context) {
     console.log('Prompt Enhancement extension activated');
+    const diagnosticsOutput = vscode.window.createOutputChannel('Prompt Grammarly Diagnostics');
     // Command: Manual popup toggle
     const togglePopup = vscode.commands.registerCommand('prompt-enhancement.togglePopup', async () => {
         const editor = vscode.window.activeTextEditor;
@@ -78,13 +82,44 @@ function activate(context) {
             vscode.window.showInformationMessage('Improved prompt copied to clipboard');
         }
     });
+    const showDiagnostics = vscode.commands.registerCommand('prompt-enhancement.showDiagnostics', async () => {
+        const configuration = vscode.workspace.getConfiguration('promptGrammarly');
+        const mode = configuration.get('performanceMode', 'fast');
+        const configuredIntervention = configuration.get('intervention', product_1.DEFAULT_REWRITE_INTERVENTION);
+        const intervention = (0, product_1.isRewriteIntervention)(configuredIntervention)
+            ? configuredIntervention
+            : product_1.DEFAULT_REWRITE_INTERVENTION;
+        const feedback = context.workspaceState.get('promptGrammarly.tooMuchFeedback');
+        const keepModelsWarm = configuration.get('keepModelsWarm', true);
+        const diagnostics = await (0, diagnostics_1.collectLocalDiagnostics)({
+            mode,
+            intervention,
+            historyEnabled: null,
+            feedbackCount: Array.isArray(feedback) ? feedback.length : 0,
+            keepAlive: keepModelsWarm,
+            prewarmEnabled: keepModelsWarm,
+            rewrite: lastRewriteDiagnostics
+        });
+        diagnosticsOutput.clear();
+        diagnosticsOutput.appendLine('Prompt Grammarly diagnostics');
+        diagnosticsOutput.appendLine('Local-only metadata; prompt contents are never included.');
+        for (const line of (0, diagnostics_1.formatDiagnosticsReport)(diagnostics))
+            diagnosticsOutput.appendLine(line);
+        if (diagnostics.api.status === 'error') {
+            diagnosticsOutput.appendLine('Hint: Start the local API with npm run dev.');
+        }
+        else if (!diagnostics.ollama.reachable) {
+            diagnosticsOutput.appendLine('Hint: Start Ollama and confirm that the selected model is installed.');
+        }
+        diagnosticsOutput.show(true);
+    });
     // Listen for text changes in chat/editor (automatic hinting)
     const onDidChangeTextDocument = vscode.workspace.onDidChangeTextDocument((event) => {
         const text = getRelevantEditorText(event);
         if (text)
             debounceAnalysis(text);
     });
-    context.subscriptions.push(togglePopup, analyzeAndCopy, onDidChangeTextDocument);
+    context.subscriptions.push(togglePopup, analyzeAndCopy, showDiagnostics, onDidChangeTextDocument, diagnosticsOutput);
 }
 /**
  * Shows the popup with improved prompt
@@ -95,14 +130,21 @@ async function analyzeWithLocalModel(text) {
         return result;
     const configuration = vscode.workspace.getConfiguration('promptGrammarly');
     const performanceMode = configuration.get('performanceMode', 'fast');
+    const configuredIntervention = configuration.get('intervention', product_1.DEFAULT_REWRITE_INTERVENTION);
+    const intervention = (0, product_1.isRewriteIntervention)(configuredIntervention)
+        ? configuredIntervention
+        : product_1.DEFAULT_REWRITE_INTERVENTION;
     const modelResult = await (0, modelPromptRewriter_1.rewritePromptWithModel)({
         prompt: text,
         useCase: 'general',
         fallbackPrompt: result.improvedPrompt,
         preferSpeed: performanceMode === 'fast',
         performanceMode,
+        intervention,
         keepModelsWarm: configuration.get('keepModelsWarm', true)
     });
+    lastRewriteDiagnostics = (0, diagnostics_1.createRewriteDiagnostics)(modelResult);
+    const diagnosticHint = (0, diagnostics_1.describeRewriteDiagnostic)(lastRewriteDiagnostics.lastValidationReason);
     const presentation = (0, vscodePresentation_1.describeVscodeRewritePresentation)({
         original: text,
         rewritten: modelResult.rewrittenPrompt,
@@ -117,7 +159,9 @@ async function analyzeWithLocalModel(text) {
         mode: performanceMode,
         intervention: modelResult.intervention,
         validationReason: modelResult.validation.reason,
-        error: modelResult.error
+        error: modelResult.status === 'error'
+            ? diagnosticHint || 'The local rewrite service is unavailable.'
+            : modelResult.error
     });
     return {
         ...result,
@@ -126,7 +170,9 @@ async function analyzeWithLocalModel(text) {
         copyableText: presentation.copyText,
         rewriteSource: modelResult.source === 'model' || modelResult.source === 'checkmark' ? 'model' : 'rules',
         modelName: modelResult.model,
-        modelError: modelResult.error,
+        modelError: modelResult.status === 'error'
+            ? diagnosticHint || 'The local rewrite service is unavailable.'
+            : modelResult.error,
         isAlreadyGood: modelResult.status === 'no_change' && !modelResult.error,
         rewriteStatus: modelResult.error && modelResult.status === 'error' ? 'error' : modelResult.status,
         mode: performanceMode,
@@ -147,9 +193,7 @@ async function showPopup(text, context) {
         : (0, vscodePresentation_1.describeVscodeRewritePresentation)({
             original: text,
             rewritten: currentImprovedPrompt || text,
-            status: result.rewriteStatus && result.rewriteStatus !== 'loading'
-                ? result.rewriteStatus
-                : 'changed',
+            status: result.rewriteStatus && result.rewriteStatus !== 'loading' ? result.rewriteStatus : 'changed',
             source: result.rewriteSource === 'model' ? 'model' : 'local_fallback',
             mode: 'fast',
             intervention: result.intervention,

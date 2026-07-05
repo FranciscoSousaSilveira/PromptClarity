@@ -1,4 +1,5 @@
 import type { DesktopBridge, DesktopPopupState } from './shared';
+import { formatDiagnosticsReport } from '../../../lib/diagnostics';
 
 declare global {
   interface Window {
@@ -69,18 +70,16 @@ function renderSuccess(state: Extract<DesktopPopupState, { status: 'success' }>)
   const isCheckmark = state.rewriteStatus === 'no_change';
   const isFallback = state.rewriteStatus === 'fallback';
   const isErrorRewrite = state.rewriteStatus === 'error';
-  const statusLabel =
-    isErrorRewrite
-      ? 'Local rewrite unavailable'
-      : state.rewriteStatus === 'no_change'
+  const statusLabel = isErrorRewrite
+    ? 'Local rewrite unavailable'
+    : state.rewriteStatus === 'no_change'
       ? 'Prompt checked'
       : state.rewriteStatus === 'fallback'
         ? 'Conservative local correction'
         : 'Corrected prompt';
-  const statusMessage =
-    isErrorRewrite
-      ? 'The local service is unavailable right now.'
-      : state.rewriteStatus === 'no_change'
+  const statusMessage = isErrorRewrite
+    ? 'The local service is unavailable right now.'
+    : state.rewriteStatus === 'no_change'
       ? 'No changes were needed.'
       : isFallback
         ? 'A conservative local fallback was used.'
@@ -208,10 +207,12 @@ function renderHistory(state: Extract<DesktopPopupState, { status: 'history' }>)
 }
 
 function renderDiagnostics(state: Extract<DesktopPopupState, { status: 'diagnostics' }>) {
+  const lines = formatDiagnosticsReport(state.diagnostics);
   return shell(
     `
     <div class="history-body">
-      ${state.lines.map((line) => `<div class="history-item"><strong>${escapeHtml(line)}</strong></div>`).join('')}
+      ${lines.map((line) => `<div class="history-item"><strong>${escapeHtml(line)}</strong></div>`).join('')}
+      ${state.hints.map((hint) => `<div class="history-item"><small>${escapeHtml(hint)}</small></div>`).join('')}
     </div>
   `,
     'System diagnostics'
@@ -249,7 +250,8 @@ function bindEvents(state: DesktopPopupState) {
     const text =
       state.status === 'error' || (state.status === 'success' && state.rewriteStatus === 'error')
         ? state.originalText
-        : document.querySelector<HTMLTextAreaElement>('#improved-prompt')?.value || (state.status === 'success' ? state.improvedText : '');
+        : document.querySelector<HTMLTextAreaElement>('#improved-prompt')?.value ||
+          (state.status === 'success' ? state.improvedText : '');
     await window.promptDesktop.copy(text);
   });
 

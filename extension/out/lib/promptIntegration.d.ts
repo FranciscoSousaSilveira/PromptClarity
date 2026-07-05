@@ -25,6 +25,7 @@ export interface PopupContent {
     isAlreadyGood?: boolean;
     intervention?: RewriteIntervention;
     validationReason?: string | null;
+    diagnosticHint?: string | null;
 }
 /**
  * Main entry point for the VS Code popup.

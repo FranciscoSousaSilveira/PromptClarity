@@ -33,6 +33,16 @@
           "default": true,
           "description": "Keeps local Ollama models in memory between rewrites."
         },
+        "promptGrammarly.intervention": {
+          "type": "string",
+          "enum": [
+            "strict",
+            "normal",
+            "polished"
+          ],
+          "default": "normal",
+          "description": "Controls how much wording may change while preserving intent, facts, language and uncertainty."
+        },
         "promptGrammarly.language": {
           "type": "string",
           "enum": [
@@ -55,6 +65,11 @@
         "command": "prompt-enhancement.analyzeAndCopy",
         "title": "Prompt Grammarly: Analyze & Copy",
         "description": "Analyze the last text and copy the improved version"
+      },
+      {
+        "command": "prompt-enhancement.showDiagnostics",
+        "title": "Prompt Grammarly: Show Diagnostics",
+        "description": "Show local API, Ollama and last rewrite diagnostics without prompt contents"
       }
     ],
     "keybindings": [

@@ -254,6 +254,11 @@ export class PromptEnhancerUI {
     return this.popup?.classList.contains('visible') || false;
   }
 
+  public keepPopupOpen() {
+    this.popup?.classList.add('visible');
+    this.bubble?.setAttribute('aria-expanded', 'true');
+  }
+
   private renderPopupContent(
     content: PopupContent,
     currentUseCase: UseCase,
@@ -356,6 +361,7 @@ export class PromptEnhancerUI {
           </div>
 
           <div class="result-meta">${this.escapeHtml(presentation?.validationReasonText || 'Local rewrite unavailable')}</div>
+          ${content.diagnosticHint ? `<div class="result-meta">${this.escapeHtml(content.diagnosticHint)}</div>` : ''}
         </div>
       `;
       this.bindPopupEvents(content);
@@ -458,8 +464,10 @@ export class PromptEnhancerUI {
           </div>
         </div>
         <div class="result-meta">${this.escapeHtml(
-          presentation.validationReasonText || `Intervention: ${this.formatIntervention(presentation.intervention)}`
+          presentation.validationReasonText ||
+            `Intervention: ${this.formatIntervention(presentation.intervention)}`
         )}</div>
+        ${presentation.kind === 'fallback' && content.diagnosticHint ? `<div class="result-meta">${this.escapeHtml(content.diagnosticHint)}</div>` : ''}
       `
       : '';
 

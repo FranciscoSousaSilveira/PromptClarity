@@ -7,18 +7,32 @@ import * as vscode from 'vscode';
 import { randomBytes } from 'crypto';
 import { analyzeForPopup, shouldShowHint, type PopupContent } from '../lib/promptIntegration';
 import { rewritePromptWithModel } from '../lib/modelPromptRewriter';
-import type { PerformanceMode } from '../config/product';
+import {
+  DEFAULT_REWRITE_INTERVENTION,
+  isRewriteIntervention,
+  type PerformanceMode,
+  type RewriteIntervention
+} from '../config/product';
 import {
   buildVscodeTooMuchFeedbackEntry,
   describeVscodeRewritePresentation,
   type VscodeRewritePresentation
 } from '../lib/vscodePresentation';
+import {
+  collectLocalDiagnostics,
+  createRewriteDiagnostics,
+  describeRewriteDiagnostic,
+  EMPTY_REWRITE_DIAGNOSTICS,
+  formatDiagnosticsReport
+} from '../lib/diagnostics';
+import type { RewriteDiagnostics } from '../types/diagnostics';
 
 let popupPanel: vscode.WebviewPanel | undefined;
 let lastAnalyzedText: string = '';
 let currentImprovedPrompt: string = '';
 let currentPresentation: VscodeRewritePresentation | undefined;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+let lastRewriteDiagnostics: RewriteDiagnostics = { ...EMPTY_REWRITE_DIAGNOSTICS };
 
 type LocalRewriteResult = ReturnType<typeof analyzeForPopup> & {
   copyableText: string;
@@ -36,6 +50,7 @@ type LocalRewriteResult = ReturnType<typeof analyzeForPopup> & {
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Prompt Enhancement extension activated');
+  const diagnosticsOutput = vscode.window.createOutputChannel('Prompt Grammarly Diagnostics');
 
   // Command: Manual popup toggle
   const togglePopup = vscode.commands.registerCommand('prompt-enhancement.togglePopup', async () => {
@@ -73,13 +88,53 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const showDiagnostics = vscode.commands.registerCommand('prompt-enhancement.showDiagnostics', async () => {
+    const configuration = vscode.workspace.getConfiguration('promptGrammarly');
+    const mode = configuration.get<PerformanceMode>('performanceMode', 'fast');
+    const configuredIntervention = configuration.get<RewriteIntervention>(
+      'intervention',
+      DEFAULT_REWRITE_INTERVENTION
+    );
+    const intervention = isRewriteIntervention(configuredIntervention)
+      ? configuredIntervention
+      : DEFAULT_REWRITE_INTERVENTION;
+    const feedback = context.workspaceState.get<unknown[]>('promptGrammarly.tooMuchFeedback');
+    const keepModelsWarm = configuration.get<boolean>('keepModelsWarm', true);
+    const diagnostics = await collectLocalDiagnostics({
+      mode,
+      intervention,
+      historyEnabled: null,
+      feedbackCount: Array.isArray(feedback) ? feedback.length : 0,
+      keepAlive: keepModelsWarm,
+      prewarmEnabled: keepModelsWarm,
+      rewrite: lastRewriteDiagnostics
+    });
+
+    diagnosticsOutput.clear();
+    diagnosticsOutput.appendLine('Prompt Grammarly diagnostics');
+    diagnosticsOutput.appendLine('Local-only metadata; prompt contents are never included.');
+    for (const line of formatDiagnosticsReport(diagnostics)) diagnosticsOutput.appendLine(line);
+    if (diagnostics.api.status === 'error') {
+      diagnosticsOutput.appendLine('Hint: Start the local API with npm run dev.');
+    } else if (!diagnostics.ollama.reachable) {
+      diagnosticsOutput.appendLine('Hint: Start Ollama and confirm that the selected model is installed.');
+    }
+    diagnosticsOutput.show(true);
+  });
+
   // Listen for text changes in chat/editor (automatic hinting)
   const onDidChangeTextDocument = vscode.workspace.onDidChangeTextDocument((event) => {
     const text = getRelevantEditorText(event);
     if (text) debounceAnalysis(text);
   });
 
-  context.subscriptions.push(togglePopup, analyzeAndCopy, onDidChangeTextDocument);
+  context.subscriptions.push(
+    togglePopup,
+    analyzeAndCopy,
+    showDiagnostics,
+    onDidChangeTextDocument,
+    diagnosticsOutput
+  );
 }
 
 /**
@@ -91,14 +146,24 @@ async function analyzeWithLocalModel(text: string): Promise<PopupContent | Local
 
   const configuration = vscode.workspace.getConfiguration('promptGrammarly');
   const performanceMode = configuration.get<PerformanceMode>('performanceMode', 'fast');
+  const configuredIntervention = configuration.get<RewriteIntervention>(
+    'intervention',
+    DEFAULT_REWRITE_INTERVENTION
+  );
+  const intervention = isRewriteIntervention(configuredIntervention)
+    ? configuredIntervention
+    : DEFAULT_REWRITE_INTERVENTION;
   const modelResult = await rewritePromptWithModel({
     prompt: text,
     useCase: 'general',
     fallbackPrompt: result.improvedPrompt,
     preferSpeed: performanceMode === 'fast',
     performanceMode,
+    intervention,
     keepModelsWarm: configuration.get<boolean>('keepModelsWarm', true)
   });
+  lastRewriteDiagnostics = createRewriteDiagnostics(modelResult);
+  const diagnosticHint = describeRewriteDiagnostic(lastRewriteDiagnostics.lastValidationReason);
 
   const presentation = describeVscodeRewritePresentation({
     original: text,
@@ -115,7 +180,10 @@ async function analyzeWithLocalModel(text: string): Promise<PopupContent | Local
     mode: performanceMode,
     intervention: modelResult.intervention,
     validationReason: modelResult.validation.reason,
-    error: modelResult.error
+    error:
+      modelResult.status === 'error'
+        ? diagnosticHint || 'The local rewrite service is unavailable.'
+        : modelResult.error
   });
 
   return {
@@ -125,7 +193,10 @@ async function analyzeWithLocalModel(text: string): Promise<PopupContent | Local
     copyableText: presentation.copyText,
     rewriteSource: modelResult.source === 'model' || modelResult.source === 'checkmark' ? 'model' : 'rules',
     modelName: modelResult.model,
-    modelError: modelResult.error,
+    modelError:
+      modelResult.status === 'error'
+        ? diagnosticHint || 'The local rewrite service is unavailable.'
+        : modelResult.error,
     isAlreadyGood: modelResult.status === 'no_change' && !modelResult.error,
     rewriteStatus: modelResult.error && modelResult.status === 'error' ? 'error' : modelResult.status,
     mode: performanceMode,
@@ -144,21 +215,20 @@ async function showPopup(text: string, context: vscode.ExtensionContext) {
     return;
   }
 
-  const presentation = 'presentation' in result
-    ? result.presentation
-    : describeVscodeRewritePresentation({
-        original: text,
-        rewritten: currentImprovedPrompt || text,
-        status:
-          result.rewriteStatus && result.rewriteStatus !== 'loading'
-            ? result.rewriteStatus
-            : 'changed',
-        source: result.rewriteSource === 'model' ? 'model' : 'local_fallback',
-        mode: 'fast',
-        intervention: result.intervention,
-        validationReason: result.validationReason,
-        error: result.modelError
-      });
+  const presentation =
+    'presentation' in result
+      ? result.presentation
+      : describeVscodeRewritePresentation({
+          original: text,
+          rewritten: currentImprovedPrompt || text,
+          status:
+            result.rewriteStatus && result.rewriteStatus !== 'loading' ? result.rewriteStatus : 'changed',
+          source: result.rewriteSource === 'model' ? 'model' : 'local_fallback',
+          mode: 'fast',
+          intervention: result.intervention,
+          validationReason: result.validationReason,
+          error: result.modelError
+        });
 
   currentImprovedPrompt = result.copyableText || result.improvedPrompt || text;
   currentPresentation = presentation;
@@ -241,7 +311,11 @@ async function showPopup(text: string, context: vscode.ExtensionContext) {
   });
 }
 
-async function recordVsCodeTooMuchFeedback(context: vscode.ExtensionContext, original: string, result: LocalRewriteResult) {
+async function recordVsCodeTooMuchFeedback(
+  context: vscode.ExtensionContext,
+  original: string,
+  result: LocalRewriteResult
+) {
   const presentation = result.presentation;
   if (!presentation) return false;
 

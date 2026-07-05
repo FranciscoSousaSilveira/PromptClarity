@@ -14,8 +14,7 @@ export function matchesChatSiteHost(hostname: string, adapterHost: string): bool
   const normalizedHostname = normalizeHostname(hostname);
   const normalizedAdapterHost = normalizeHostname(adapterHost);
   return (
-    normalizedHostname === normalizedAdapterHost ||
-    normalizedHostname.endsWith(`.${normalizedAdapterHost}`)
+    normalizedHostname === normalizedAdapterHost || normalizedHostname.endsWith(`.${normalizedAdapterHost}`)
   );
 }
 
@@ -61,7 +60,7 @@ export const CHAT_SITE_ADAPTERS: ChatSiteAdapter[] = [
   },
   {
     id: 'perplexity',
-    hosts: ['www.perplexity.ai'],
+    hosts: ['perplexity.ai', 'www.perplexity.ai'],
     composerSelectors: COMMON_COMPOSERS,
     userMessageSelectors: ['[data-testid="user-query"]', ...COMMON_USER_MESSAGES],
     richTextStrategy: 'contenteditable'
@@ -96,12 +95,27 @@ export const CHAT_SITE_ADAPTERS: ChatSiteAdapter[] = [
   },
   {
     id: 'meta',
-    hosts: ['www.meta.ai'],
+    hosts: ['meta.ai', 'www.meta.ai'],
     composerSelectors: COMMON_COMPOSERS,
     userMessageSelectors: COMMON_USER_MESSAGES,
     richTextStrategy: 'contenteditable'
   }
 ];
+
+export function findAdapterComposer(
+  target: Pick<Element, 'closest'>,
+  adapter: ChatSiteAdapter
+): Element | null {
+  for (const selector of adapter.composerSelectors) {
+    try {
+      const candidate = target.closest(selector);
+      if (candidate) return candidate;
+    } catch {
+      // A stale site selector must not prevent the safe generic selectors from running.
+    }
+  }
+  return null;
+}
 
 export function getSiteAdapter(hostname = location.hostname): ChatSiteAdapter {
   const normalizedHostname = normalizeHostname(hostname);

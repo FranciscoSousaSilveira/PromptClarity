@@ -1,4 +1,8 @@
-import { DEFAULT_REWRITE_INTERVENTION, type PerformanceMode, type RewriteIntervention } from '../config/product';
+import {
+  DEFAULT_REWRITE_INTERVENTION,
+  type PerformanceMode,
+  type RewriteIntervention
+} from '../config/product';
 import { buildTooMuchFeedbackEntry, type TooMuchFeedbackEntry } from './popupState';
 import type { RewriteSource, RewriteStatus } from '../types/rewrite';
 
@@ -36,7 +40,9 @@ function normalizeReason(reason: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-export function describeVscodeRewritePresentation(input: VscodeRewritePresentationInput): VscodeRewritePresentation {
+export function describeVscodeRewritePresentation(
+  input: VscodeRewritePresentationInput
+): VscodeRewritePresentation {
   const intervention = input.intervention || DEFAULT_REWRITE_INTERVENTION;
   const reason = normalizeReason(input.validationReason);
   const copyText = input.status === 'error' ? input.original : input.rewritten;

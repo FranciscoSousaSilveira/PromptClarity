@@ -1,5 +1,6 @@
 import type { RewriteIntervention } from '../../../config/product';
 import type { PopupSurface } from '../../../lib/popupState';
+import type { PromptGrammarlyDiagnostics } from '../../../types/diagnostics';
 
 export interface ReviewIssue {
   title: string;
@@ -82,7 +83,8 @@ export type DesktopPopupState =
     }
   | {
       status: 'diagnostics';
-      lines: string[];
+      diagnostics: PromptGrammarlyDiagnostics;
+      hints: string[];
     };
 
 export interface DesktopBridge {

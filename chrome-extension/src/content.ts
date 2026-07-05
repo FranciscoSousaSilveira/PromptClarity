@@ -2,33 +2,35 @@ import { analyzeForPopup, shouldShowHint, type PopupContent } from '../../lib/pr
 import { analyzePrompt } from '../../lib/promptAnalyzer';
 import { DEFAULT_REWRITE_ENDPOINT, rewritePromptWithModel } from '../../lib/modelPromptRewriter';
 import type { UseCase } from '../../types/prompt';
-import type { PerformanceMode, RewriteIntervention } from '../../config/product';
+import type { PerformanceMode } from '../../config/product';
 import { PromptEnhancerUI } from './ui';
-import { getSiteAdapter } from './siteAdapters';
+import { findAdapterComposer, getSiteAdapter } from './siteAdapters';
 import { buildTooMuchFeedbackEntry, type TooMuchFeedbackEntry } from '../../lib/popupState';
+import { ExtensionContextLifecycle, getChromeApi, readChromeRuntimeLastError } from './runtimeSafety';
+import { createRewriteDiagnostics, describeRewriteDiagnostic } from '../../lib/diagnostics';
 
 // Declare compile-time global injected by esbuild
 declare const __CSS_TEXT__: string;
-declare const chrome: any;
+const extensionContextLifecycle = new ExtensionContextLifecycle();
 
 function isExtensionContextAvailable(): boolean {
-  try {
-    return typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id) && Boolean(chrome.storage?.local);
-  } catch {
-    return false;
-  }
-}
-
-function isExtensionContextInvalidated(error: unknown): boolean {
-  return /extension context invalidated/i.test(error instanceof Error ? error.message : String(error));
+  return extensionContextLifecycle.observe();
 }
 
 async function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> {
-  if (!isExtensionContextAvailable()) return {};
+  const chromeApi = getChromeApi() as any;
+  if (!extensionContextLifecycle.observe(chromeApi)) return {};
   try {
-    return (await chrome.storage.local.get(keys)) as Record<string, unknown>;
+    const result = (await chromeApi.storage.local.get(keys)) as Record<string, unknown>;
+    const runtimeError = readChromeRuntimeLastError(chromeApi);
+    if (runtimeError) {
+      extensionContextLifecycle.noteRuntimeError(runtimeError);
+      return {};
+    }
+    return result;
   } catch (error) {
-    if (!isExtensionContextInvalidated(error)) {
+    const expectedRuntimeFailure = extensionContextLifecycle.noteRuntimeError(error);
+    if (!expectedRuntimeFailure) {
       console.warn('[Prompt Grammarly] Could not read extension settings.', error);
     }
     return {};
@@ -36,12 +38,19 @@ async function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> 
 }
 
 async function safeStorageSet(values: Record<string, unknown>): Promise<boolean> {
-  if (!isExtensionContextAvailable()) return false;
+  const chromeApi = getChromeApi() as any;
+  if (!extensionContextLifecycle.observe(chromeApi)) return false;
   try {
-    await chrome.storage.local.set(values);
+    await chromeApi.storage.local.set(values);
+    const runtimeError = readChromeRuntimeLastError(chromeApi);
+    if (runtimeError) {
+      extensionContextLifecycle.noteRuntimeError(runtimeError);
+      return false;
+    }
     return true;
   } catch (error) {
-    if (!isExtensionContextInvalidated(error)) {
+    const expectedRuntimeFailure = extensionContextLifecycle.noteRuntimeError(error);
+    if (!expectedRuntimeFailure) {
       console.warn('[Prompt Grammarly] Could not save extension settings.', error);
     }
     return false;
@@ -66,14 +75,18 @@ class PromptEnhancerExtension {
   private readonly siteAdapter = getSiteAdapter();
   private lastInsertion: { element: HTMLElement; originalText: string } | null = null;
   private currentFeedbackContext: TooMuchFeedbackEntry | null = null;
-  private sawExtensionContext = isExtensionContextAvailable();
+  private currentResultContext: {
+    element: HTMLElement;
+    originalSignature: string;
+    rewrittenSignature: string;
+  } | null = null;
 
   private static readonly AUTO_ANALYZE_DELAY = 900;
 
   constructor() {}
 
   public async init() {
-    this.sawExtensionContext = isExtensionContextAvailable();
+    isExtensionContextAvailable();
 
     // Load saved use case from storage if available
     if (isExtensionContextAvailable()) {
@@ -163,6 +176,15 @@ class PromptEnhancerExtension {
     const text = this.getInputText(this.activeElement).trim();
     const signature = this.textSignature(text);
     const isLikelyPrompt = shouldShowHint(text);
+
+    if (
+      this.currentResultContext &&
+      (this.currentResultContext.element !== this.activeElement ||
+        this.currentResultContext.originalSignature !== signature)
+    ) {
+      this.currentResultContext = null;
+      this.currentFeedbackContext = null;
+    }
 
     if (this.ui.isPopupVisible() && signature !== this.lastAnalyzedSignature) {
       this.ui.hidePopup(false);
@@ -265,6 +287,18 @@ class PromptEnhancerExtension {
       return;
     }
     if (!text.trim()) return;
+    const resultContext = this.currentResultContext;
+    if (
+      !resultContext ||
+      resultContext.element !== el ||
+      resultContext.originalSignature !== this.textSignature(this.getInputText(el).trim()) ||
+      resultContext.rewrittenSignature !== this.textSignature(text)
+    ) {
+      this.currentResultContext = null;
+      this.currentFeedbackContext = null;
+      this.ui.hidePopup(false);
+      return;
+    }
     this.lastInsertion = { element: el, originalText: this.getInputText(el) };
 
     this.clearAnalysisTimer();
@@ -315,6 +349,18 @@ class PromptEnhancerExtension {
     }
 
     this.ui.setPulse(false);
+    this.ui.keepPopupOpen();
+    window.requestAnimationFrame(() => {
+      if (
+        this.lastInsertion?.element === el &&
+        el.isConnected &&
+        this.textSignature(this.getInputText(el)) === this.textSignature(text)
+      ) {
+        this.ui.keepPopupOpen();
+        this.ui.updatePopupPosition();
+      }
+    });
+    this.currentResultContext = null;
     this.saveHistory(text);
   }
 
@@ -349,6 +395,9 @@ class PromptEnhancerExtension {
     this.resizeObserver?.disconnect();
 
     this.activeElement = target;
+    this.currentResultContext = null;
+    this.currentFeedbackContext = null;
+    this.lastInsertion = null;
     this.ui.setActiveElement(target);
     target.removeEventListener('input', this.handleInput);
     target.addEventListener('input', this.handleInput);
@@ -360,10 +409,27 @@ class PromptEnhancerExtension {
 
   private handleDetachedComposer() {
     this.clearAnalysisTimer();
+    this.analysisRequestId += 1;
+    this.modelAbortController?.abort();
+    this.modelAbortController = null;
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.activeElement = null;
+    this.currentResultContext = null;
+    this.currentFeedbackContext = null;
+    this.lastInsertion = null;
     this.ui.setActiveElement(null);
+    this.ui.hideBubble();
+    this.ui.hidePopup(false);
+  }
+
+  private handleInvalidatedExtensionContext() {
+    this.clearAnalysisTimer();
+    this.analysisRequestId += 1;
+    this.modelAbortController?.abort();
+    this.modelAbortController = null;
+    this.currentFeedbackContext = null;
+    this.currentResultContext = null;
     this.ui.hideBubble();
     this.ui.hidePopup(false);
   }
@@ -401,9 +467,11 @@ class PromptEnhancerExtension {
 
   private handleClose() {
     this.clearAnalysisTimer();
+    this.analysisRequestId += 1;
     this.modelAbortController?.abort();
     this.modelAbortController = null;
     this.currentFeedbackContext = null;
+    this.currentResultContext = null;
     if (this.activeElement) {
       this.dismissedSignature = this.textSignature(this.getInputText(this.activeElement));
     }
@@ -438,6 +506,7 @@ class PromptEnhancerExtension {
     const requestId = ++this.analysisRequestId;
     this.lastAnalyzedSignature = signature;
     this.currentFeedbackContext = null;
+    this.currentResultContext = null;
     this.ui.showPopup(
       rect,
       { ...content, rewriteSource: 'rules', rewriteStatus: 'loading' },
@@ -462,21 +531,29 @@ class PromptEnhancerExtension {
     );
     if (this.modelAbortController === modelAbortController) this.modelAbortController = null;
 
-    // Ignore stale answers when the user typed, changed use case, or closed the card.
+    const extensionContextInvalidated = extensionContextLifecycle.shouldIgnoreLateResult();
+
+    // Ignore stale answers when the user typed, changed use case, closed the card, or reloaded the extension.
     if (
       requestId !== this.analysisRequestId ||
       !this.activeElement ||
       this.textSignature(this.getInputText(this.activeElement).trim()) !== this.textSignature(capturedText) ||
       !this.ui.isPopupVisible() ||
-      (this.sawExtensionContext && !isExtensionContextAvailable())
+      extensionContextInvalidated
     ) {
-      if (this.sawExtensionContext && !isExtensionContextAvailable()) {
-        this.currentFeedbackContext = null;
-      }
+      if (extensionContextInvalidated) this.handleInvalidatedExtensionContext();
       return;
     }
 
     this.rememberGeneratedPrompt(modelResult.rewrittenPrompt);
+    const rewriteDiagnostics = createRewriteDiagnostics(modelResult);
+    const diagnosticHint = describeRewriteDiagnostic(rewriteDiagnostics.lastValidationReason);
+    void safeStorageSet({ promptGrammarlyDiagnostics: rewriteDiagnostics });
+    this.currentResultContext = {
+      element: this.activeElement,
+      originalSignature: this.textSignature(capturedText),
+      rewrittenSignature: this.textSignature(modelResult.rewrittenPrompt)
+    };
     this.currentFeedbackContext = buildTooMuchFeedbackEntry({
       original: text,
       rewritten: modelResult.rewrittenPrompt,
@@ -530,12 +607,16 @@ class PromptEnhancerExtension {
           modelResult.source === 'model' || modelResult.source === 'checkmark' ? 'model' : 'rules',
         rewriteStatus: modelResult.error && !hasPasteableSafetyFallback ? 'error' : modelResult.status,
         modelName: modelResult.model,
-        modelError: modelResult.error,
+        modelError:
+          modelResult.status === 'error'
+            ? diagnosticHint || 'The local rewrite service is unavailable.'
+            : modelResult.error,
         sourceDetail: modelResult.sourceDetail,
         validationScore: modelResult.validationScore,
         isAlreadyGood: promptIsAlreadyGood,
         intervention: modelResult.intervention,
-        validationReason: modelResult.validation.reason
+        validationReason: modelResult.validation.reason,
+        diagnosticHint
       },
       this.currentUseCase,
       this.autoEnhanceEnabled,
@@ -638,7 +719,7 @@ class PromptEnhancerExtension {
   private findEditableTarget(target: EventTarget | null): HTMLElement | null {
     if (!(target instanceof HTMLElement)) return null;
 
-    const candidate = target.closest<HTMLElement>(this.siteAdapter.composerSelectors.join(','));
+    const candidate = findAdapterComposer(target, this.siteAdapter) as HTMLElement | null;
     return candidate && this.isValidInputField(candidate) ? candidate : null;
   }
 
@@ -753,5 +834,5 @@ class PromptEnhancerExtension {
 // Instantiate and initialize
 const extension = new PromptEnhancerExtension();
 extension.init().catch((error) => {
-  if (!isExtensionContextInvalidated(error)) console.error(error);
+  if (!extensionContextLifecycle.noteRuntimeError(error)) console.error(error);
 });

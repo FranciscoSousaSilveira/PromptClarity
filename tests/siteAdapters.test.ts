@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CHAT_SITE_ADAPTERS, getSiteAdapter, matchesChatSiteHost } from '../chrome-extension/src/siteAdapters';
+import {
+  CHAT_SITE_ADAPTERS,
+  findAdapterComposer,
+  getSiteAdapter,
+  matchesChatSiteHost
+} from '../chrome-extension/src/siteAdapters';
 
 describe('chat site adapters', () => {
   it.each([
@@ -7,7 +12,14 @@ describe('chat site adapters', () => {
     ['claude.ai', 'claude'],
     ['gemini.google.com', 'gemini'],
     ['copilot.microsoft.com', 'copilot'],
-    ['www.perplexity.ai', 'perplexity']
+    ['www.perplexity.ai', 'perplexity'],
+    ['perplexity.ai', 'perplexity'],
+    ['chat.deepseek.com', 'deepseek'],
+    ['grok.com', 'grok'],
+    ['chat.mistral.ai', 'mistral'],
+    ['poe.com', 'poe'],
+    ['www.meta.ai', 'meta'],
+    ['meta.ai', 'meta']
   ])('selects the %s adapter', (host, id) => {
     const adapter = getSiteAdapter(host);
     expect(adapter.id).toBe(id);
@@ -38,5 +50,34 @@ describe('chat site adapters', () => {
   it('does not define duplicate adapter ids', () => {
     const ids = CHAT_SITE_ADAPTERS.map((adapter) => adapter.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it.each(['textarea', 'input[type="text"]', '[contenteditable="true"]'])(
+    'finds the generic %s composer strategy',
+    (expectedSelector) => {
+      const adapter = getSiteAdapter('unsupported.example');
+      const element = { nodeType: 1 } as unknown as Element;
+      const target = {
+        closest: (selector: string) => (selector === expectedSelector ? element : null)
+      } as Pick<Element, 'closest'>;
+      expect(findAdapterComposer(target, adapter)).toBe(element);
+    }
+  );
+
+  it('returns null when no adapter composer exists', () => {
+    const target = { closest: () => null } as Pick<Element, 'closest'>;
+    expect(findAdapterComposer(target, getSiteAdapter('chatgpt.com'))).toBeNull();
+  });
+
+  it('continues to generic selectors after a stale site-specific selector throws', () => {
+    const adapter = getSiteAdapter('chatgpt.com');
+    const element = { nodeType: 1 } as unknown as Element;
+    const target = {
+      closest: (selector: string) => {
+        if (selector === '#prompt-textarea') throw new Error('unsupported selector');
+        return selector === 'textarea' ? element : null;
+      }
+    } as Pick<Element, 'closest'>;
+    expect(findAdapterComposer(target, adapter)).toBe(element);
   });
 });

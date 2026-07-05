@@ -20,10 +20,16 @@ import { WindowsAutomation } from './windowsAutomation';
 import { DesktopStore } from './desktopStore';
 import { DEFAULT_REWRITE_INTERVENTION, PRODUCT } from '../../../config/product';
 import type { DesktopSettingsView } from './shared';
-import { autoUpdater } from 'electron-updater';
 import { startLocalBridgeIfNeeded } from './localBridge';
 import type { Server } from 'node:http';
 import { buildTooMuchFeedbackEntry } from '../../../lib/popupState';
+import {
+  collectLocalDiagnostics,
+  createRewriteDiagnostics,
+  createRewriteErrorDiagnostics,
+  EMPTY_REWRITE_DIAGNOSTICS
+} from '../../../lib/diagnostics';
+import type { RewriteDiagnostics } from '../../../types/diagnostics';
 
 const execFileAsync = promisify(execFile);
 const MAX_PROMPT_LENGTH = 12_000;
@@ -70,6 +76,7 @@ let modelAbortController: AbortController | null = null;
 let lastInsertion: LastInsertion | null = null;
 let embeddedBridge: Server | null = null;
 let currentTooMuchFeedback: DesktopTooMuchFeedbackEntry | null = null;
+let lastRewriteDiagnostics: RewriteDiagnostics = { ...EMPTY_REWRITE_DIAGNOSTICS };
 const windowsAutomation = process.platform === 'win32' ? new WindowsAutomation() : null;
 
 // Use an app-specific profile instead of Electron's shared development cache.
@@ -346,6 +353,7 @@ async function analyzeSession(session: ActiveSession) {
   if (analysisInProgress) return;
   analysisInProgress = true;
   const sequence = ++analysisSequence;
+  const rewriteStartedAt = Date.now();
   await showState({ status: 'loading', originalText: session.originalText, stage: 'rewriting' }, false);
 
   try {
@@ -369,6 +377,7 @@ async function analyzeSession(session: ActiveSession) {
     if (modelAbortController === currentAbortController) modelAbortController = null;
 
     if (sequence !== analysisSequence || activeSession !== session) return;
+    lastRewriteDiagnostics = createRewriteDiagnostics(modelResult);
     if (!modelResult.rewrittenPrompt.trim()) {
       throw new Error(modelResult.error || 'The local model did not return a valid prompt.');
     }
@@ -414,6 +423,10 @@ async function analyzeSession(session: ActiveSession) {
   } catch (error) {
     if (sequence !== analysisSequence || activeSession !== session) return;
     const detail = error instanceof Error ? error.message : 'Unknown local model error';
+    lastRewriteDiagnostics = createRewriteErrorDiagnostics(
+      Date.now() - rewriteStartedAt,
+      'local_service_unavailable'
+    );
     currentTooMuchFeedback = buildTooMuchFeedbackEntry({
       original: session.originalText,
       rewritten: session.improvedText || session.originalText,
@@ -777,11 +790,6 @@ function refreshTrayMenu() {
         click: () => void showState({ status: 'history', entries: desktopStore.history })
       },
       { label: 'Diagnostics…', click: () => void showDiagnostics() },
-      {
-        label: 'Check for updates',
-        enabled: app.isPackaged,
-        click: () => void autoUpdater.checkForUpdatesAndNotify()
-      },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() }
     ])
@@ -790,21 +798,27 @@ function refreshTrayMenu() {
 
 async function showDiagnostics() {
   const settings = desktopStore.settings;
-  let api = 'Local API: offline';
-  try {
-    const response = await fetch('http://127.0.0.1:3000/api/rewrite', { signal: AbortSignal.timeout(2_000) });
-    api = `Local API: HTTP ${response.status}`;
-  } catch {}
+  const diagnostics = await collectLocalDiagnostics({
+    mode: settings.performanceMode,
+    intervention: DEFAULT_REWRITE_INTERVENTION,
+    historyEnabled: settings.historyEnabled,
+    historyCount: desktopStore.history.length,
+    feedbackCount: desktopStore.feedback.length,
+    keepAlive: settings.keepModelsWarm,
+    prewarmEnabled: settings.keepModelsWarm,
+    rewrite: lastRewriteDiagnostics
+  });
+  const hints: string[] = [];
+  if (diagnostics.api.status === 'error')
+    hints.push('Start the local API or restart Prompt Grammarly Desktop.');
+  else if (!diagnostics.ollama.reachable)
+    hints.push('Start Ollama and confirm that the selected model is installed.');
+  if (diagnostics.rewrite.fallbackUsed) hints.push('The last rewrite used a conservative local fallback.');
+  if (hints.length === 0) hints.push('Local API and Ollama are ready.');
   await showState({
     status: 'diagnostics',
-    lines: [
-      api,
-      `Mode: ${settings.performanceMode}`,
-      `Shortcut: ${settings.shortcut.replace('CommandOrControl', 'Ctrl')}`,
-      `Persistent Windows helper: ${windowsAutomation ? 'enabled' : 'unavailable'}`,
-      `Model memory: ${settings.keepModelsWarm ? 'keep warm' : 'release after use'}`,
-      `Saved history entries: ${desktopStore.history.length}`
-    ]
+    diagnostics,
+    hints
   });
 }
 
@@ -846,7 +860,6 @@ app.whenReady().then(async () => {
   createPopupWindow();
   createTray();
   registerIpcHandlers();
-  if (app.isPackaged) void autoUpdater.checkForUpdatesAndNotify().catch(() => undefined);
   void warmSelectedModel();
 
   const registered = registerConfiguredShortcut();
