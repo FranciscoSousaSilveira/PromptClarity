@@ -44,7 +44,7 @@ export const MODEL_PROFILES: Record<PerformanceMode, ModelProfile> = {
   fast: {
     mode: 'fast',
     label: 'Fast',
-    model: 'qwen2.5:3b',
+    model: 'phi2',
     maxInputCharacters: 1_500,
     maxOutputTokens: 64,
     contextTokens: 1_024,
@@ -54,7 +54,7 @@ export const MODEL_PROFILES: Record<PerformanceMode, ModelProfile> = {
   balanced: {
     mode: 'balanced',
     label: 'Balanced',
-    model: 'qwen2.5:3b',
+    model: 'phi2',
     maxInputCharacters: 6_000,
     maxOutputTokens: 180,
     contextTokens: 2_048,
@@ -64,7 +64,7 @@ export const MODEL_PROFILES: Record<PerformanceMode, ModelProfile> = {
   quality: {
     mode: 'quality',
     label: 'Quality',
-    model: 'qwen2.5:3b',
+    model: 'phi2',
     maxInputCharacters: 12_000,
     maxOutputTokens: 320,
     contextTokens: 4_096,

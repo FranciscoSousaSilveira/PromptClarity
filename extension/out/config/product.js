@@ -31,7 +31,7 @@ exports.MODEL_PROFILES = {
     fast: {
         mode: 'fast',
         label: 'Fast',
-        model: 'qwen2.5:3b',
+        model: 'phi2',
         maxInputCharacters: 1500,
         maxOutputTokens: 64,
         contextTokens: 1024,
@@ -41,7 +41,7 @@ exports.MODEL_PROFILES = {
     balanced: {
         mode: 'balanced',
         label: 'Balanced',
-        model: 'qwen2.5:3b',
+        model: 'phi2',
         maxInputCharacters: 6000,
         maxOutputTokens: 180,
         contextTokens: 2048,
@@ -51,7 +51,7 @@ exports.MODEL_PROFILES = {
     quality: {
         mode: 'quality',
         label: 'Quality',
-        model: 'qwen2.5:3b',
+        model: 'phi2',
         maxInputCharacters: 12000,
         maxOutputTokens: 320,
         contextTokens: 4096,

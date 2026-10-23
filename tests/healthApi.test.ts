@@ -20,7 +20,7 @@ describe('local Ollama health check', () => {
       ollama: {
         status: 'ok',
         url: 'http://127.0.0.1:11434',
-        model: 'qwen2.5:3b',
+        model: 'phi2',
         reachable: true,
         latencyMs: expect.any(Number)
       },
