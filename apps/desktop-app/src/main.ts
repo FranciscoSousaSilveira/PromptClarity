@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   globalShortcut,
   ipcMain,
   Menu,
@@ -10,6 +11,7 @@ import {
   Tray,
   type NativeImage
 } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
@@ -62,6 +64,12 @@ interface CaptureResult {
   processName: string;
   caretAtEnd: boolean | null;
   isTextControl: boolean;
+  copiedLength?: number;
+  helperError?: string | null;
+  foregroundWindowHandle?: string;
+  targetWindowHandle?: string;
+  focusedControlType?: string;
+  availableFormats?: string;
 }
 
 let popupWindow: BrowserWindow | null = null;
@@ -204,14 +212,9 @@ Write-Output ($handle.ToInt64().ToString() + "|" + $selectionState + "|" + $proc
   return { windowHandle, selectionState, processName, caretAtEnd, isTextControl };
 }
 
-async function copySelectionAndCaptureWindow(): Promise<CaptureResult> {
+async function copySelectionAndCaptureWindow(sentinel = '', signal?: AbortSignal): Promise<CaptureResult> {
   if (!windowsAutomation) return copySelectionAndCaptureWindowLegacy();
-  try {
-    return await windowsAutomation.capture();
-  } catch (error) {
-    console.warn('[desktop] Persistent Windows helper failed; using one-shot fallback.', error);
-    return copySelectionAndCaptureWindowLegacy();
-  }
+  return await windowsAutomation.capture(sentinel, '', signal);
 }
 
 async function focusWindowAndPasteLegacy(windowHandle: string) {
@@ -450,40 +453,46 @@ async function analyzeSession(session: ActiveSession) {
 }
 
 async function captureAndAnalyze() {
-  if (captureInProgress || analysisInProgress) {
-    popupWindow?.showInactive();
-    console.log('[desktop] Ignored repeated shortcut while capture or rewrite is in progress.');
+  console.log('[desktop] capture-start');
+  if (captureInProgress) {
+    console.log('[desktop] capture-ignored: Already in progress.');
     return;
   }
+
   captureInProgress = true;
-  currentTooMuchFeedback = null;
-  const captureStartedAt = Date.now();
-
-  analysisSequence++;
-  if (activeSession) {
-    restoreClipboard(activeSession.clipboardSnapshot);
-    activeSession = null;
-  }
-
-  const clipboardSnapshot = snapshotClipboard();
-  const sentinel = `__PROMPT_DESKTOP_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
-  clipboard.writeText(sentinel);
+  const captureController = new AbortController();
+  const captureTimeout = setTimeout(() => {
+    console.log('[desktop] capture-error: Timeout after 15s.');
+    captureController.abort();
+  }, 15000);
 
   try {
-    await showState({ status: 'loading', originalText: '', stage: 'reading' }, false);
-    const capture = await copySelectionAndCaptureWindow();
-    if (capture.selectionState === 'EMPTY') {
+    analysisSequence++;
+    if (activeSession) {
+      restoreClipboard(activeSession.clipboardSnapshot);
+      activeSession = null;
+    }
+
+    // Ensure popup window is hidden so target application maintains foreground focus
+    if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) {
+      popupWindow.hide();
+      await wait(60);
+    }
+
+    const clipboardSnapshot = snapshotClipboard();
+    const sentinel = `__PROMPT_DESKTOP_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
+    clipboard.writeText(sentinel);
+
+    console.log('[desktop] capture-helper-request');
+    const capture = await copySelectionAndCaptureWindow(sentinel, captureController.signal);
+    
+    console.log(
+      `[desktop] capture-helper-response: state=${capture.selectionState} process=${capture.processName || 'none'} copiedLength=${capture.copiedLength ?? 0} error=${capture.helperError || 'none'}`
+    );
+
+    if (capture.selectionState === 'EMPTY' || (capture.copiedLength ?? 0) === 0) {
+      console.log('[desktop] capture-result: EMPTY or 0 length');
       restoreClipboard(clipboardSnapshot);
-      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
-        original: '',
-        rewritten: '',
-        status: 'error',
-        source: 'error',
-        mode: desktopStore.settings.performanceMode,
-        intervention: DEFAULT_REWRITE_INTERVENTION,
-        validationReason: 'selection_empty',
-        surface: 'desktop'
-      });
       await showState({
         status: 'error',
         title: 'Prompt not detected',
@@ -493,67 +502,19 @@ async function captureAndAnalyze() {
       return;
     }
 
-    const selectedText = await waitForCopiedText(sentinel);
+    const selectedText = await Promise.race([
+      waitForCopiedText(sentinel),
+      new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Timeout waiting for clipboard')), 2000))
+    ]);
+    
     if (!selectedText) {
+      console.log('[desktop] capture-result: No text retrieved from clipboard.');
       restoreClipboard(clipboardSnapshot);
-      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
-        original: '',
-        rewritten: '',
-        status: 'error',
-        source: 'error',
-        mode: desktopStore.settings.performanceMode,
-        intervention: DEFAULT_REWRITE_INTERVENTION,
-        validationReason: 'selection_copy_failed',
-        surface: 'desktop'
-      });
       await showState({
         status: 'error',
         title: 'Prompt not detected',
         message: 'Select a prompt, or place the text cursor at the end of it, then press Ctrl+Alt+P.',
         canRetry: false
-      });
-      return;
-    }
-
-    if (!selectedText) {
-      restoreClipboard(clipboardSnapshot);
-      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
-        original: '',
-        rewritten: '',
-        status: 'error',
-        source: 'error',
-        mode: desktopStore.settings.performanceMode,
-        intervention: DEFAULT_REWRITE_INTERVENTION,
-        validationReason: 'selection_missing',
-        surface: 'desktop'
-      });
-      await showState({
-        status: 'error',
-        title: 'Prompt not detected',
-        message: 'The focused editor did not contain a prompt to improve.',
-        canRetry: false
-      });
-      return;
-    }
-
-    if (selectedText.length > MAX_PROMPT_LENGTH) {
-      restoreClipboard(clipboardSnapshot);
-      currentTooMuchFeedback = buildTooMuchFeedbackEntry({
-        original: selectedText,
-        rewritten: selectedText,
-        status: 'error',
-        source: 'error',
-        mode: desktopStore.settings.performanceMode,
-        intervention: DEFAULT_REWRITE_INTERVENTION,
-        validationReason: 'selection_too_long',
-        surface: 'desktop'
-      });
-      await showState({
-        status: 'error',
-        title: 'Selection is too long',
-        message: `Select no more than ${MAX_PROMPT_LENGTH.toLocaleString()} characters.`,
-        canRetry: false,
-        originalText: selectedText
       });
       return;
     }
@@ -563,31 +524,22 @@ async function captureAndAnalyze() {
       previousWindowHandle: capture.windowHandle,
       clipboardSnapshot
     };
-    console.log(
-      `[desktop] Captured ${selectedText.length} characters via ${capture.selectionState} from ${capture.processName || 'unknown app'} in ${Date.now() - captureStartedAt}ms.`
-    );
+    console.log(`[desktop] capture-result: Success. ${selectedText.length} chars captured.`);
     await analyzeSession(activeSession);
   } catch (error) {
-    restoreClipboard(clipboardSnapshot);
-    const message = error instanceof Error ? error.message : 'Could not read the selected text.';
-    currentTooMuchFeedback = buildTooMuchFeedbackEntry({
-      original: activeSession?.originalText || '',
-      rewritten: activeSession?.improvedText || activeSession?.originalText || '',
-      status: 'error',
-      source: 'error',
-      mode: desktopStore.settings.performanceMode,
-      intervention: DEFAULT_REWRITE_INTERVENTION,
-      validationReason: message,
-      surface: 'desktop'
-    });
-    await showState({
-      status: 'error',
-      title: 'Could not capture selection',
-      message,
-      canRetry: false,
-      originalText: activeSession?.originalText || ''
-    });
+    if (error instanceof Error && error.name === 'AbortError') {
+        console.log('[desktop] capture-error: Aborted.');
+    } else {
+        console.log(`[desktop] capture-error: ${error instanceof Error ? error.message : String(error)}`);
+        await showState({
+            status: 'error',
+            title: 'Could not capture selection',
+            message: 'Check diagnostics for details.',
+            canRetry: true
+        });
+    }
   } finally {
+    clearTimeout(captureTimeout);
     captureInProgress = false;
   }
 }
@@ -853,7 +805,49 @@ async function warmSelectedModel() {
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
+async function checkOllamaAndModel() {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const execFileAsync = promisify(execFile);
+
+  try {
+    const { stdout } = await execFileAsync('ollama', ['list']);
+    if (!stdout.includes('qwen2.5:3b')) {
+      const { response } = await dialog.showMessageBox({
+        type: 'info',
+        title: 'Model Not Installed',
+        message: 'The qwen2.5:3b model is not installed. Would you like to download it now? This might take a few minutes.',
+        buttons: ['Yes', 'No']
+      });
+      if (response === 0) {
+        tray?.displayBalloon({ title: 'Prompt Grammarly', content: 'Downloading model qwen2.5:3b... Please wait.' });
+        await execFileAsync('ollama', ['pull', 'qwen2.5:3b']);
+        tray?.displayBalloon({ title: 'Prompt Grammarly', content: 'Model downloaded successfully.' });
+      }
+    }
+  } catch (error) {
+    const { response } = await dialog.showMessageBox({
+      type: 'warning',
+      title: 'Ollama Not Detected',
+      message: 'Ollama was not detected on your system. Please install it from https://ollama.ai and ensure it is running.',
+      buttons: ['Download Ollama', 'Retry', 'Close']
+    });
+    if (response === 0) {
+      await import('electron').then(m => m.shell.openExternal('https://ollama.ai'));
+      app.quit();
+    } else if (response === 1) {
+      return checkOllamaAndModel();
+    } else {
+      app.quit();
+    }
+  }
+}
+
 app.whenReady().then(async () => {
+  autoUpdater.checkForUpdatesAndNotify().catch(err => console.error('Update check failed:', err));
+
+  await checkOllamaAndModel();
+
   embeddedBridge = await startLocalBridgeIfNeeded();
   windowsAutomation?.start();
   app.setAppUserModelId('com.promptgrammarly.desktop');

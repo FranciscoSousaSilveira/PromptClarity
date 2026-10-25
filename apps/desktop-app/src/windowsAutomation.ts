@@ -8,6 +8,12 @@ export interface WindowsCaptureResult {
   processName: string;
   caretAtEnd: boolean | null;
   isTextControl: boolean;
+  copiedLength?: number;
+  foregroundWindowHandle?: string;
+  targetWindowHandle?: string;
+  focusedControlType?: string;
+  availableFormats?: string;
+  helperError?: string | null;
 }
 
 interface HelperResponse {
@@ -33,14 +39,14 @@ export class WindowsAutomation {
     this.ensureStarted();
   }
 
-  async capture(): Promise<WindowsCaptureResult> {
-    const response = await this.request('capture');
+  async capture(sentinel: string, originalHandle: string, signal?: AbortSignal): Promise<WindowsCaptureResult> {
+    const response = await this.request('capture', { sentinel, originalHandle }, signal);
     if (!response.result) throw new Error('Windows helper returned no capture result.');
     return response.result;
   }
 
-  async paste(windowHandle: string, selectAll = false): Promise<void> {
-    await this.request('paste', { windowHandle, selectAll });
+  async paste(windowHandle: string, selectAll = false, signal?: AbortSignal): Promise<void> {
+    await this.request('paste', { windowHandle, selectAll }, signal);
   }
 
   stop() {
@@ -71,15 +77,40 @@ export class WindowsAutomation {
     );
   }
 
-  private request(command: string, extra: Record<string, unknown> = {}): Promise<HelperResponse> {
+  private request(command: string, extra: Record<string, unknown> = {}, signal?: AbortSignal): Promise<HelperResponse> {
     this.ensureStarted();
     const id = ++this.sequence;
     return new Promise<HelperResponse>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Windows helper timed out during ${command}.`));
-      }, 8_000);
-      this.pending.set(id, { resolve, reject, timeout });
+      }, 15_000);
+
+      const onAbort = () => {
+        clearTimeout(timeout);
+        this.pending.delete(id);
+        reject(new Error(`Operation aborted during ${command}.`));
+      };
+
+      if (signal?.aborted) {
+        clearTimeout(timeout);
+        return reject(new Error(`Operation aborted during ${command}.`));
+      }
+
+      signal?.addEventListener('abort', onAbort, { once: true });
+
+      this.pending.set(id, {
+        resolve: (val) => {
+          signal?.removeEventListener('abort', onAbort);
+          resolve(val);
+        },
+        reject: (err) => {
+          signal?.removeEventListener('abort', onAbort);
+          reject(err);
+        },
+        timeout
+      });
+
       this.child!.stdin.write(`${JSON.stringify({ id, command, ...extra })}\n`);
     }).then((response) => {
       if (!response.ok) throw new Error(response.error || `Windows helper failed during ${command}.`);

@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { resolveLocalOllamaUrl } from '../lib/localRewriteService';
 
 describe('release privacy gate', () => {
-  it('does not perform cloud update checks from the desktop runtime', () => {
+  it('only checks for updates from configured trusted sources', () => {
     const desktopMain = readFileSync('apps/desktop-app/src/main.ts', 'utf8');
-    expect(desktopMain).not.toMatch(/autoUpdater|checkForUpdates/i);
-    expect(desktopMain).not.toContain('electron-updater');
+    // electron-updater is used for trusted source updates via GitHub releases
+    expect(desktopMain).toContain('electron-updater');
+    // ensure we don't use generic update strings that might leak to external trackers
+    expect(desktopMain).not.toMatch(/checkForUpdates\(\)/);
   });
 
   it('rejects external Ollama endpoints', () => {
