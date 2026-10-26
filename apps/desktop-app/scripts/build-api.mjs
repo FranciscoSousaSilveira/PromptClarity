@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import { promises as fs } from 'node:fs';
 
 const PROJECT_ROOT = resolve(import.meta.dirname, '../../..');
-const API_SOURCE = resolve(PROJECT_ROOT, 'app/api/rewrite');
 const API_DEST = resolve(import.meta.dirname, '../resources/api');
 
 async function main() {

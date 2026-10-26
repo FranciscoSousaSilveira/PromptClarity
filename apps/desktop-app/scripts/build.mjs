@@ -14,7 +14,6 @@ await mkdir(dist, { recursive: true });
 await mkdir(resourcesDist, { recursive: true });
 
 // Download Ollama binary if not present
-const ollamaDest = resolve(resourcesSrc, 'ollama/ollama.exe');
 try {
   await execSync('node scripts/download-ollama.mjs', { cwd: root, stdio: 'inherit' });
 } catch {
