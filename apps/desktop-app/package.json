@@ -29,13 +29,15 @@
     "appId": "com.promptclarity.desktop",
     "productName": "PromptClarity",
     "asar": true,
+    "compression": "maximum",
     "files": [
       "dist/**/*",
       "resources/**/*",
       "package.json"
     ],
     "asarUnpack": [
-      "resources/**/*"
+      "resources/ollama/ollama.exe",
+      "resources/api/api/**/*"
     ],
     "directories": {
       "output": "../../release/desktop"
