@@ -1,125 +1,152 @@
-# Prompt Grammarly — guia da aplicação
+# PromptClarity — Application Guide
 
-Este documento descreve a aplicação desktop, a extensão Chrome, a extensão VS Code, a API local e o modelo Ollama. A interface web do projeto não faz parte deste guia.
+This document describes the PromptClarity desktop application, the Chrome extension, the VS Code extension, the local API, and the Ollama model. The web interface is not part of this guide.
 
-## O que a aplicação faz
+## What the Application Does
 
-O Prompt Grammarly revê uma prompt antes de ela ser enviada a um assistente de IA. Funciona como um corretor conservador:
+PromptClarity reviews a prompt before it is sent to an AI assistant. It acts as a conservative copy editor:
 
-- corrige ortografia, gramática, pontuação e formulações pouco claras;
-- preserva a intenção, os factos, a incerteza, o idioma e o nível de detalhe;
-- não responde à prompt;
-- não acrescenta requisitos, fontes, formatos, exemplos, contexto ou recomendações;
-- devolve a frase sem alterações quando ela já está clara;
-- apresenta uma checkmark quando o modelo confirma que não são necessárias alterações.
+- Corrects spelling, grammar, punctuation, and unclear phrasing
+- Preserves the intent, facts, uncertainty, language, and level of detail
+- Does not answer the prompt
+- Does not add requirements, sources, formats, examples, context, or recommendations
+- Returns the prompt unchanged when it is already clear
+- Shows a checkmark when the model confirms no changes are needed
 
-Se o modelo produzir uma resposta, recusa, texto incompleto ou conteúdo semanticamente diferente, essa saída é rejeitada. A aplicação usa então uma correção local conservadora que nunca expande o pedido.
+If the model produces a response, refusal, incomplete text, or semantically different content, that output is rejected. The application then uses a conservative local fallback that never expands the prompt.
 
-## Componentes
+## Components
 
-### Aplicação desktop
+### Desktop Application
 
-Está em `apps/desktop-app/` e usa Electron com TypeScript.
+Located in `apps/desktop-app/` and built with Electron + TypeScript.
 
-1. O utilizador seleciona uma prompt ou coloca o cursor no final do texto.
-2. Pressiona `Ctrl+Alt+P`.
-3. O helper do Windows copia o texto da aplicação ativa.
-4. A prompt é enviada apenas para `127.0.0.1`.
-5. O popup mostra a versão corrigida ou a checkmark de confirmação.
-6. **Copy** copia o resultado e **Insert** substitui o texto na aplicação original.
-7. **Undo** restaura a versão anterior quando disponível.
+1. The user selects a prompt, or places the text cursor at the end of it
+2. Presses `Ctrl+Alt+P`
+3. The Windows helper copies the text from the active application
+4. The prompt is sent only to `127.0.0.1`
+5. The popup shows the corrected version or a confirmation checkmark
+6. **Copy** copies the result; **Insert** replaces the text in the original application
+3. **Undo** restores the previous version when available
 
-A aplicação permanece no system tray. O menu permite mudar o modo de desempenho, o atalho, o histórico local, o pré-aquecimento do modelo e abrir diagnósticos.
+The application stays in the system tray. The menu allows changing performance mode, shortcut, local history, model warm-up, and opening diagnostics.
 
-### Extensão Chrome
+**New in 0.2.0:**
+- **Bundled Ollama** — No separate installation required; Ollama is bundled and auto-starts
+- **Auto model selection** — On first launch, detects RAM and recommends optimal model (Fast/Balanced/Quality)
+- **Auto Ollama install** — If Ollama is missing, offers to download and install silently (opt-out in Settings)
+- **Model selector** — Settings panel shows dropdown of installed models with descriptions
+- **Re-detect hardware** — Re-run RAM detection and update model recommendation
+- **Telemetry (opt-in)** — Anonymous crash reports + usage stats (disabled by default)
 
-Está em `chrome-extension/` e é injetada nos compositores suportados, incluindo ChatGPT, Gemini, Claude, Copilot, Perplexity, DeepSeek, Grok, Mistral, Poe e Meta AI.
+### Chrome Extension
 
-- Mostra uma bolha junto ao campo de escrita.
-- Abre um popup depois do clique ou, quando ativado, após uma pausa na escrita.
-- Mantém a prompt corrigida editável.
-- Disponibiliza **Copy**, **Insert Prompt** e **Undo**.
-- Deteta campos `textarea`, `input` e `contenteditable` através de adaptadores por site.
-- Distingue conversas novas de conversas com mensagens anteriores sem inventar contexto.
-- Guarda definições e, opcionalmente, um histórico limitado no armazenamento local do Chrome.
-- Trata recarregamentos da extensão sem lançar o erro `Extension context invalidated`.
+Located in `chrome-extension/` and injected into supported composers, including ChatGPT, Gemini, Claude, Copilot, Perplexity, DeepSeek, Grok, Mistral, Poe, and Meta AI.
 
-Quando a prompt já está boa, o popup mostra uma checkmark verde, mantém o texto original e indica que não foram necessárias alterações.
+- Shows a bubble next to the composer
+- Opens a popup on click or, when enabled, after a pause in typing
+- Keeps the corrected prompt editable
+- Provides **Copy**, **Insert Prompt**, and **Undo**
+- Detects `textarea`, `input`, and `contenteditable` fields via site adapters
+- Distinguishes new conversations from conversations with prior messages without inventing context
+- Saves settings and, optionally, a limited history in Chrome's local storage
+- Handles extension reloads without throwing `Extension context invalidated` errors
 
-### Extensão VS Code
+When the prompt is already good, the popup shows a green checkmark, keeps the original text, and indicates no changes were needed.
 
-Está em `extension/`.
+### VS Code Extension
 
-- Analisa texto selecionado no editor.
-- Usa a mesma lógica partilhada e a mesma API local.
-- Permite copiar ou inserir a versão revista.
-- Disponibiliza modos Fast, Balanced e Quality nas definições do VS Code.
+Located in `extension/`.
 
-### API e modelo local
+- Analyzes selected text in the editor
+- Uses the same shared logic and local API
+- Allows copying or inserting the revised version
+- Provides Fast, Balanced, and Quality modes in VS Code settings
 
-A rota principal está em `app/api/rewrite/route.ts` e escuta em:
+### API and Local Model
+
+The main route is in `app/api/rewrite/route.ts` and listens on:
 
 ```text
 http://127.0.0.1:3000/api/rewrite
 ```
 
-A API comunica com Ollama em `127.0.0.1:11434`. Nenhuma prompt é enviada para serviços cloud.
+The API communicates with Ollama at `127.0.0.1:11434`. No prompt is sent to any cloud service.
 
-O system prompt obriga o modelo a atuar apenas como copy editor. A validação em `lib/modelPromptRewriter.ts` confirma que a saída:
+The system prompt forces the model to act only as a copy editor. Validation in `lib/modelPromptRewriter.ts` confirms that the output:
 
-- continua a representar o texto original;
-- não contém demasiados conceitos novos;
-- não é uma resposta, recusa ou comentário sobre a prompt;
-- não termina a meio;
-- não cresce de forma desproporcional.
+- Continues to represent the original text
+- Does not introduce excessive new concepts
+- Is not a response, refusal, or comment on the prompt
+- Does not terminate mid-way
+- Does not grow disproportionately
 
-Respostas inválidas não são guardadas na cache.
+Invalid responses are not cached.
 
-## Modos de desempenho
+## Performance Modes
 
-- **Fast:** `qwen2.5:3b`; contexto e saída reduzidos para menor latência.
-- **Balanced:** `qwen2.5:3b`; mais contexto para prompts longas.
-- **Quality:** `qwen2.5:3b`; contexto e limite de saída máximos.
+- **Fast:** `qwen2.5:0.5b`; reduced context and output for lowest latency
+- **Balanced:** `qwen2.5:1.5b`; more context for longer prompts
+- **Quality:** `qwen2.5:3b`; maximum context and output limits
 
-Os modelos podem permanecer em memória para reduzir o tempo da primeira revisão. A aplicação pré-aquece automaticamente o modo selecionado.
+Models can remain in memory to reduce first-rewrite latency. The application pre-warms the selected mode automatically.
 
-## Instalação e execução
+**Auto-selection on first run:** Detects system RAM and recommends optimal model:
+- 8+ GB → `qwen2.5:3b` (Quality)
+- 6 GB → `qwen2.5:1.5b` (Balanced)
+- 4 GB → `qwen2.5:0.5b` (Fast)
 
-Pré-requisitos:
+## Installation and Execution
 
-- Windows 10 ou 11 para a automação desktop;
-- Node.js;
-- Ollama instalado.
+### Prerequisites
 
-Na raiz do projeto:
+- Windows 10 or 11 for desktop automation
+- **No Ollama, Node.js, or Python pre-installation required** — everything bundles inside the installer
+
+### Installer (Recommended)
+
+Download `PromptClarity Setup 0.2.0.exe` from GitHub Releases and run the installer.
+
+### From Source
 
 ```powershell
+# At repository root:
 npm install
-npm run desktop:install
-npm run model:pull
-npm run desktop
+npm run desktop:build
+npm run package:desktop
+# Output: release/desktop/PromptClarity Setup 0.2.0.exe
 ```
 
-O último comando inicia Ollama quando necessário, inicia a API local, aquece o modelo e abre a aplicação no system tray.
+### Development Mode
 
-## Testar a extensão Chrome
+```powershell
+npm run desktop:dev
+```
+
+This builds the app and starts it with hot reload for the renderer.
+
+---
+
+## Testing the Chrome Extension
 
 ```powershell
 npm run dev
 npm run build:chrome
 ```
 
-Depois:
+Then:
 
-1. Abrir `chrome://extensions`.
-2. Ativar **Developer mode**.
-3. Escolher **Load unpacked**.
-4. Selecionar a pasta `chrome-extension/`.
-5. Atualizar os separadores de chat que já estavam abertos.
+1. Open `chrome://extensions`
+2. Enable **Developer mode**
+3. Choose **Load unpacked**
+4. Select the `chrome-extension/` folder
+5. Refresh chat tabs that were already open
 
-Sempre que a extensão for recompilada, usar **Reload** em `chrome://extensions` e atualizar também a página onde está a ser testada.
+Whenever the extension is rebuilt, use **Reload** in `chrome://extensions` and refresh the chat tab.
 
-## Testes e qualidade
+---
+
+## Testing and Quality
 
 ```powershell
 npm test
@@ -131,9 +158,9 @@ npm run build:vscode
 npm run desktop:typecheck
 ```
 
-Os testes E2E verificam campos normais, `contenteditable`, fallback local, inserção, invalidação do contexto Chrome e o estado de checkmark.
+E2E tests cover normal fields, `contenteditable`, local fallback, insertion, Chrome context invalidation, and checkmark state.
 
-## Empacotamento
+## Packaging
 
 ```powershell
 npm run package:chrome
@@ -141,40 +168,56 @@ npm run package:vscode
 npm run package:desktop
 ```
 
-Os artefactos são colocados em `release/`. O empacotador desktop escolhe automaticamente uma unidade temporária com espaço suficiente.
+Artifacts are placed in `release/`. The desktop packager automatically picks a temporary drive with sufficient space.
 
-## Privacidade e armazenamento
+## Privacy and Storage
 
-- As prompts são processadas localmente.
-- A API aceita apenas clientes locais e origens suportadas.
-- O histórico pode ser desativado.
-- As definições desktop ficam no perfil local da aplicação.
-- As definições Chrome ficam em `chrome.storage.local`.
-- Não são usadas chaves de APIs cloud.
+- Prompts are processed locally
+- The API accepts only local clients and supported origins
+- History can be disabled
+- Desktop settings live in the app's local app data profile
+- Chrome settings live in `chrome.storage.local`
+- No cloud API keys are used
 
-Consultar também `PRIVACY.md` e `SECURITY.md`.
+See also `PRIVACY.md` and `SECURITY.md`.
 
-## Ficheiros principais
+## Key Files
 
-- `chrome-extension/src/content.ts`: deteção, análise e inserção no browser.
-- `chrome-extension/src/ui.ts`: popup e checkmark da extensão.
-- `chrome-extension/src/siteAdapters.ts`: integração por plataforma de chat.
-- `apps/desktop-app/src/main.ts`: atalhos, clipboard, popup e tray.
-- `apps/desktop-app/src/windows-helper.ps1`: captura e inserção no Windows.
-- `lib/promptAnalyzer.ts`: avaliação local da prompt.
-- `lib/promptRewriter.ts`: fallback conservador sem expansão semântica.
-- `lib/modelPromptRewriter.ts`: chamada e validação do modelo.
-- `app/api/rewrite/route.ts`: API local e comunicação com Ollama.
-- `config/product.ts`: modelos, modos e configuração partilhada.
+- `chrome-extension/src/content.ts`: Detection, analysis, and insertion in the browser
+- `chrome-extension/src/ui.ts`: Popup and checkmark for the extension
+- `chrome-extension/src/siteAdapters.ts`: Per-chat-platform integration
+- `apps/desktop-app/src/main.ts`: Shortcuts, clipboard, popup, tray
+- `apps/desktop-app/src/windows-helper.ps1`: Windows capture and insertion
+- `lib/promptAnalyzer.ts`: Local prompt evaluation
+- `lib/promptRewriter.ts`: Conservative fallback without semantic expansion
+- `lib/modelPromptRewriter.ts`: Model call and validation
+- `app/api/rewrite/route.ts`: Local API and Ollama communication
+- `config/product.ts`: Models, modes, and shared configuration
 
-## Resolução de problemas
+## Troubleshooting
 
-**O modelo não responde:** confirmar que Ollama está aberto, executar `npm run model:pull` e reiniciar `npm run dev` ou `npm run desktop`.
+**Model does not respond:** Confirm Ollama is running, run `npm run model:pull`, restart with `npm run dev` or `npm run desktop`.
 
-**A extensão continua com código antigo:** usar **Reload** em `chrome://extensions` e atualizar o separador de chat.
+**Extension uses old code:** Use **Reload** in `chrome://extensions` and refresh the chat tab.
 
-**O atalho não funciona:** fechar instâncias antigas no system tray ou escolher outro atalho nas definições.
+**Shortcut does nothing:** Close old tray instances or pick another shortcut in Settings.
 
-**A primeira revisão é lenta:** manter **Keep models in memory** ativo e deixar o pré-aquecimento terminar.
+**First rewrite is slow:** Keep **Keep models in memory** enabled and wait for warm-up to finish.
 
-**O modelo acrescenta conteúdo:** a saída deve ser rejeitada pela validação e substituída pelo fallback conservador. Guardar a prompt e a saída num novo teste de regressão se isso voltar a acontecer.
+**Model adds content:** Output is rejected by validation and replaced with conservative fallback. Save the prompt and output as a regression test if this recurs.
+
+---
+
+## New in 0.2.0 (PromptClarity)
+
+- **Rebranded** from Prompt Grammarly to PromptClarity
+- **Standalone installer** — no prerequisites required
+- **Bundled Ollama** — auto-starts with the app
+- **Auto model selection** based on detected RAM
+- **Auto Ollama install** if missing (opt-out in Settings)
+- **Model selector** in Settings with descriptions
+- **Re-detect hardware** button to re-run RAM detection
+- **Telemetry opt-in** (crash reports + usage stats, disabled by default)
+- **Auto-updater** via GitHub Releases
+- **Code signing** support for EV certificates
+- **GitHub Actions** release pipeline

@@ -11,6 +11,7 @@ import {
   Tray,
   type NativeImage
 } from 'electron';
+import * as os from 'node:os';
 import { autoUpdater } from 'electron-updater';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -23,7 +24,7 @@ import { DesktopStore } from './desktopStore';
 import { DEFAULT_REWRITE_INTERVENTION, PRODUCT } from '../../../config/product';
 import type { DesktopSettingsView } from './shared';
 import { startLocalBridgeIfNeeded } from './localBridge';
-import type { Server } from 'node:http';
+import type { Server as HttpServer } from 'node:http';
 import { buildTooMuchFeedbackEntry } from '../../../lib/popupState';
 import {
   collectLocalDiagnostics,
@@ -32,6 +33,8 @@ import {
   EMPTY_REWRITE_DIAGNOSTICS
 } from '../../../lib/diagnostics';
 import type { RewriteDiagnostics } from '../../../types/diagnostics';
+import { getServiceManager } from './services';
+import { initTelemetry } from './telemetry';
 
 const execFileAsync = promisify(execFile);
 const MAX_PROMPT_LENGTH = 12_000;
@@ -82,17 +85,17 @@ let analysisInProgress = false;
 let captureInProgress = false;
 let modelAbortController: AbortController | null = null;
 let lastInsertion: LastInsertion | null = null;
-let embeddedBridge: Server | null = null;
+let embeddedBridge: any = null;
 let currentTooMuchFeedback: DesktopTooMuchFeedbackEntry | null = null;
 let lastRewriteDiagnostics: RewriteDiagnostics = { ...EMPTY_REWRITE_DIAGNOSTICS };
 const windowsAutomation = process.platform === 'win32' ? new WindowsAutomation() : null;
 
 // Use an app-specific profile instead of Electron's shared development cache.
 // This also makes the single-instance lock reliable across launch methods.
-app.setName('Prompt Grammarly Desktop');
-const userDataPath = join(app.getPath('appData'), 'Prompt Grammarly Desktop');
+app.setName('PromptClarity Desktop');
+const userDataPath = join(app.getPath('appData'), 'PromptClarity Desktop');
 app.setPath('userData', userDataPath);
-const desktopStore = new DesktopStore(join(userDataPath, 'prompt-grammarly.json'));
+const desktopStore = new DesktopStore(join(userDataPath, 'prompt-clarity.json'));
 app.commandLine.appendSwitch('disk-cache-dir', join(userDataPath, 'Cache'));
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.disableHardwareAcceleration();
@@ -762,7 +765,7 @@ async function showDiagnostics() {
   });
   const hints: string[] = [];
   if (diagnostics.api.status === 'error')
-    hints.push('Start the local API or restart Prompt Grammarly Desktop.');
+    hints.push('Start the local API or restart PromptClarity Desktop.');
   else if (!diagnostics.ollama.reachable)
     hints.push('Start Ollama and confirm that the selected model is installed.');
   if (diagnostics.rewrite.fallbackUsed) hints.push('The last rewrite used a conservative local fallback.');
@@ -820,9 +823,9 @@ async function checkOllamaAndModel() {
         buttons: ['Yes', 'No']
       });
       if (response === 0) {
-        tray?.displayBalloon({ title: 'Prompt Grammarly', content: 'Downloading model qwen2.5:3b... Please wait.' });
+        tray?.displayBalloon({ title: 'PromptClarity', content: 'Downloading model qwen2.5:3b... Please wait.' });
         await execFileAsync('ollama', ['pull', 'qwen2.5:3b']);
-        tray?.displayBalloon({ title: 'Prompt Grammarly', content: 'Model downloaded successfully.' });
+        tray?.displayBalloon({ title: 'PromptClarity', content: 'Model downloaded successfully.' });
       }
     }
   } catch (error) {
@@ -850,7 +853,7 @@ app.whenReady().then(async () => {
 
   embeddedBridge = await startLocalBridgeIfNeeded();
   windowsAutomation?.start();
-  app.setAppUserModelId('com.promptgrammarly.desktop');
+  app.setAppUserModelId('com.promptclarity.desktop');
   createPopupWindow();
   createTray();
   registerIpcHandlers();
@@ -860,14 +863,14 @@ app.whenReady().then(async () => {
   console.log('[desktop] Tray app ready.');
   if (!registered && process.platform === 'win32') {
     tray?.displayBalloon({
-      title: 'Prompt Grammarly Desktop',
+      title: 'PromptClarity Desktop',
       content: 'Ctrl+Alt+P is already being used by another application.'
     });
     void showState({
       status: 'error',
       title: 'Shortcut unavailable',
       message:
-        'Ctrl+Alt+P is already being used. Quit any previous Prompt Grammarly Desktop tray instance and start the app again.',
+        'Ctrl+Alt+P is already being used. Quit any previous PromptClarity Desktop tray instance and start the app again.',
       canRetry: false
     });
   }
@@ -875,7 +878,7 @@ app.whenReady().then(async () => {
 
 app.on('second-instance', () => {
   tray?.displayBalloon({
-    title: 'Prompt Grammarly Desktop',
+    title: 'PromptClarity Desktop',
     content: 'The app is already running. Select text and press Ctrl+Alt+P.'
   });
 });

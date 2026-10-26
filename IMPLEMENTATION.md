@@ -1,300 +1,580 @@
-# Legacy Implementation Guide
-
-> Historical MVP document. Use the root `README.md` for the current architecture.
+# PromptClarity — Implementation Guide
 
 ## Overview
 
-This is the MVP implementation of a Grammarly-like prompt enhancement system for VS Code. It detects when users are writing prompts in the VS Code Chat and offers an improved version via a popup that supports copy-paste workflow.
+PromptClarity is a standalone Windows desktop application that improves prompts locally using a bundled Ollama instance and a local Next.js API server. It works system-wide via a global hotkey (`Ctrl+Alt+P`), capturing text from any application, sending it to a local AI model, and presenting an improved version for insertion.
+
+---
 
 ## Architecture
 
-### Core Components
+```
+PromptClarity.exe (Electron)
+├── Service Manager
+│   ├── Ollama (bundled ollama.exe)     → localhost:11434
+│   └── Local API (bundled Next.js)     → localhost:3000
+├── Windows Automation (UIA + SendKeys)
+│   ├── Text capture via UI Automation
+│   └── Text insertion via SendKeys
+├── Tray + Popup UI (React)
+│   ├── Tray icon + global hotkey (Ctrl+Alt+P)
+│   └── React popup (React, frameless, always-on-top)
+└── Persistence
+    ├── Settings (JSON in %LOCALAPPDATA%\PromptClarity Desktop)
+    └── History (optional, JSON)
+```
 
-#### 1. **Prompt Detection** (`lib/promptDetector.ts`)
+---
 
-- Detects if text looks like a prompt (AI instruction/request)
-- Confidence scoring (0-1) based on multiple signals:
-  - Action verbs (explain, create, write, etc.)
-  - Constraint language (must, should, without, etc.)
-  - Format requests (bullet, table, json, etc.)
-  - Context indicators (because, background, etc.)
-  - Goal language (want, need, trying, etc.)
-  - Imperative form (starts with verb, "can you", "could you", etc.)
-  - Length heuristics (15-500 characters)
-  - Question marks or colons
+## Core Components
+
+### 1. Service Manager (`apps/desktop-app/src/services.ts`)
+
+Manages the lifecycle of bundled services (Ollama + API):
+
+```typescript
+class ServiceManager {
+  private services = new Map<string, ServiceInstance>();
+  
+  async startService(config: ServiceConfig): Promise<void>
+  async stopService(name: string): Promise<void>
+  async stopAll(): Promise<void>
+  isServiceReady(name: string): boolean
+}
+```
+
+**Service Configuration:**
+```typescript
+interface ServiceConfig {
+  name: string;
+  command: string;           // Relative path from resources/
+  args: string[];
+  healthUrl: string;         // HTTP endpoint for readiness
+  readyTimeoutMs: number;    // Max wait time for readiness
+  env?: Record<string, string>;
+}
+```
+
+**Startup Sequence:**
+1. Start Ollama (`ollama/ollama.exe serve`) → wait for `http://127.0.0.1:11434/api/version`
+2. Start API (`api/server.exe`) → wait for `http://127.0.0.1:3000/api/health`
+3. Proceed to `checkOllamaAndModel()`
+
+**Graceful Shutdown:**
+- `SIGTERM` → 5s grace period → `SIGKILL`
+- Called in `app.on('before-quit')`
+
+---
+
+### 2. Ollama Auto-Install & Model Management
+
+**First Launch Flow:**
+```
+1. Detect RAM → recommend model (Fast/Balanced/Quality)
+2. Check if Ollama is running (ollama list)
+3. If missing:
+   a. If ollamaAutoInstall=true (default): download OllamaSetup.exe → silent install (/S)
+   b. Else: show dialog with [Download Ollama] [Retry] [Close]
+4. Check if recommended model exists (ollama list)
+5. If missing: download with `ollama pull <model>`
+6. Cache model name in settings.selectedModel
+```
+
+**Auto-Install Logic (`installOllamaSilently`):**
+1. Downloads `OllamaSetup.exe` from GitHub Releases API
+2. Runs silent install: `OllamaSetup.exe /S /D=<install_dir>`
+3. Waits for `ollama list` to succeed (30s timeout)
+4. Falls back to manual dialog on failure
+
+**Model Profiles (detectHardwareProfile):**
+| RAM | Model | Label | Description |
+|-----|-------|-------|-------------|
+| ≥8 GB | `qwen2.5:3b` | Best quality | For 8 GB+ RAM |
+| 6 GB | `qwen2.5:1.5b` | Good quality | Optimized for 6 GB |
+| 4 GB | `qwen2.5:0.5b` | Fast & reliable | Optimized for 4 GB |
+| <4 GB | `qwen2.5:0.5b` | Lightweight | For limited RAM |
+
+---
+
+### 3. Windows Automation (`windows-helper.ps1`)
+
+Captures text from any application using Windows UI Automation + SendKeys.
+
+**Capture Flow:**
+```powershell
+# 1. Find target window (skip Electron/Ollama/PromptClarity windows)
+$target = Get-ValidTargetWindow  # Z-order traversal, skip Electron/Ollama/PromptClarity
+
+# 2. Focus target window
+SetForegroundWindow($handle)
+Start-Sleep 100ms
+$focusConfirmed = (GetForegroundWindow() -eq $handle)
+
+# 3. Check existing selection via UIA TextPattern
+$focused = [AutomationElement]::FocusedElement
+if ($focused -and $focused.TryGetTextPattern()) {
+    $selection = $pattern.GetSelection()
+    $selectedText = $selection | ForEach-Object { $_.GetText(-1) } -join ''
+    if ($selectedText) { selectionState = 'HAS_SELECTION' }
+}
+
+# 4. If no selection: try Ctrl+C
+if ($selectionState -ne 'HAS_SELECTION') {
+    SendKeys('^c')
+    Wait 100ms
+    $clipText = [Clipboard]::GetText()
+    if ($clipText -ne $sentinel) { selectionState = 'HAS_SELECTION' }
+}
+
+# 5. If still empty: Select All + Copy
+if ($selectionState -eq 'EMPTY') {
+    SendKeys('^a'); Wait 100ms
+    SendKeys('^c'); Wait 100ms
+    $clipText = [Clipboard]::GetText()
+    if ($clipText -ne $sentinel) { selectionState = 'AUTO_SELECTED' }
+}
+
+# 6. Return diagnostics
+return @{
+    selectionState, copiedLength, processName,
+    foregroundWindowHandle, targetWindowHandle,
+    focusedControlType, availableFormats, helperError
+}
+```
+
+**Key Features:**
+- **Focus verification** — Confirms target window has foreground before sending keys
+- **Sentinel pattern** — Writes unique sentinel to clipboard before copy; verifies clipboard changed
+- **Focus verification** — After `SetForegroundWindow`, confirms `GetForegroundWindow() === target`
+- **Multiple strategies** — Existing selection → Ctrl+C → Select All + Copy
+- **Diagnostics** — Returns `selectionState`, `copiedLength`, `focusedControlType`, `availableFormats`, `helperError`
+
+---
+
+### 3. Electron Main Process (`main.ts`)
+
+**Key Responsibilities:**
+- Global hotkey registration (`Ctrl+Alt+P`)
+- Tray icon + context menu
+- Popup window management (frameless, always-on-top)
+- Service Manager orchestration
+- Settings persistence
+- Auto-updater integration
+- Ollama/Model management
 
 **Key Functions:**
+- `captureAndAnalyze()` — Hotkey handler with 15s timeout, AbortController
+- `checkOllamaAndModel()` — Ollama detection, model selection, auto-install
+- `analyzeSession()` → `rewritePromptWithModel()` → UI update
+- `insertImprovedPrompt()` / `undoLastInsertion()` — Clipboard + paste workflow
 
-- `detectPrompt(text)` → DetectionResult with confidence & signals
-- `shouldShowPopup(confidence)` → boolean (threshold: 0.40)
-- `shouldShowHint(text)` → boolean (threshold: 0.35, for hints)
+**Concurrency Control:**
+- `captureInProgress` / `analysisInProgress` flags
+- `AbortController` for 15s capture timeout
+- `Promise.race` for clipboard wait (2s timeout)
 
-**Philosophy:**
+---
 
-- Low false positive rate (normal chat doesn't trigger popup)
-- Confidence-based UI response (can show hints at 0.35, full popup at 0.40)
-- Modular signal weighting for easy tuning
+### 4. Service Manager (`services.ts`)
 
-#### 2. **Prompt Integration** (`lib/promptIntegration.ts`)
+```typescript
+class ServiceManager {
+  private services = new Map<string, ServiceInstance>();
+  private isShuttingDown = false;
 
-- Main entry point combining detection + analysis
-- Handles error cases gracefully
-- Returns structured PopupContent with:
-  - Whether text is a prompt
-  - Detection confidence
-  - Full analysis (if analysis succeeds)
-  - Copyable improved text
+  async startService(config: ServiceConfig): Promise<void>
+  async stopService(name: string): Promise<void>
+  async stopAll(): Promise<void>
+  isServiceReady(name: string): boolean
+}
+```
 
-**Key Functions:**
+**Request/Response Protocol:**
+- JSON lines over stdin/stdout
+- Request: `{ id, command, sentinel, originalHandle }`
+- Response: `{ id, ok, result, error }`
+- `AbortSignal` support for cancellation
 
-- `analyzeForPopup(request)` → PopupContent
-- `getPopupContent(text, useCase)` → string | null
-- `shouldShowHint(text)` → boolean
-- `getConfidenceScore(text)` → number (0-100)
+---
 
-#### 3. **VS Code Extension** (`extension/extension.ts`)
+### 4. Windows Helper (`windows-helper.ps1`)
 
-- Main activation point for the VS Code extension
-- Manages popup lifecycle and UI state
-- Commands:
-  - `prompt-enhancement.togglePopup` - Manual activation (Cmd+Shift+E)
-  - `prompt-enhancement.analyzeAndCopy` - Direct copy-to-clipboard
+Persistent PowerShell process communicating via stdin/stdout JSON.
 
-**Features:**
+**Commands:**
+- `capture` → Returns capture diagnostics
+- `paste` → Focuses window + `Ctrl+V` (or `Ctrl+A` + `Ctrl+V`)
 
-- Manual popup toggle via keybinding or context menu
-- Automatic hinting (status bar message when prompt detected)
-- Copy-to-clipboard workflow (no text replacement in MVP)
-- Debounced analysis for performance
-- Webview panel with side-by-side comparison
+**Focus Verification:**
+```powershell
+$beforeFocus = GetForegroundWindow()
+SetForegroundWindow($handle)
+Start-Sleep 150ms
+$afterFocus = GetForegroundWindow()
+$focusConfirmed = ($afterFocus -eq $handle)
+```
 
-#### 4. **Tests** (`tests/promptDetector.test.ts`)
+---
 
-- 40+ test cases covering:
-  - Clear prompts with action verbs
-  - Format requests
-  - Constraints
-  - Imperative forms
-  - False positive avoidance (normal chat, casual statements)
-  - Edge cases (URLs, code snippets, special characters)
+### 5. Settings & Persistence (`desktopStore.ts`, `types/settings.ts`)
+
+**Settings Schema:**
+```typescript
+interface AppSettings {
+  performanceMode: 'fast' | 'balanced' | 'quality';
+  language: 'auto' | 'en' | 'pt-PT';
+  autoOpen: boolean;
+  keepModelsWarm: boolean;
+  shortcut: string;                    // default: 'CommandOrControl+Alt+P'
+  historyEnabled: boolean;
+  historyLimit: number;                // default: 20
+  selectedModel?: string;              // e.g., 'qwen2.5:3b'
+  hardwareDetected?: boolean;          // first-run flag
+  telemetryEnabled?: boolean;          // default: false
+  ollamaAutoInstall?: boolean;         // default: true
+}
+```
+
+**Change Notification:**
+```typescript
+onDidChange(key: string, listener: (value: any) => void)
+```
+Used by telemetry to react to `telemetryEnabled` changes.
+
+---
+
+### 5. Telemetry (`telemetry.ts`)
+
+**Opt-in Only** — Disabled by default, enabled in Settings → Privacy.
+
+**Events Tracked:**
+- `app_start` — Platform, arch, version
+- `capture_success` — `copiedLength`, `selectionState`, duration
+- `telemetry_enabled` / `telemetry_disabled`
+- `model_download_start` / `capture_timeout` / `capture_error`
+
+**Crash Reports:**
+- `uncaughtException` / `unhandledRejection`
+- Uses `navigator.sendBeacon` for reliability
+- Context: `captureInProgress`, `analysisInProgress`, `selectedModel`
+- **No PII** — No prompt text, clipboard, file paths
+
+**Endpoints:**
+- `https://telemetry.promptclarity.app/v1/events`
+- `https://telemetry.promptclarity.app/v1/crashes`
+
+---
+
+### 5. Local API (`app/api/rewrite/route.ts`)
+
+**Endpoint:** `POST http://127.0.0.1:3000/api/rewrite`
+
+**Request:**
+```json
+{
+  "prompt": "string",
+  "useCase": "general",
+  "fallbackPrompt": "string",
+  "hasPriorConversation": false,
+  "preferSpeed": false,
+  "performanceMode": "fast|balanced|quality",
+  "keepModelsWarm": false
+}
+```
+
+**Response:**
+```json
+{
+  "rewrittenPrompt": "string",
+  "model": "qwen2.5:3b",
+  "source": "model|checkmark|error|local_fallback",
+  "status": "changed|no_change|fallback|error",
+  "validation": { "reason": "string" },
+  "validationScore": number,
+  "intervention": "strict|normal|polished",
+  "latencyMs": number
+}
+```
+
+**Validation (`modelPromptRewriter.ts`):**
+- Ensures output represents original intent
+- Rejects responses that add requirements, refuse, or comment
+- Falls back to conservative local rewriter on failure
+
+---
+
+### 6. Prompt Analysis Pipeline (`lib/`)
+
+**Pipeline:**
+```
+promptAnalyzer.ts    →  Full analysis (score, issues, strengths, rewritten)
+promptRewriter.ts    →  Conservative fallback (no semantic expansion)
+promptRewriter.ts    →  Model call + validation
+promptEnhancer.ts    →  Quality enhancement
+spellChecker.ts      →  Spell checking
+```
+
+---
 
 ## Data Flow
 
 ```
-User types in VS Code Chat
-         ↓
-[Extension detects on text change - debounced 500ms]
-         ↓
-detectPrompt() → confidence score
-         ↓
-├─ confidence < 0.35: No hint
-├─ 0.35 ≤ confidence < 0.40: Optional hint (status bar)
-└─ confidence ≥ 0.40: Full popup available
-         ↓
-User selects text + Cmd+Shift+E (or context menu)
-         ↓
-showPopup() triggers:
-  - analyzeForPopup()
-  - Generates improved version
-  - Shows webview with original vs improved
-         ↓
-User clicks "Copy Improved" button
-         ↓
-Improved prompt → clipboard
+User presses Ctrl+Alt+P
+        ↓
+[main.ts] captureAndAnalyze()
+        ↓
+[windows-helper.ps1] capture text
+        ↓
+[main.ts] copySelectionAndCaptureWindow(sentinel)
+        ↓
+[services.ts] → windows-helper.ps1 (stdin/stdout JSON)
+        ↓
+[main.ts] waitForCopiedText(sentinel)  // 2s timeout
+        ↓
+[main.ts] analyzeSession(activeSession)
+        ↓
+[modelPromptRewriter.ts] rewritePromptWithModel()
+        ↓
+[API] POST /api/rewrite → Ollama → validation
+        ↓
+[main.ts] showState({ status: 'success', improvedText })
+        ↓
+[renderer.ts] render popup → user clicks Insert
+        ↓
+[main.ts] insertImprovedPrompt() → focus window → Ctrl+V
+        ↓
+[main.ts] restore clipboard + undo stack
 ```
 
-## Key Design Decisions
+---
 
-### 1. Detection-First Architecture
+## Concurrency & Timeouts
 
-- Prompt detection is lightweight and always runs
-- Expensive analysis only happens when popup is shown
-- Confidence scoring guides UI decisions (hints vs full popup)
+| Operation | Timeout | Mechanism |
+|-----------|---------|-----------|
+| Capture (helper) | 15s | `AbortController` + `Promise.race` |
+| Clipboard wait | 2s | `Promise.race` + `setTimeout` |
+| Ollama startup | 30s | Health check polling |
+| API startup | 15s | Health check polling |
+| Ollama model pull | 180s | `execFile` timeout |
+| Ollama install | 180s | `execFile` timeout |
+| Service shutdown | 5s grace | `SIGTERM` → `SIGKILL` |
 
-### 2. Copy-First, Not Replace
+---
 
-- MVP focuses on copy-paste workflow
-- No automatic text replacement (safer for MVP)
-- Users explicitly choose to use improved version
+## Concurrency Control
 
-### 3. Local Analysis
+```typescript
+let captureInProgress = false;
+let analysisInProgress = false;
+const captureController = new AbortController();
 
-- All analysis runs locally (no API calls)
-- Deterministic results (same input = same output)
-- Works offline
+async function captureAndAnalyze() {
+  if (captureInProgress) return;  // Ignore duplicate hotkey
+  if (analysisInProgress) {       // Abort ongoing analysis
+    modelAbortController?.abort();
+    analysisSequence++;
+    analysisInProgress = false;
+  }
+  captureInProgress = true;
+  const captureController = new AbortController();
+  const captureTimeout = setTimeout(() => captureController.abort(), 15000);
+  
+  try {
+    const capture = await copySelectionAndCaptureWindow(sentinel, captureController.signal);
+    // ...
+  } catch (error) {
+    if (error.name === 'AbortError') { /* handled */ }
+  } finally {
+    clearTimeout(captureTimeout);
+    captureInProgress = false;
+  }
+}
+```
 
-### 4. Chat Context Optimization
+---
 
-- Detection tuned for shorter, chat-style prompts
-- Emphasis on action verbs + constraints
-- Lower bar for chat-style instructions vs full essays
+## Auto-Updater
 
-### 5. False Positive Avoidance
+```typescript
+import { autoUpdater } from 'electron-updater';
 
-- Threshold of 0.40 confidence required for popup
-- Multiple signal types must align
-- Normal chat text scores < 0.4 in most cases
+app.whenReady().then(async () => {
+  initTelemetry();
+  autoUpdater.checkForUpdatesAndNotify().catch(err => console.error('Update check failed:', err));
+  // ...
+});
+```
 
-## Configuration & Customization
+**Configuration (`package.json`):**
+```json
+{
+  "publish": { "provider": "github", "owner": "owner", "repo": "PromptClarity" },
+  "win": { "target": ["nsis"] }
+}
+```
 
-### Detection Thresholds
+---
 
-In `promptDetector.ts`:
+## Build & Packaging
 
-- `shouldShowPopup(confidence)`: requires 0.40 (adjust for sensitivity)
-- `shouldShowHint(text)`: uses 0.35 threshold (for status bar hints)
+```json
+{
+  "scripts": {
+    "desktop:build": "node scripts/build.mjs",
+    "package:desktop": "npm run build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.promptclarity.desktop",
+    "productName": "PromptClarity",
+    "asar": true,
+    "asarUnpack": ["resources/**/*"],
+    "files": ["dist/**/*", "resources/**/*", "package.json"],
+    "win": { "target": ["nsis"], "icon": "assets/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": { "provider": "github", "owner": "owner", "repo": "PromptClarity" }
+  }
+}
+```
 
-### Action Verbs & Signal Weights
+**Build Steps:**
+1. `scripts/download-ollama.mjs` → Downloads `OllamaSetup.exe` from GitHub Releases
+2. `scripts/build-api.mjs` → `npm run build` in `app/` → copies `.next/standalone` to `resources/api/api`
+3. `scripts/build.mjs` → esbuild bundles `main.ts`, `preload.ts`, `renderer.ts`
+4. `electron-builder --win nsis` → Creates `PromptClarity Setup 0.2.0.exe`
 
-In `promptDetector.ts`:
+---
 
-- Modify `ACTION_VERBS` to add/remove detection patterns
-- Adjust signal weights (currently: action_verb=0.25, format=0.20, etc.)
-
-### Chat vs Essay Distinction
-
-In `promptDetector.ts`:
-
-- Length heuristic: 15-500 chars (adjust for different contexts)
-- Longer texts are deprioritized (prevents essays from triggering)
-
-## Testing the MVP
-
-### Unit Tests
+## Testing
 
 ```bash
-npm test -- promptDetector
+# Unit tests
+npm test                    # 324 tests, 22 files
+
+# Type checking
+npm run desktop:typecheck   # tsc --noEmit
+
+# Linting
+npm run lint                # ESLint on apps/desktop-app/src
+
+# E2E (Playwright)
+npm run test:e2e
 ```
 
-Covers:
-
-- Prompt detection accuracy
-- False positive avoidance
-- Confidence scoring
-- Signal combinations
-
-### Manual Integration Testing
-
-1. Open VS Code with extension installed
-2. Open Command Palette (Cmd+Shift+P)
-3. Type "Enhance Prompt"
-4. Select text (e.g., "create a function that validates emails")
-5. Run command or use Cmd+Shift+E
-6. Popup appears with original vs improved version
-7. Click "Copy Improved" to copy to clipboard
-8. Paste in VS Code Chat
-
-### False Positive Testing
-
-Type normal chat text to confirm popup doesn't appear:
-
-- "sounds good to me" → no popup
-- "thanks for your help" → no popup
-- "see you later" → no popup
-- "have a good day" → no popup
-
-## Next Steps
-
-### Phase 2 (Optional)
-
-1. **UI Polish**
-   - Add keyboard shortcuts for copy/close
-   - Show confidence score with visual indicator
-   - Keyboard navigation in popup
-
-2. **Smarter Analysis**
-   - Detect use case automatically (coding vs writing vs research)
-   - Different enhancement strategies per use case
-   - Show analysis details (strengths, gaps, issues)
-
-3. **Scope Expansion**
-   - Multi-language support (Portuguese already supported in analyzer)
-   - Custom prompt templates
-   - History/favorites system
-
-4. **Performance**
-   - Cache analysis results
-   - Lazy-load analyzer module
-   - Web Worker for background analysis
+---
 
 ## File Structure
 
 ```
-├── lib/
-│   ├── promptDetector.ts         [NEW] Detection logic
-│   ├── promptIntegration.ts      [NEW] Detection + analysis bridge
-│   ├── promptAnalyzer.ts         [EXISTING] Full analysis
-│   ├── promptRewriter.ts         [EXISTING] Improvement generation
-│   ├── promptEnhancer.ts         [EXISTING] Quality enhancement
-│   └── spellChecker.ts           [EXISTING] Spell checking
-├── extension/
-│   ├── extension.ts              [NEW] Main VS Code extension
-│   ├── package.json              [NEW] Extension manifest
-│   ├── tsconfig.json             [NEW] TypeScript config
-│   └── .vscodeignore             [NEW] Packaging rules
-├── types/
-│   └── prompt.ts                 [EXISTING] Type definitions
-├── tests/
-│   ├── promptDetector.test.ts    [NEW] Detection tests
-│   └── [existing test files]     [EXISTING] Other tests
-├── app/                          [EXISTING] Next.js web playground
-└── components/                   [EXISTING] React components
+PromptClarity/
+├── apps/desktop-app/
+│   ├── src/
+│   │   ├── main.ts              # Electron main, tray, services
+│   │   ├── renderer.ts          # React popup UI
+│   │   ├── services.ts          # ServiceManager (Ollama + API)
+│   │   ├── telemetry.ts         # Opt-in telemetry
+│   │   ├── windows-helper.ps1   # Windows automation
+│   │   ├── renderer/            # React popup components
+│   │   └── preload.ts           # IPC bridge
+│   ├── resources/
+│   │   ├── ollama/ollama.exe    # Bundled Ollama binary
+│   │   └── api/api/             # Standalone Next.js API
+│   ├── scripts/
+│   │   ├── build.mjs
+│   │   ├── download-ollama.mjs
+│   │   └── build-api.mjs
+│   └── package.json
+├── app/                          # Next.js API server
+├── config/product.ts             # Model profiles, shortcuts
+├── types/                        # TypeScript types
+├── lib/                          # Shared logic (analyzer, rewriter, etc.)
+├── tests/                        # Vitest tests
+└── package.json                  # Root workspace
 ```
 
-## Dependencies
+---
 
-### Required (in VS Code extension context)
+## Configuration
 
-- `vscode` - VS Code API (provided by runtime)
-- TypeScript 5.3+
+### `config/product.ts`
+```typescript
+export const PRODUCT = {
+  name: 'PromptClarity',
+  desktopName: 'PromptClarity Desktop',
+  version: '0.2.0',
+  apiUrl: 'http://127.0.0.1:3000/api/rewrite',
+  defaultShortcut: 'CommandOrControl+Alt+P'
+} as const;
 
-### Local libraries
+export const MODEL_PROFILES: Record<PerformanceMode, ModelProfile> = {
+  fast: { model: 'qwen2.5:0.5b', maxInputCharacters: 1_500, maxOutputTokens: 64, ... },
+  balanced: { model: 'qwen2.5:1.5b', maxInputCharacters: 6_000, maxOutputTokens: 180, ... },
+  quality: { model: 'qwen2.5:3b', maxInputCharacters: 12_000, maxOutputTokens: 320, ... }
+};
+```
 
-- Existing analyzer, rewriter, enhancer modules
-- No external dependencies for core MVP
+### `types/settings.ts`
+```typescript
+export interface AppSettings {
+  performanceMode: PerformanceMode;
+  language: 'auto' | 'en' | 'pt-PT';
+  autoOpen: boolean;
+  keepModelsWarm: boolean;
+  shortcut: string;
+  historyEnabled: boolean;
+  historyLimit: number;
+  selectedModel?: string;
+  hardwareDetected?: boolean;
+  telemetryEnabled?: boolean;
+  ollamaAutoInstall?: boolean;
+}
+```
 
-## Known Limitations
+---
 
-1. **Detection Quality**
-   - May miss some edge cases of prompt-like text
-   - Might trigger on some narrative text > 500 chars
-   - Language-specific (optimized for English chat)
+## Security Considerations
 
-2. **Analysis**
-   - Uses existing analyzer (not chat-optimized)
-   - May suggest improvements for non-prompts if detection fails
-   - Portuguese support in analyzer, but English-centric in extension
+- **No cloud communication** — All processing local
+- **Code signing** — EV certificate required for production
+- **Auto-updater** — HTTPS + signature verification via `electron-updater`
+- **No PII in telemetry** — Crash reports exclude prompt text, clipboard, paths
+- **Local-only API** — Binds to `127.0.0.1`, no external exposure
+- **No cloud dependencies** — Ollama, models, API all local
 
-3. **UI**
-   - Popup not themeable yet (uses VS Code theme variables)
-   - No progress indicator for analysis
-   - No error messages for failed analysis
+---
 
-## Troubleshooting
+## Troubleshooting Guide
 
-### Popup doesn't appear
+| Symptom | Likely Cause | Resolution |
+|---------|--------------|------------|
+| Shortcut ignored | Another instance running | Close tray instances; check Settings → Shortcut |
+| Model not downloading | No internet / disk full | Check network; Settings → Model → retry |
+| Ollama won't start | Port 11434 busy / AV blocking | `netstat -ano | findstr 11434`; check AV exclusions |
+| "Prompt not detected" | No selection / cursor not at end | Select text or place cursor at end; try `Ctrl+A` |
+| Slow first rewrite | Model not warmed | Enable "Keep models in memory"; wait for warm-up |
+| Model adds content | Validation failed | Falls back to conservative rewriter; check Diagnostics |
 
-1. Check text meets minimum length (15+ chars)
-2. Confirm text has action verb or format request
-3. Verify confidence score: `getConfidenceScore(text)`
-4. Check that confidence ≥ 0.40
+---
 
-### Popup shows for normal chat
+## Debugging
 
-1. Reduce threshold in `promptDetector.ts`
-2. Review signal weights (check if context or goal signals are too loose)
-3. Add false positive examples to test suite
+**Diagnostics Panel:** Tray → Diagnostics → Shows API/Ollama status, model, RAM, last rewrite.
 
-### Analysis fails silently
+**Logs:** Console output in terminal where `npm run desktop:dev` runs.
 
-1. Check console for errors (F1 > "Developer: Toggle Developer Tools")
-2. Verify analyzer module is loaded
-3. Check text length and format
+**Debug Helper:** `scripts/debug-ollama.mjs` lists GitHub release assets.
 
-## Contact & Support
+---
 
-For issues, feature requests, or questions:
+## Future Extensions
 
-- Open issue on GitHub
-- Check test cases for example usage
-- Review signal definitions in promptDetector.ts
+- **Mac/Linux builds** — Electron supports all platforms
+- **Ollama auto-install** — Detect missing → silent install
+- **Plugin system** — Custom rewrite rules, templates
+- **Multi-language** — Portuguese support in analyzer
+- **Telemetry dashboard** — Aggregate crash/usage stats

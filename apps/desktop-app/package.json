@@ -1,10 +1,10 @@
 {
-  "name": "prompt-grammarly-desktop",
+  "name": "prompt-clarity-desktop",
   "private": true,
   "version": "0.2.0",
-  "productName": "Prompt Grammarly",
-  "description": "Local desktop prompt enhancer powered by the existing Prompt Grammarly API",
-  "author": "Prompt Grammarly",
+  "productName": "PromptClarity",
+  "description": "Local desktop prompt enhancer - private, offline, yours",
+  "author": "PromptClarity",
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -22,15 +22,20 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "adm-zip": "^0.6.1",
     "electron-updater": "^6.8.11"
   },
   "build": {
-    "appId": "com.promptgrammarly.desktop",
-    "productName": "Prompt Grammarly",
+    "appId": "com.promptclarity.desktop",
+    "productName": "PromptClarity",
     "asar": true,
     "files": [
       "dist/**/*",
+      "resources/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "resources/**/*"
     ],
     "directories": {
       "output": "../../release/desktop"
@@ -49,7 +54,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "YOUR_GITHUB_USERNAME",
+      "owner": "FranciscoSousaSilveira",
       "repo": "Grammarly-Prompts"
     }
   }

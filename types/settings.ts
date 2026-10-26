@@ -8,6 +8,10 @@ export interface AppSettings {
   shortcut: string;
   historyEnabled: boolean;
   historyLimit: number;
+  selectedModel?: string;
+  hardwareDetected?: boolean;
+  telemetryEnabled?: boolean;
+  ollamaAutoInstall?: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -17,5 +21,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   keepModelsWarm: true,
   shortcut: 'CommandOrControl+Alt+P',
   historyEnabled: false,
-  historyLimit: 20
+  historyLimit: 20,
+  telemetryEnabled: false,
+  ollamaAutoInstall: true
 };

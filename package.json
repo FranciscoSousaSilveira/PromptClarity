@@ -1,5 +1,5 @@
 {
-  "name": "prompt-grammarly",
+  "name": "prompt-clarity",
   "private": true,
   "version": "0.2.0",
   "scripts": {
@@ -49,6 +49,7 @@
     "archiver": "^8.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^9.39.4",
+    "ignore-loader": "^0.1.2",
     "prettier": "^3.9.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.62.1",

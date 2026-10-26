@@ -14,7 +14,11 @@ const bridge: DesktopBridge = {
   retry: () => ipcRenderer.invoke('retry-analysis'),
   close: () => ipcRenderer.invoke('close-popup'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
-  clearHistory: () => ipcRenderer.invoke('clear-history')
+  clearHistory: () => ipcRenderer.invoke('clear-history'),
+  getModels: () => ipcRenderer.invoke('get-models'),
+  redetectHardware: () => ipcRenderer.invoke('redetect-hardware'),
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  getSettings: () => ipcRenderer.invoke('get-settings')
 };
 
 contextBridge.exposeInMainWorld('promptDesktop', bridge);

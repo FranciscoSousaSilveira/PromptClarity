@@ -1,6 +1,6 @@
 export const PRODUCT = {
-  name: 'Prompt Grammarly',
-  desktopName: 'Prompt Grammarly Desktop',
+  name: 'PromptClarity',
+  desktopName: 'PromptClarity Desktop',
   version: '0.2.0',
   apiUrl: 'http://127.0.0.1:3000/api/rewrite',
   defaultShortcut: 'CommandOrControl+Alt+P'

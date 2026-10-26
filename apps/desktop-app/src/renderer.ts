@@ -161,23 +161,46 @@ function renderSettings(state: Extract<DesktopPopupState, { status: 'settings' }
   return shell(
     `
     <form class="settings-body" id="settings-form">
-      <label>Performance mode<select id="setting-mode">
-        <option value="fast" ${settings.performanceMode === 'fast' ? 'selected' : ''}>Fast</option>
-        <option value="balanced" ${settings.performanceMode === 'balanced' ? 'selected' : ''}>Balanced</option>
-        <option value="quality" ${settings.performanceMode === 'quality' ? 'selected' : ''}>Quality</option>
-      </select></label>
-      <label>Language<select id="setting-language">
-        <option value="auto" ${settings.language === 'auto' ? 'selected' : ''}>Automatic</option>
-        <option value="en" ${settings.language === 'en' ? 'selected' : ''}>English</option>
-        <option value="pt-PT" ${settings.language === 'pt-PT' ? 'selected' : ''}>Português (Portugal)</option>
-      </select></label>
-      <label>Shortcut<select id="setting-shortcut">
-        <option value="CommandOrControl+Alt+P" ${settings.shortcut === 'CommandOrControl+Alt+P' ? 'selected' : ''}>Ctrl+Alt+P</option>
-        <option value="CommandOrControl+Shift+P" ${settings.shortcut === 'CommandOrControl+Shift+P' ? 'selected' : ''}>Ctrl+Shift+P</option>
-        <option value="CommandOrControl+Alt+G" ${settings.shortcut === 'CommandOrControl+Alt+G' ? 'selected' : ''}>Ctrl+Alt+G</option>
-      </select></label>
-      <label class="check-row"><input id="setting-warm" type="checkbox" ${settings.keepModelsWarm ? 'checked' : ''}> Keep models in memory</label>
-      <label class="check-row"><input id="setting-history" type="checkbox" ${settings.historyEnabled ? 'checked' : ''}> Save local history</label>
+      <fieldset>
+        <legend>Model</legend>
+        <div class="setting-row">
+          <label>Model<select id="setting-model" disabled>
+            <option value="">Loading...</option>
+          </select></label>
+          <button type="button" id="refresh-models" class="button secondary" title="Refresh models">⟳</button>
+          <button type="button" id="redetect-hardware" class="button secondary" title="Re-detect hardware">🔍 Re-detect</button>
+        </div>
+        <p class="hint" id="model-hint"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Performance</legend>
+        <label>Performance mode<select id="setting-mode">
+          <option value="fast" ${settings.performanceMode === 'fast' ? 'selected' : ''}>Fast</option>
+          <option value="balanced" ${settings.performanceMode === 'balanced' ? 'selected' : ''}>Balanced</option>
+          <option value="quality" ${settings.performanceMode === 'quality' ? 'selected' : ''}>Quality</option>
+        </select></label>
+        <label>Language<select id="setting-language">
+          <option value="auto" ${settings.language === 'auto' ? 'selected' : ''}>Automatic</option>
+          <option value="en" ${settings.language === 'en' ? 'selected' : ''}>English</option>
+          <option value="pt-PT" ${settings.language === 'pt-PT' ? 'selected' : ''}>Português (Portugal)</option>
+        </select></label>
+        <label>Shortcut<select id="setting-shortcut">
+          <option value="CommandOrControl+Alt+P" ${settings.shortcut === 'CommandOrControl+Alt+P' ? 'selected' : ''}>Ctrl+Alt+P</option>
+          <option value="CommandOrControl+Shift+P" ${settings.shortcut === 'CommandOrControl+Shift+P' ? 'selected' : ''}>Ctrl+Shift+P</option>
+          <option value="CommandOrControl+Alt+G" ${settings.shortcut === 'CommandOrControl+Alt+G' ? 'selected' : ''}>Ctrl+Alt+G</option>
+        </select></label>
+        <label class="check-row"><input id="setting-warm" type="checkbox" ${settings.keepModelsWarm ? 'checked' : ''}> Keep models in memory</label>
+        <label class="check-row"><input id="setting-history" type="checkbox" ${settings.historyEnabled ? 'checked' : ''}> Save local history</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Privacy</legend>
+        <label class="check-row"><input id="setting-telemetry" type="checkbox" ${settings.telemetryEnabled ? 'checked' : ''}> Send anonymous crash reports & usage stats</label>
+        <p class="hint">Helps improve PromptClarity. Never includes your prompts or clipboard content.</p>
+        <label class="check-row"><input id="setting-ollama-auto" type="checkbox" ${settings.ollamaAutoInstall !== false ? 'checked' : ''}> Auto-install Ollama if missing</label>
+      </fieldset>
+
       <button class="button primary" type="submit">Save settings</button>
     </form>
   `,
@@ -239,9 +262,102 @@ function renderError(state: Extract<DesktopPopupState, { status: 'error' }>) {
   );
 }
 
-function bindEvents(state: DesktopPopupState) {
+async function bindEvents(state: DesktopPopupState) {
   document.querySelector('#close-button')?.addEventListener('click', () => void window.promptDesktop.close());
   document.querySelector('#retry-button')?.addEventListener('click', () => void window.promptDesktop.retry());
+
+  // Model selector events
+  const modelSelect = document.querySelector<HTMLSelectElement>('#setting-model');
+  const refreshModelsBtn = document.querySelector<HTMLButtonElement>('#refresh-models');
+  const redetectHardwareBtn = document.querySelector<HTMLButtonElement>('#redetect-hardware');
+  const modelHint = document.querySelector<HTMLElement>('#model-hint');
+
+  async function loadModels() {
+    try {
+      const { models } = await window.promptDesktop.getModels();
+      if (modelSelect) {
+        modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+        modelSelect.disabled = false;
+        
+        // Set current selection
+        const settings = await window.promptDesktop.getSettings();
+        modelSelect.value = settings.selectedModel || '';
+        
+        // Show hint
+        const current = modelSelect.value;
+        if (current && modelHint) {
+          const profile = getProfileForModel(current);
+          modelHint.textContent = profile ? profile.description : 'Custom model';
+        }
+      }
+    } catch (e) {
+      if (modelSelect) {
+        modelSelect.innerHTML = '<option value="">Failed to load models</option>';
+        modelSelect.disabled = true;
+      }
+    }
+  }
+
+  function getProfileForModel(model: string) {
+    const profiles: Record<string, { description: string }> = {
+      'qwen2.5:3b': { description: 'Best quality - for 8 GB+ RAM computers' },
+      'qwen2.5:1.5b': { description: 'Good quality - optimized for 6 GB RAM' },
+      'qwen2.5:0.5b': { description: 'Fast and reliable - optimized for 4 GB RAM' }
+    };
+    return profiles[model];
+  }
+
+  if (modelSelect) {
+    modelSelect.addEventListener('change', () => {
+      const profile = getProfileForModel(modelSelect.value);
+      if (modelHint) modelHint.textContent = profile ? profile.description : 'Custom model';
+    });
+  }
+
+  if (refreshModelsBtn) {
+    refreshModelsBtn.addEventListener('click', loadModels);
+  }
+
+  if (redetectHardwareBtn) {
+    redetectHardwareBtn.addEventListener('click', async () => {
+      try {
+        const { profile } = await window.promptDesktop.redetectHardware();
+        if (modelHint) modelHint.textContent = profile.description;
+        // Update dropdown if model exists
+        if (modelSelect) {
+          const options = Array.from(modelSelect.options).map(o => o.value);
+          if (options.includes(profile.model)) {
+            modelSelect.value = profile.model;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to re-detect hardware:', e);
+      }
+    });
+  }
+
+  // Load settings on settings panel open
+  if (state.status === 'settings') {
+    const settings = await window.promptDesktop.getSettings();
+    document.querySelector<HTMLInputElement>('#setting-telemetry')!.checked = settings.telemetryEnabled ?? false;
+    document.querySelector<HTMLInputElement>('#setting-ollama-auto')!.checked = settings.ollamaAutoInstall !== false;
+    await loadModels();
+  }
+
+  document.querySelector('#setting-telemetry')?.addEventListener('change', async (e) => {
+    const target = e.target as HTMLInputElement;
+    await window.promptDesktop.saveSettings({ telemetryEnabled: target.checked });
+  });
+
+  document.querySelector('#setting-ollama-auto')?.addEventListener('change', async (e) => {
+    const target = e.target as HTMLInputElement;
+    await window.promptDesktop.saveSettings({ ollamaAutoInstall: target.checked });
+  });
+
+  // Load models on first settings open
+  if (state.status === 'settings') {
+    await loadModels();
+  }
 
   const copyButton = document.querySelector<HTMLButtonElement>('#copy-button');
   copyButton?.addEventListener('click', async () => {
@@ -290,7 +406,9 @@ function bindEvents(state: DesktopPopupState) {
       shortcut:
         document.querySelector<HTMLSelectElement>('#setting-shortcut')?.value || 'CommandOrControl+Alt+P',
       keepModelsWarm: document.querySelector<HTMLInputElement>('#setting-warm')?.checked ?? true,
-      historyEnabled: document.querySelector<HTMLInputElement>('#setting-history')?.checked ?? false
+      historyEnabled: document.querySelector<HTMLInputElement>('#setting-history')?.checked ?? false,
+      telemetryEnabled: document.querySelector<HTMLInputElement>('#setting-telemetry')?.checked ?? false,
+      ollamaAutoInstall: document.querySelector<HTMLInputElement>('#setting-ollama-auto')?.checked ?? true
     });
     await window.promptDesktop.close();
   });

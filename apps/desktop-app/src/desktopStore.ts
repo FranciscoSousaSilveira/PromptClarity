@@ -19,6 +19,7 @@ interface StoredData {
 
 export class DesktopStore {
   private data: StoredData;
+  private changeListeners: Map<string, Set<(value: any) => void>> = new Map();
 
   constructor(private readonly filePath: string) {
     this.data = this.read();
@@ -32,7 +33,26 @@ export class DesktopStore {
     this.data.settings = { ...this.data.settings, ...patch };
     this.trimHistory();
     this.write();
+    this.notifyChanges(patch);
     return this.settings;
+  }
+
+  private notifyChanges(patch: Partial<AppSettings>) {
+    for (const key of Object.keys(patch) as (keyof AppSettings)[]) {
+      const listeners = this.changeListeners.get(key);
+      if (listeners) {
+        for (const listener of listeners) {
+          listener(this.data.settings[key]);
+        }
+      }
+    }
+  }
+
+  onDidChange(key: string, listener: (value: any) => void) {
+    if (!this.changeListeners.has(key)) {
+      this.changeListeners.set(key, new Set());
+    }
+    this.changeListeners.get(key)!.add(listener);
   }
 
   get history(): PromptHistoryEntry[] {

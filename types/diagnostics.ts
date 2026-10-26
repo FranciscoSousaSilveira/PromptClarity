@@ -9,7 +9,7 @@ export interface RewriteDiagnostics {
   fallbackUsed: boolean;
 }
 
-export interface PromptGrammarlyDiagnostics {
+export interface PromptClarityDiagnostics {
   api: {
     status: 'ok' | 'degraded' | 'error';
     url: string;

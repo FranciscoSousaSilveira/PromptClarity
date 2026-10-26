@@ -5,7 +5,7 @@ import {
   type PerformanceMode,
   type RewriteIntervention
 } from '../config/product';
-import type { PromptGrammarlyDiagnostics, RewriteDiagnostics } from '../types/diagnostics';
+import type { PromptClarityDiagnostics, RewriteDiagnostics } from '../types/diagnostics';
 import type { LocalApiHealth } from '../types/health';
 import type { RewriteResult } from '../types/rewrite';
 
@@ -106,7 +106,7 @@ export function describeRewriteDiagnostic(reason: string | null | undefined): st
   return `Local validation reason: ${reason}`;
 }
 
-export function formatDiagnosticsReport(diagnostics: PromptGrammarlyDiagnostics): string[] {
+export function formatDiagnosticsReport(diagnostics: PromptClarityDiagnostics): string[] {
   const value = (input: unknown) => (input === null || input === undefined ? 'not available' : String(input));
   return [
     `API: ${diagnostics.api.status} (${value(diagnostics.api.latencyMs)} ms)`,
@@ -126,7 +126,7 @@ export function formatDiagnosticsReport(diagnostics: PromptGrammarlyDiagnostics)
 
 export async function collectLocalDiagnostics(
   options: CollectDiagnosticsOptions = {}
-): Promise<PromptGrammarlyDiagnostics> {
+): Promise<PromptClarityDiagnostics> {
   const fetchImpl = options.fetchImpl || fetch;
   const baseUrl = safeLocalHealthUrl(options.apiUrl);
   const mode = isPerformanceMode(options.mode) ? options.mode : 'fast';

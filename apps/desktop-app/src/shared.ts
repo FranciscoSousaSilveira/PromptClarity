@@ -1,6 +1,6 @@
 import type { RewriteIntervention } from '../../../config/product';
 import type { PopupSurface } from '../../../lib/popupState';
-import type { PromptGrammarlyDiagnostics } from '../../../types/diagnostics';
+import type { PromptClarityDiagnostics } from '../../../types/diagnostics';
 
 export interface ReviewIssue {
   title: string;
@@ -23,6 +23,10 @@ export interface DesktopSettingsView {
   shortcut: string;
   historyEnabled: boolean;
   historyLimit: number;
+  selectedModel?: string;
+  hardwareDetected?: boolean;
+  telemetryEnabled?: boolean;
+  ollamaAutoInstall?: boolean;
 }
 
 export interface DesktopHistoryEntry {
@@ -83,7 +87,7 @@ export type DesktopPopupState =
     }
   | {
       status: 'diagnostics';
-      diagnostics: PromptGrammarlyDiagnostics;
+      diagnostics: PromptClarityDiagnostics;
       hints: string[];
     };
 
@@ -97,4 +101,8 @@ export interface DesktopBridge {
   close: () => Promise<void>;
   saveSettings: (settings: Partial<DesktopSettingsView>) => Promise<DesktopSettingsView>;
   clearHistory: () => Promise<void>;
+  getModels: () => Promise<{ models: string[] }>;
+  redetectHardware: () => Promise<{ profile: { model: string; label: string; description: string } }>;
+  getSystemInfo: () => Promise<{ totalRAM: number }>;
+  getSettings: () => Promise<{ telemetryEnabled?: boolean; ollamaAutoInstall?: boolean; selectedModel?: string }>;
 }
