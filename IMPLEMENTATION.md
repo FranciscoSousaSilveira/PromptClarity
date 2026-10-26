@@ -35,32 +35,35 @@ Manages the lifecycle of bundled services (Ollama + API):
 ```typescript
 class ServiceManager {
   private services = new Map<string, ServiceInstance>();
-  
-  async startService(config: ServiceConfig): Promise<void>
-  async stopService(name: string): Promise<void>
-  async stopAll(): Promise<void>
-  isServiceReady(name: string): boolean
+
+  async startService(config: ServiceConfig): Promise<void>;
+  async stopService(name: string): Promise<void>;
+  async stopAll(): Promise<void>;
+  isServiceReady(name: string): boolean;
 }
 ```
 
 **Service Configuration:**
+
 ```typescript
 interface ServiceConfig {
   name: string;
-  command: string;           // Relative path from resources/
+  command: string; // Relative path from resources/
   args: string[];
-  healthUrl: string;         // HTTP endpoint for readiness
-  readyTimeoutMs: number;    // Max wait time for readiness
+  healthUrl: string; // HTTP endpoint for readiness
+  readyTimeoutMs: number; // Max wait time for readiness
   env?: Record<string, string>;
 }
 ```
 
 **Startup Sequence:**
+
 1. Start Ollama (`ollama/ollama.exe serve`) → wait for `http://127.0.0.1:11434/api/version`
 2. Start API (`api/server.exe`) → wait for `http://127.0.0.1:3000/api/health`
 3. Proceed to `checkOllamaAndModel()`
 
 **Graceful Shutdown:**
+
 - `SIGTERM` → 5s grace period → `SIGKILL`
 - Called in `app.on('before-quit')`
 
@@ -69,6 +72,7 @@ interface ServiceConfig {
 ### 2. Ollama Auto-Install & Model Management
 
 **First Launch Flow:**
+
 ```
 1. Detect RAM → recommend model (Fast/Balanced/Quality)
 2. Check if Ollama is running (ollama list)
@@ -81,18 +85,20 @@ interface ServiceConfig {
 ```
 
 **Auto-Install Logic (`installOllamaSilently`):**
+
 1. Downloads `OllamaSetup.exe` from GitHub Releases API
 2. Runs silent install: `OllamaSetup.exe /S /D=<install_dir>`
 3. Waits for `ollama list` to succeed (30s timeout)
 4. Falls back to manual dialog on failure
 
 **Model Profiles (detectHardwareProfile):**
-| RAM | Model | Label | Description |
-|-----|-------|-------|-------------|
-| ≥8 GB | `qwen2.5:3b` | Best quality | For 8 GB+ RAM |
-| 6 GB | `qwen2.5:1.5b` | Good quality | Optimized for 6 GB |
-| 4 GB | `qwen2.5:0.5b` | Fast & reliable | Optimized for 4 GB |
-| <4 GB | `qwen2.5:0.5b` | Lightweight | For limited RAM |
+
+| RAM   | Model          | Label           | Description        |
+| ----- | -------------- | --------------- | ------------------ |
+| ≥8 GB | `qwen2.5:3b`   | Best quality    | For 8 GB+ RAM      |
+| 6 GB  | `qwen2.5:1.5b` | Good quality    | Optimized for 6 GB |
+| 4 GB  | `qwen2.5:0.5b` | Fast & reliable | Optimized for 4 GB |
+| <4 GB | `qwen2.5:0.5b` | Lightweight     | For limited RAM    |
 
 ---
 
@@ -101,6 +107,7 @@ interface ServiceConfig {
 Captures text from any application using Windows UI Automation + SendKeys.
 
 **Capture Flow:**
+
 ```powershell
 # 1. Find target window (skip Electron/Ollama/PromptClarity windows)
 $target = Get-ValidTargetWindow  # Z-order traversal, skip Electron/Ollama/PromptClarity
@@ -143,6 +150,7 @@ return @{
 ```
 
 **Key Features:**
+
 - **Focus verification** — Confirms target window has foreground before sending keys
 - **Sentinel pattern** — Writes unique sentinel to clipboard before copy; verifies clipboard changed
 - **Focus verification** — After `SetForegroundWindow`, confirms `GetForegroundWindow() === target`
@@ -154,6 +162,7 @@ return @{
 ### 3. Electron Main Process (`main.ts`)
 
 **Key Responsibilities:**
+
 - Global hotkey registration (`Ctrl+Alt+P`)
 - Tray icon + context menu
 - Popup window management (frameless, always-on-top)
@@ -163,12 +172,14 @@ return @{
 - Ollama/Model management
 
 **Key Functions:**
+
 - `captureAndAnalyze()` — Hotkey handler with 15s timeout, AbortController
 - `checkOllamaAndModel()` — Ollama detection, model selection, auto-install
 - `analyzeSession()` → `rewritePromptWithModel()` → UI update
 - `insertImprovedPrompt()` / `undoLastInsertion()` — Clipboard + paste workflow
 
 **Concurrency Control:**
+
 - `captureInProgress` / `analysisInProgress` flags
 - `AbortController` for 15s capture timeout
 - `Promise.race` for clipboard wait (2s timeout)
@@ -182,14 +193,15 @@ class ServiceManager {
   private services = new Map<string, ServiceInstance>();
   private isShuttingDown = false;
 
-  async startService(config: ServiceConfig): Promise<void>
-  async stopService(name: string): Promise<void>
-  async stopAll(): Promise<void>
-  isServiceReady(name: string): boolean
+  async startService(config: ServiceConfig): Promise<void>;
+  async stopService(name: string): Promise<void>;
+  async stopAll(): Promise<void>;
+  isServiceReady(name: string): boolean;
 }
 ```
 
 **Request/Response Protocol:**
+
 - JSON lines over stdin/stdout
 - Request: `{ id, command, sentinel, originalHandle }`
 - Response: `{ id, ok, result, error }`
@@ -202,10 +214,12 @@ class ServiceManager {
 Persistent PowerShell process communicating via stdin/stdout JSON.
 
 **Commands:**
+
 - `capture` → Returns capture diagnostics
 - `paste` → Focuses window + `Ctrl+V` (or `Ctrl+A` + `Ctrl+V`)
 
 **Focus Verification:**
+
 ```powershell
 $beforeFocus = GetForegroundWindow()
 SetForegroundWindow($handle)
@@ -219,26 +233,29 @@ $focusConfirmed = ($afterFocus -eq $handle)
 ### 5. Settings & Persistence (`desktopStore.ts`, `types/settings.ts`)
 
 **Settings Schema:**
+
 ```typescript
 interface AppSettings {
   performanceMode: 'fast' | 'balanced' | 'quality';
   language: 'auto' | 'en' | 'pt-PT';
   autoOpen: boolean;
   keepModelsWarm: boolean;
-  shortcut: string;                    // default: 'CommandOrControl+Alt+P'
+  shortcut: string; // default: 'CommandOrControl+Alt+P'
   historyEnabled: boolean;
-  historyLimit: number;                // default: 20
-  selectedModel?: string;              // e.g., 'qwen2.5:3b'
-  hardwareDetected?: boolean;          // first-run flag
-  telemetryEnabled?: boolean;          // default: false
-  ollamaAutoInstall?: boolean;         // default: true
+  historyLimit: number; // default: 20
+  selectedModel?: string; // e.g., 'qwen2.5:3b'
+  hardwareDetected?: boolean; // first-run flag
+  telemetryEnabled?: boolean; // default: false
+  ollamaAutoInstall?: boolean; // default: true
 }
 ```
 
 **Change Notification:**
+
 ```typescript
 onDidChange(key: string, listener: (value: any) => void)
 ```
+
 Used by telemetry to react to `telemetryEnabled` changes.
 
 ---
@@ -248,18 +265,21 @@ Used by telemetry to react to `telemetryEnabled` changes.
 **Opt-in Only** — Disabled by default, enabled in Settings → Privacy.
 
 **Events Tracked:**
+
 - `app_start` — Platform, arch, version
 - `capture_success` — `copiedLength`, `selectionState`, duration
 - `telemetry_enabled` / `telemetry_disabled`
 - `model_download_start` / `capture_timeout` / `capture_error`
 
 **Crash Reports:**
+
 - `uncaughtException` / `unhandledRejection`
 - Uses `navigator.sendBeacon` for reliability
 - Context: `captureInProgress`, `analysisInProgress`, `selectedModel`
 - **No PII** — No prompt text, clipboard, file paths
 
 **Endpoints:**
+
 - `https://telemetry.promptclarity.app/v1/events`
 - `https://telemetry.promptclarity.app/v1/crashes`
 
@@ -270,6 +290,7 @@ Used by telemetry to react to `telemetryEnabled` changes.
 **Endpoint:** `POST http://127.0.0.1:3000/api/rewrite`
 
 **Request:**
+
 ```json
 {
   "prompt": "string",
@@ -283,6 +304,7 @@ Used by telemetry to react to `telemetryEnabled` changes.
 ```
 
 **Response:**
+
 ```json
 {
   "rewrittenPrompt": "string",
@@ -297,6 +319,7 @@ Used by telemetry to react to `telemetryEnabled` changes.
 ```
 
 **Validation (`modelPromptRewriter.ts`):**
+
 - Ensures output represents original intent
 - Rejects responses that add requirements, refuse, or comment
 - Falls back to conservative local rewriter on failure
@@ -306,6 +329,7 @@ Used by telemetry to react to `telemetryEnabled` changes.
 ### 6. Prompt Analysis Pipeline (`lib/`)
 
 **Pipeline:**
+
 ```
 promptAnalyzer.ts    →  Full analysis (score, issues, strengths, rewritten)
 promptRewriter.ts    →  Conservative fallback (no semantic expansion)
@@ -350,15 +374,15 @@ User presses Ctrl+Alt+P
 
 ## Concurrency & Timeouts
 
-| Operation | Timeout | Mechanism |
-|-----------|---------|-----------|
-| Capture (helper) | 15s | `AbortController` + `Promise.race` |
-| Clipboard wait | 2s | `Promise.race` + `setTimeout` |
-| Ollama startup | 30s | Health check polling |
-| API startup | 15s | Health check polling |
-| Ollama model pull | 180s | `execFile` timeout |
-| Ollama install | 180s | `execFile` timeout |
-| Service shutdown | 5s grace | `SIGTERM` → `SIGKILL` |
+| Operation         | Timeout  | Mechanism                          |
+| ----------------- | -------- | ---------------------------------- |
+| Capture (helper)  | 15s      | `AbortController` + `Promise.race` |
+| Clipboard wait    | 2s       | `Promise.race` + `setTimeout`      |
+| Ollama startup    | 30s      | Health check polling               |
+| API startup       | 15s      | Health check polling               |
+| Ollama model pull | 180s     | `execFile` timeout                 |
+| Ollama install    | 180s     | `execFile` timeout                 |
+| Service shutdown  | 5s grace | `SIGTERM` → `SIGKILL`              |
 
 ---
 
@@ -370,8 +394,9 @@ let analysisInProgress = false;
 const captureController = new AbortController();
 
 async function captureAndAnalyze() {
-  if (captureInProgress) return;  // Ignore duplicate hotkey
-  if (analysisInProgress) {       // Abort ongoing analysis
+  if (captureInProgress) return; // Ignore duplicate hotkey
+  if (analysisInProgress) {
+    // Abort ongoing analysis
     modelAbortController?.abort();
     analysisSequence++;
     analysisInProgress = false;
@@ -379,12 +404,14 @@ async function captureAndAnalyze() {
   captureInProgress = true;
   const captureController = new AbortController();
   const captureTimeout = setTimeout(() => captureController.abort(), 15000);
-  
+
   try {
     const capture = await copySelectionAndCaptureWindow(sentinel, captureController.signal);
     // ...
   } catch (error) {
-    if (error.name === 'AbortError') { /* handled */ }
+    if (error.name === 'AbortError') {
+      /* handled */
+    }
   } finally {
     clearTimeout(captureTimeout);
     captureInProgress = false;
@@ -401,12 +428,13 @@ import { autoUpdater } from 'electron-updater';
 
 app.whenReady().then(async () => {
   initTelemetry();
-  autoUpdater.checkForUpdatesAndNotify().catch(err => console.error('Update check failed:', err));
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => console.error('Update check failed:', err));
   // ...
 });
 ```
 
 **Configuration (`package.json`):**
+
 ```json
 {
   "publish": { "provider": "github", "owner": "owner", "repo": "PromptClarity" },
@@ -443,6 +471,7 @@ app.whenReady().then(async () => {
 ```
 
 **Build Steps:**
+
 1. `scripts/download-ollama.mjs` → Downloads `OllamaSetup.exe` from GitHub Releases
 2. `scripts/build-api.mjs` → `npm run build` in `app/` → copies `.next/standalone` to `resources/api/api`
 3. `scripts/build.mjs` → esbuild bundles `main.ts`, `preload.ts`, `renderer.ts`
@@ -502,6 +531,7 @@ PromptClarity/
 ## Configuration
 
 ### `config/product.ts`
+
 ```typescript
 export const PRODUCT = {
   name: 'PromptClarity',
@@ -519,6 +549,7 @@ export const MODEL_PROFILES: Record<PerformanceMode, ModelProfile> = {
 ```
 
 ### `types/settings.ts`
+
 ```typescript
 export interface AppSettings {
   performanceMode: PerformanceMode;
@@ -550,14 +581,14 @@ export interface AppSettings {
 
 ## Troubleshooting Guide
 
-| Symptom | Likely Cause | Resolution |
-|---------|--------------|------------|
-| Shortcut ignored | Another instance running | Close tray instances; check Settings → Shortcut |
-| Model not downloading | No internet / disk full | Check network; Settings → Model → retry |
-| Ollama won't start | Port 11434 busy / AV blocking | `netstat -ano | findstr 11434`; check AV exclusions |
-| "Prompt not detected" | No selection / cursor not at end | Select text or place cursor at end; try `Ctrl+A` |
-| Slow first rewrite | Model not warmed | Enable "Keep models in memory"; wait for warm-up |
-| Model adds content | Validation failed | Falls back to conservative rewriter; check Diagnostics |
+| Symptom               | Likely Cause                     | Resolution                                             |
+| --------------------- | -------------------------------- | ------------------------------------------------------ |
+| Shortcut ignored      | Another instance running         | Close tray instances; check Settings → Shortcut        |
+| Model not downloading | No internet / disk full          | Check network; Settings → Model → retry                |
+| Ollama won't start    | Port 11434 busy / AV blocking    | `netstat -ano                                          | findstr 11434`; check AV exclusions |
+| "Prompt not detected" | No selection / cursor not at end | Select text or place cursor at end; try `Ctrl+A`       |
+| Slow first rewrite    | Model not warmed                 | Enable "Keep models in memory"; wait for warm-up       |
+| Model adds content    | Validation failed                | Falls back to conservative rewriter; check Diagnostics |
 
 ---
 

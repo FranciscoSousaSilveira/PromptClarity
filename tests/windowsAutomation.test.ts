@@ -20,7 +20,10 @@ describe('WindowsAutomation unit tests', () => {
 
     const automation = new WindowsAutomation();
     // Inject mock request
-    vi.spyOn(automation as unknown as { request: (...args: unknown[]) => Promise<{ result: WindowsCaptureResult }> }, 'request').mockResolvedValue({
+    vi.spyOn(
+      automation as unknown as { request: (...args: unknown[]) => Promise<{ result: WindowsCaptureResult }> },
+      'request'
+    ).mockResolvedValue({
       result: mockResult
     });
 
@@ -57,7 +60,10 @@ describe('WindowsAutomation unit tests', () => {
     };
 
     const automation = new WindowsAutomation();
-    vi.spyOn(automation as unknown as { request: (...args: unknown[]) => Promise<{ result: WindowsCaptureResult }> }, 'request').mockResolvedValue({
+    vi.spyOn(
+      automation as unknown as { request: (...args: unknown[]) => Promise<{ result: WindowsCaptureResult }> },
+      'request'
+    ).mockResolvedValue({
       result: mockResult
     });
 

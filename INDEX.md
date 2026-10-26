@@ -7,55 +7,60 @@ Welcome to the PromptClarity documentation. PromptClarity is a standalone Window
 ## 📚 Documentation Index
 
 ### 🚀 Getting Started
-| Document | Description |
-|----------|-------------|
-| [README.md](README.md) | Project overview, quick start, architecture, development |
-| [INSTALL.md](INSTALL.md) | End-user installation guide (standalone installer) |
-| [QUICKSTART.md](QUICKSTART.md) | Legacy VS Code MVP guide (historical) |
+
+| Document                       | Description                                              |
+| ------------------------------ | -------------------------------------------------------- |
+| [README.md](README.md)         | Project overview, quick start, architecture, development |
+| [INSTALL.md](INSTALL.md)       | End-user installation guide (standalone installer)       |
+| [QUICKSTART.md](QUICKSTART.md) | Legacy VS Code MVP guide (historical)                    |
 
 ### 👤 User Guides
-| Document | Description |
-|----------|-------------|
+
+| Document                     | Description                                                |
+| ---------------------------- | ---------------------------------------------------------- |
 | [APP_GUIDE.md](APP_GUIDE.md) | Complete application guide (desktop, Chrome, VS Code, API) |
-| [INSTALL.md](INSTALL.md) | End-user installation guide |
-| [PRIVACY.md](PRIVACY.md) | Privacy policy, telemetry, data handling |
+| [INSTALL.md](INSTALL.md)     | End-user installation guide                                |
+| [PRIVACY.md](PRIVACY.md)     | Privacy policy, telemetry, data handling                   |
 
 ### 🛠️ Developer & Maintainer Guides
-| Document | Description |
-|----------|-------------|
-| [IMPLEMENTATION.md](IMPLEMENTATION.md) | Complete architecture, data flow, components |
-| [DEPLOY.md](DEPLOY.md) | Deployment guide (code signing, CI/CD, releases) |
-| [SECURITY.md](SECURITY.md) | Security policy, threat model, code signing |
-| [PRIVACY.md](PRIVACY.md) | Privacy policy, telemetry, data handling |
-| [SECURITY.md](SECURITY.md) | Security policy, threat model, code signing |
+
+| Document                               | Description                                      |
+| -------------------------------------- | ------------------------------------------------ |
+| [IMPLEMENTATION.md](IMPLEMENTATION.md) | Complete architecture, data flow, components     |
+| [DEPLOY.md](DEPLOY.md)                 | Deployment guide (code signing, CI/CD, releases) |
+| [SECURITY.md](SECURITY.md)             | Security policy, threat model, code signing      |
+| [PRIVACY.md](PRIVACY.md)               | Privacy policy, telemetry, data handling         |
+| [SECURITY.md](SECURITY.md)             | Security policy, threat model, code signing      |
 
 ### 📦 Release & Packaging
-| Document | Description |
-|----------|-------------|
-| [RELEASE.md](RELEASE.md) | Release process, versioning, changelog |
-| [DEPLOY.md](DEPLOY.md) | Deployment pipeline, code signing, GitHub Actions |
+
+| Document                 | Description                                       |
+| ------------------------ | ------------------------------------------------- |
+| [RELEASE.md](RELEASE.md) | Release process, versioning, changelog            |
+| [DEPLOY.md](DEPLOY.md)   | Deployment pipeline, code signing, GitHub Actions |
 
 ### 🔒 Security & Compliance
-| Document | Description |
-|----------|-------------|
+
+| Document                   | Description                                            |
+| -------------------------- | ------------------------------------------------------ |
 | [SECURITY.md](SECURITY.md) | Security policy, vulnerability reporting, threat model |
-| [PRIVACY.md](PRIVACY.md) | Privacy policy, telemetry opt-in, data handling |
-| [SECURITY.md](SECURITY.md) | Code signing, threat model, incident response |
+| [PRIVACY.md](PRIVACY.md)   | Privacy policy, telemetry opt-in, data handling        |
+| [SECURITY.md](SECURITY.md) | Code signing, threat model, incident response          |
 
 ---
 
 ## 🚀 Quick Links
 
-| Task | Command |
-|------|---------|
-| **Install dependencies** | `npm install` |
-| **Build desktop app** | `npm run desktop:build` |
-| **Run tests** | `npm test` |
-| **Type check** | `npm run desktop:typecheck` |
-| **Lint** | `npm run lint` |
-| **Package installer** | `npm run package:desktop` |
-| **Run dev mode** | `npm run desktop:dev` |
-| **Run diagnostics** | `npm run diagnostics` |
+| Task                     | Command                     |
+| ------------------------ | --------------------------- |
+| **Install dependencies** | `npm install`               |
+| **Build desktop app**    | `npm run desktop:build`     |
+| **Run tests**            | `npm test`                  |
+| **Type check**           | `npm run desktop:typecheck` |
+| **Lint**                 | `npm run lint`              |
+| **Package installer**    | `npm run package:desktop`   |
+| **Run dev mode**         | `npm run desktop:dev`       |
+| **Run diagnostics**      | `npm run diagnostics`       |
 
 ---
 
@@ -109,15 +114,15 @@ npm run package:desktop      # Creates PromptClarity Setup 0.2.0.exe
 
 ## 📋 Quick Reference
 
-| Feature | Implementation |
-|---------|----------------|
-| **Hotkey** | `Ctrl+Alt+P` (configurable) |
-| **Auto model select** | RAM detection on first run |
+| Feature                 | Implementation                                  |
+| ----------------------- | ----------------------------------------------- |
+| **Hotkey**              | `Ctrl+Alt+P` (configurable)                     |
+| **Auto model select**   | RAM detection on first run                      |
 | **Ollama auto-install** | Silent install if missing (opt-out in Settings) |
-| **Model selector** | Settings → Model dropdown + Re-detect button |
-| **Telemetry** | Opt-in only (Settings → Privacy) |
-| **Auto-updater** | GitHub Releases + electron-updater |
-| **Code signing** | EV certificate required for release |
+| **Model selector**      | Settings → Model dropdown + Re-detect button    |
+| **Telemetry**           | Opt-in only (Settings → Privacy)                |
+| **Auto-updater**        | GitHub Releases + electron-updater              |
+| **Code signing**        | EV certificate required for release             |
 
 ---
 

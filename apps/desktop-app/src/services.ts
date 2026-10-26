@@ -28,9 +28,7 @@ export class ServiceManager {
   private getResourcePath(relativePath: string): string {
     // In development: resources are in the project
     // In production: resources are in the app.asar.unpacked or alongside the executable
-    const base = app.isPackaged
-      ? join(nodeProcess.resourcesPath)
-      : join(__dirname, '..', '..', 'resources');
+    const base = app.isPackaged ? join(nodeProcess.resourcesPath) : join(__dirname, '..', '..', 'resources');
     return join(base, relativePath);
   }
 
@@ -98,7 +96,7 @@ export class ServiceManager {
       } catch {
         // Not ready yet
       }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     throw new Error(`${serviceName} failed to become ready within ${readyTimeoutMs}ms`);
@@ -132,7 +130,7 @@ export class ServiceManager {
   async stopAll(): Promise<void> {
     this.isShuttingDown = true;
     const names = Array.from(this.services.keys());
-    await Promise.all(names.map(name => this.stopService(name)));
+    await Promise.all(names.map((name) => this.stopService(name)));
   }
 
   isServiceReady(name: string): boolean {

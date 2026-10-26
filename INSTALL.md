@@ -4,12 +4,12 @@
 
 ### System Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| OS | Windows 10 1909+ | Windows 11 |
-| RAM | 4 GB | 8+ GB |
-| Disk | 3 GB free | 5 GB free |
-| CPU | x64 | Modern x64 |
+| Component | Minimum          | Recommended |
+| --------- | ---------------- | ----------- |
+| OS        | Windows 10 1909+ | Windows 11  |
+| RAM       | 4 GB             | 8+ GB       |
+| Disk      | 3 GB free        | 5 GB free   |
+| CPU       | x64              | Modern x64  |
 
 **No Ollama, Node.js, or Python pre-installed required** — everything bundles inside the installer.
 
@@ -60,13 +60,13 @@ The model downloads in the background (shows progress balloon). Once done, you'r
 
 ### Settings (Right-click tray → Settings)
 
-| Section | Options |
-|---------|---------|
-| **Model** | Dropdown of installed models + Refresh/Re-detect buttons |
-| **Performance** | Fast / Balanced / Quality |
-| **Shortcut** | Ctrl+Alt+P / Ctrl+Shift+P / Ctrl+Alt+G |
-| **Privacy** | Telemetry (opt-in), Ollama auto-install (default: on) |
-| **History** | Enable/disable local history |
+| Section         | Options                                                  |
+| --------------- | -------------------------------------------------------- |
+| **Model**       | Dropdown of installed models + Refresh/Re-detect buttons |
+| **Performance** | Fast / Balanced / Quality                                |
+| **Shortcut**    | Ctrl+Alt+P / Ctrl+Shift+P / Ctrl+Alt+G                   |
+| **Privacy**     | Telemetry (opt-in), Ollama auto-install (default: on)    |
+| **History**     | Enable/disable local history                             |
 
 ---
 
@@ -74,7 +74,7 @@ The model downloads in the background (shows progress balloon). Once done, you'r
 
 1. Open Windows Settings → Apps → Installed apps
 2. Find "PromptClarity" → click ••• → Uninstall
-2. This removes the app but **keeps** your Ollama models and settings in `%LOCALAPPDATA%\PromptClarity Desktop`
+3. This removes the app but **keeps** your Ollama models and settings in `%LOCALAPPDATA%\PromptClarity Desktop`
 
 ---
 
@@ -117,17 +117,18 @@ npm run package:desktop
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
+| Issue                     | Solution                                                               |
+| ------------------------- | ---------------------------------------------------------------------- |
 | **Shortcut doesn't work** | Close other PromptClarity instances in tray; check Settings → Shortcut |
-| **Model not downloading** | Check internet; retry in Settings → Model; verify disk space |
-| **Ollama won't start** | Check port 11434 free; check antivirus; check Diagnostics |
-| **Slow first run** | Enable "Keep models in memory" in Settings; wait for warm-up |
-| **"Prompt not detected"** | Select text or place cursor at end; try `Ctrl+A` then `Ctrl+Alt+P` |
+| **Model not downloading** | Check internet; retry in Settings → Model; verify disk space           |
+| **Ollama won't start**    | Check port 11434 free; check antivirus; check Diagnostics              |
+| **Slow first run**        | Enable "Keep models in memory" in Settings; wait for warm-up           |
+| **"Prompt not detected"** | Select text or place cursor at end; try `Ctrl+A` then `Ctrl+Alt+P`     |
 
 ### Diagnostics
 
 Open **Diagnostics** from tray menu or run:
+
 ```powershell
 npm run diagnostics
 ```
@@ -143,6 +144,7 @@ Shows: API status, Ollama status, model, RAM, last rewrite status.
 3. This removes the app but **keeps** your Ollama models and settings in `%LOCALAPPDATA%\PromptClarity Desktop`
 
 To fully remove everything:
+
 ```powershell
 # Remove Ollama (if you don't use it elsewhere)
 winget uninstall Ollama.Ollama

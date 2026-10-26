@@ -27,11 +27,12 @@ Located in `apps/desktop-app/` and built with Electron + TypeScript.
 4. The prompt is sent only to `127.0.0.1`
 5. The popup shows the corrected version or a confirmation checkmark
 6. **Copy** copies the result; **Insert** replaces the text in the original application
-3. **Undo** restores the previous version when available
+7. **Undo** restores the previous version when available
 
 The application stays in the system tray. The menu allows changing performance mode, shortcut, local history, model warm-up, and opening diagnostics.
 
 **New in 0.2.0:**
+
 - **Bundled Ollama** — No separate installation required; Ollama is bundled and auto-starts
 - **Auto model selection** — On first launch, detects RAM and recommends optimal model (Fast/Balanced/Quality)
 - **Auto Ollama install** — If Ollama is missing, offers to download and install silently (opt-out in Settings)
@@ -92,6 +93,7 @@ Invalid responses are not cached.
 Models can remain in memory to reduce first-rewrite latency. The application pre-warms the selected mode automatically.
 
 **Auto-selection on first run:** Detects system RAM and recommends optimal model:
+
 - 8+ GB → `qwen2.5:3b` (Quality)
 - 6 GB → `qwen2.5:1.5b` (Balanced)
 - 4 GB → `qwen2.5:0.5b` (Fast)

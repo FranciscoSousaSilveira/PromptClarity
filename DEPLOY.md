@@ -10,12 +10,12 @@ This guide covers the complete deployment pipeline for PromptClarity, from code 
 
 ### Required Accounts & Tools
 
-| Tool | Purpose |
-|------|---------|
-| **GitHub** | Source control + Releases |
+| Tool                              | Purpose                    |
+| --------------------------------- | -------------------------- |
+| **GitHub**                        | Source control + Releases  |
 | **Code Signing Certificate** (EV) | Remove SmartScreen warning |
-| **GitHub Actions** | CI/CD automation |
-| **Windows 10/11 build machine** | NSIS packaging |
+| **GitHub Actions**                | CI/CD automation           |
+| **Windows 10/11 build machine**   | NSIS packaging             |
 
 ### Code Signing Certificate
 
@@ -27,11 +27,12 @@ Microsoft Defender SmartScreen prevented an unrecognized app from starting.
 ```
 
 **Options:**
-| Provider | Cost/yr | Type |
-|----------|---------|------|
-| Sectigo | ~$200 | EV Code Signing |
-| DigiCert | ~$400 | EV Code Signing |
-| GlobalSign | ~$300 | EV Code Signing |
+
+| Provider   | Cost/yr | Type            |
+| ---------- | ------- | --------------- |
+| Sectigo    | ~$200   | EV Code Signing |
+| DigiCert   | ~$400   | EV Code Signing |
+| GlobalSign | ~$300   | EV Code Signing |
 
 **EV Certificate Required** — standard certificates still show warnings until reputation builds.
 
@@ -93,38 +94,38 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 60
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run tests
         run: npm test
-      
+
       - name: Type check
         run: npm run desktop:typecheck
-      
+
       - name: Lint
         run: npm run lint
-      
+
       - name: Build desktop app
         run: npm run desktop:build
-      
+
       - name: Package installer
         run: npm --prefix apps/desktop-app run package
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -138,11 +139,11 @@ jobs:
 
 ### Required GitHub Secrets
 
-| Secret | Description |
-|--------|-------------|
-| `CSC_LINK` | Base64-encoded .pfx certificate |
-| `CSC_KEY_PASSWORD` | Certificate password |
-| `GITHUB_TOKEN` | Auto-provided by GitHub |
+| Secret             | Description                     |
+| ------------------ | ------------------------------- |
+| `CSC_LINK`         | Base64-encoded .pfx certificate |
+| `CSC_KEY_PASSWORD` | Certificate password            |
+| `GITHUB_TOKEN`     | Auto-provided by GitHub         |
 
 ---
 
@@ -168,14 +169,8 @@ signtool verify /pa "release/desktop/PromptClarity Setup 0.2.0.exe"
     "appId": "com.promptclarity.desktop",
     "productName": "PromptClarity",
     "asar": true,
-    "files": [
-      "dist/**/*",
-      "resources/**/*",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "resources/**/*"
-    ],
+    "files": ["dist/**/*", "resources/**/*", "package.json"],
+    "asarUnpack": ["resources/**/*"],
     "directories": {
       "output": "../../release/desktop"
     },
@@ -239,7 +234,7 @@ signtool verify /pa "release/desktop/PromptClarity Setup 0.2.0.exe"
 import { autoUpdater } from 'electron-updater';
 
 app.whenReady().then(async () => {
-  autoUpdater.checkForUpdatesAndNotify().catch(err => console.error('Update check failed:', err));
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => console.error('Update check failed:', err));
 });
 ```
 
@@ -264,6 +259,7 @@ npm run desktop:dev
 
 1. **60 days before expiry**: Order new certificate
 2. **30 days before**: Install new cert, test signing
+
 - [ ] Update `CSC_LINK` and `CSC_KEY_PASSWORD` GitHub secrets
 - [ ] Test build on GitHub Actions
 - [ ] Verify signature on installer
@@ -280,13 +276,13 @@ openssl pkcs12 -in cert.pfx -out cert-backup.pem -nodes
 
 ## Troubleshooting Deployment
 
-| Issue | Solution |
-|-------|----------|
-| **Signtool fails** | Verify cert not expired, password correct, cert has private key |
-| **GitHub Actions timeout** | Increase `timeout-minutes` in workflow; check network |
-| **NSIS build fails** | Check `asarUnpack` includes `resources/**/*` |
-| **Auto-updater fails** | Check GitHub Release is published (not draft); check `publish` config |
-| **SmartScreen still warns** | Verify EV cert; check `signtool verify /pa installer.exe` |
+| Issue                       | Solution                                                              |
+| --------------------------- | --------------------------------------------------------------------- |
+| **Signtool fails**          | Verify cert not expired, password correct, cert has private key       |
+| **GitHub Actions timeout**  | Increase `timeout-minutes` in workflow; check network                 |
+| **NSIS build fails**        | Check `asarUnpack` includes `resources/**/*`                          |
+| **Auto-updater fails**      | Check GitHub Release is published (not draft); check `publish` config |
+| **SmartScreen still warns** | Verify EV cert; check `signtool verify /pa installer.exe`             |
 
 ---
 
@@ -309,7 +305,7 @@ If a bad release ships:
 1. **GitHub Releases**: Delete the bad release + assets
 2. **Tag**: `git tag -d v0.3.0 && git push origin :refs/tags/v0.3.0`
 3. **Re-tag**: `git tag v0.2.1 && git push origin v0.2.1`
-3. **Auto-updater**: Users on bad version won't see update (no newer version)
+4. **Auto-updater**: Users on bad version won't see update (no newer version)
 
 ---
 

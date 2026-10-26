@@ -3,9 +3,9 @@
 ## Supported Versions
 
 | Version | Supported |
-|---------|-----------|
-| 0.2.x   | ✅ Yes |
-| < 0.2.0 | ❌ No |
+| ------- | --------- |
+| 0.2.x   | ✅ Yes    |
+| < 0.2.0 | ❌ No     |
 
 ---
 
@@ -25,10 +25,10 @@
 
 ### Zero-Cloud Design
 
-| Component | Network |
-|-----------|---------|
-| Prompt Processing | `127.0.0.1:3000` (local API) |
-| LLM Inference | `127.0.0.1:11434` (Ollama) |
+| Component            | Network                                       |
+| -------------------- | --------------------------------------------- |
+| Prompt Processing    | `127.0.0.1:3000` (local API)                  |
+| LLM Inference        | `127.0.0.1:11434` (Ollama)                    |
 | External Connections | GitHub Releases (updates), Telemetry (opt-in) |
 
 **No cloud APIs, no account system, no prompt storage.**
@@ -37,14 +37,14 @@
 
 ## Threat Model
 
-| Threat | Mitigation |
-|--------|------------|
-| Prompt exfiltration | Zero cloud — all processing local |
-| Clipboard theft | Read/restore within same process; no logging |
-| Model poisoning | Local models only; validation rejects non-copy-edit output |
-| Supply chain | Signed releases; pinned dependencies; `npm audit` in CI |
-| Auto-update hijack | Signed releases + `electron-updater` signature verification |
-| Telemetry abuse | Opt-in only; no PII; crash reports via `sendBeacon` |
+| Threat              | Mitigation                                                  |
+| ------------------- | ----------------------------------------------------------- |
+| Prompt exfiltration | Zero cloud — all processing local                           |
+| Clipboard theft     | Read/restore within same process; no logging                |
+| Model poisoning     | Local models only; validation rejects non-copy-edit output  |
+| Supply chain        | Signed releases; pinned dependencies; `npm audit` in CI     |
+| Auto-update hijack  | Signed releases + `electron-updater` signature verification |
+| Telemetry abuse     | Opt-in only; no PII; crash reports via `sendBeacon`         |
 
 ---
 
@@ -52,12 +52,12 @@
 
 ### Production Releases
 
-| Artifact | Signed |
-|-----------|--------|
-| `PromptClarity Setup *.exe` | ✅ EV Code Signing |
-| `PromptClarity.exe` | ✅ EV Code Signing |
-| `ollama.exe` | ✅ Signed by Ollama team |
-| `api/server.exe` | ✅ Signed by build pipeline |
+| Artifact                    | Signed                      |
+| --------------------------- | --------------------------- |
+| `PromptClarity Setup *.exe` | ✅ EV Code Signing          |
+| `PromptClarity.exe`         | ✅ EV Code Signing          |
+| `ollama.exe`                | ✅ Signed by Ollama team    |
+| `api/server.exe`            | ✅ Signed by build pipeline |
 
 **Certificate:** EV Code Signing (Sectigo/DigiCert/GlobalSign)
 **Timestamp:** RFC 3161 (Sectigo/DigiCert timestamp server)
@@ -92,13 +92,13 @@ signtool verify /pa "PromptClarity.exe"
 
 ### Dependency Policy
 
-| Policy | Rule |
-|--------|------|
-| Direct deps | Pinned to exact versions (`package-lock.json`) |
-| Transitive | Locked via `package-lock.json` |
+| Policy          | Rule                                           |
+| --------------- | ---------------------------------------------- |
+| Direct deps     | Pinned to exact versions (`package-lock.json`) |
+| Transitive      | Locked via `package-lock.json`                 |
 | Vulnerabilities | `npm audit` in CI; high/critical block release |
-| Licenses | MIT/Apache-2.0/BSD/ISC only |
-| Updates | Monthly `npm update` + manual review |
+| Licenses        | MIT/Apache-2.0/BSD/ISC only                    |
+| Updates         | Monthly `npm update` + manual review           |
 
 ---
 
@@ -117,21 +117,21 @@ signtool verify /pa "PromptClarity.exe"
 
 ### Security Controls
 
-| Control | Implementation |
-|--------|----------------|
-| Transport | HTTPS only |
-| Signature verification | `electron-updater` internal (Ed25519) |
-| Downgrade protection | Version comparison (semver) |
-| Rollback | Previous version retained in `%LOCALAPPDATA%\PromptClarity Desktop\backup` |
-| User consent | Explicit prompt before install |
+| Control                | Implementation                                                             |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Transport              | HTTPS only                                                                 |
+| Signature verification | `electron-updater` internal (Ed25519)                                      |
+| Downgrade protection   | Version comparison (semver)                                                |
+| Rollback               | Previous version retained in `%LOCALAPPDATA%\PromptClarity Desktop\backup` |
+| User consent           | Explicit prompt before install                                             |
 
 ### Update Server
 
-| Provider | GitHub Releases |
-|----------|-----------------|
-| Auth | None (public releases) |
+| Provider  | GitHub Releases                |
+| --------- | ------------------------------ |
+| Auth      | None (public releases)         |
 | Signature | Ed25519 via `electron-updater` |
-| Channel | `latest` (stable) |
+| Channel   | `latest` (stable)              |
 
 ---
 
@@ -139,13 +139,13 @@ signtool verify /pa "PromptClarity.exe"
 
 ### Certificate Requirements
 
-| Requirement | Specification |
-|-------------|---------------|
-| Type | EV Code Signing |
-| Provider | Sectigo / DigiCert / GlobalSign |
-| Key Size | RSA 3072+ / ECDSA P-384 |
-| Hash | SHA-256 |
-| Timestamp | RFC 3161 |
+| Requirement | Specification                   |
+| ----------- | ------------------------------- |
+| Type        | EV Code Signing                 |
+| Provider    | Sectigo / DigiCert / GlobalSign |
+| Key Size    | RSA 3072+ / ECDSA P-384         |
+| Hash        | SHA-256                         |
+| Timestamp   | RFC 3161                        |
 
 ### Signing Process
 
@@ -195,11 +195,11 @@ npm audit --audit-level=high
 
 ### Secrets Management
 
-| Secret | Storage |
-|--------|---------|
-| Code signing cert | GitHub Secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`) |
-| Telemetry endpoint | Hardcoded HTTPS URL (no secrets) |
-| No API keys | No cloud APIs used |
+| Secret             | Storage                                         |
+| ------------------ | ----------------------------------------------- |
+| Code signing cert  | GitHub Secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`) |
+| Telemetry endpoint | Hardcoded HTTPS URL (no secrets)                |
+| No API keys        | No cloud APIs used                              |
 
 ---
 
@@ -216,12 +216,12 @@ npm audit --audit-level=high
 
 ### Incident Classification
 
-| Severity | Examples | SLA |
-|----------|----------|-----|
-| Critical | RCE, prompt exfiltration | 24h |
-| High | Local privilege escalation | 72h |
-| Medium | Information disclosure (non-PII) | 7 days |
-| Low | Minor info leak | 30 days |
+| Severity | Examples                         | SLA     |
+| -------- | -------------------------------- | ------- |
+| Critical | RCE, prompt exfiltration         | 24h     |
+| High     | Local privilege escalation       | 72h     |
+| Medium   | Information disclosure (non-PII) | 7 days  |
+| Low      | Minor info leak                  | 30 days |
 
 ---
 

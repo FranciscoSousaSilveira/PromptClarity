@@ -488,7 +488,7 @@ async function captureAndAnalyze() {
 
     console.log('[desktop] capture-helper-request');
     const capture = await copySelectionAndCaptureWindow(sentinel, captureController.signal);
-    
+
     console.log(
       `[desktop] capture-helper-response: state=${capture.selectionState} process=${capture.processName || 'none'} copiedLength=${capture.copiedLength ?? 0} error=${capture.helperError || 'none'}`
     );
@@ -507,9 +507,11 @@ async function captureAndAnalyze() {
 
     const selectedText = await Promise.race([
       waitForCopiedText(sentinel),
-      new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Timeout waiting for clipboard')), 2000))
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout waiting for clipboard')), 2000)
+      )
     ]);
-    
+
     if (!selectedText) {
       console.log('[desktop] capture-result: No text retrieved from clipboard.');
       restoreClipboard(clipboardSnapshot);
@@ -531,15 +533,15 @@ async function captureAndAnalyze() {
     await analyzeSession(activeSession);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-        console.log('[desktop] capture-error: Aborted.');
+      console.log('[desktop] capture-error: Aborted.');
     } else {
-        console.log(`[desktop] capture-error: ${error instanceof Error ? error.message : String(error)}`);
-        await showState({
-            status: 'error',
-            title: 'Could not capture selection',
-            message: 'Check diagnostics for details.',
-            canRetry: true
-        });
+      console.log(`[desktop] capture-error: ${error instanceof Error ? error.message : String(error)}`);
+      await showState({
+        status: 'error',
+        title: 'Could not capture selection',
+        message: 'Check diagnostics for details.',
+        canRetry: true
+      });
     }
   } finally {
     clearTimeout(captureTimeout);
@@ -764,8 +766,7 @@ async function showDiagnostics() {
     rewrite: lastRewriteDiagnostics
   });
   const hints: string[] = [];
-  if (diagnostics.api.status === 'error')
-    hints.push('Start the local API or restart PromptClarity Desktop.');
+  if (diagnostics.api.status === 'error') hints.push('Start the local API or restart PromptClarity Desktop.');
   else if (!diagnostics.ollama.reachable)
     hints.push('Start Ollama and confirm that the selected model is installed.');
   if (diagnostics.rewrite.fallbackUsed) hints.push('The last rewrite used a conservative local fallback.');
@@ -819,11 +820,15 @@ async function checkOllamaAndModel() {
       const { response } = await dialog.showMessageBox({
         type: 'info',
         title: 'Model Not Installed',
-        message: 'The qwen2.5:3b model is not installed. Would you like to download it now? This might take a few minutes.',
+        message:
+          'The qwen2.5:3b model is not installed. Would you like to download it now? This might take a few minutes.',
         buttons: ['Yes', 'No']
       });
       if (response === 0) {
-        tray?.displayBalloon({ title: 'PromptClarity', content: 'Downloading model qwen2.5:3b... Please wait.' });
+        tray?.displayBalloon({
+          title: 'PromptClarity',
+          content: 'Downloading model qwen2.5:3b... Please wait.'
+        });
         await execFileAsync('ollama', ['pull', 'qwen2.5:3b']);
         tray?.displayBalloon({ title: 'PromptClarity', content: 'Model downloaded successfully.' });
       }
@@ -832,11 +837,12 @@ async function checkOllamaAndModel() {
     const { response } = await dialog.showMessageBox({
       type: 'warning',
       title: 'Ollama Not Detected',
-      message: 'Ollama was not detected on your system. Please install it from https://ollama.ai and ensure it is running.',
+      message:
+        'Ollama was not detected on your system. Please install it from https://ollama.ai and ensure it is running.',
       buttons: ['Download Ollama', 'Retry', 'Close']
     });
     if (response === 0) {
-      await import('electron').then(m => m.shell.openExternal('https://ollama.ai'));
+      await import('electron').then((m) => m.shell.openExternal('https://ollama.ai'));
       app.quit();
     } else if (response === 1) {
       return checkOllamaAndModel();
@@ -847,7 +853,7 @@ async function checkOllamaAndModel() {
 }
 
 app.whenReady().then(async () => {
-  autoUpdater.checkForUpdatesAndNotify().catch(err => console.error('Update check failed:', err));
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => console.error('Update check failed:', err));
 
   await checkOllamaAndModel();
 

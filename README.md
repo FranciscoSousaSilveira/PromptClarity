@@ -32,24 +32,24 @@ npm run package:desktop
 
 ## What It Does
 
-| Feature | Description |
-|---------|-------------|
-| **Grammar & spelling** | Fixes typos, punctuation, unclear phrasing |
-| **Clarity** | Removes ambiguity, tightens wording |
-| **Preserves intent** | Never adds requirements, examples, or changes meaning |
-| **Checkmark** | Shows ✓ when prompt already clear |
-| **Undo** | One-click revert to original |
-| **History** | Optional local history (opt-in) |
+| Feature                | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| **Grammar & spelling** | Fixes typos, punctuation, unclear phrasing            |
+| **Clarity**            | Removes ambiguity, tightens wording                   |
+| **Preserves intent**   | Never adds requirements, examples, or changes meaning |
+| **Checkmark**          | Shows ✓ when prompt already clear                     |
+| **Undo**               | One-click revert to original                          |
+| **History**            | Optional local history (opt-in)                       |
 
 ---
 
 ## Performance Modes
 
-| Mode | Model | Best For |
-|------|-------|----------|
-| **Fast** | `qwen2.5:0.5b` | 4 GB RAM, quick edits |
-| **Balanced** | `qwen2.5:1.5b` | 6 GB RAM, general use |
-| **Quality** | `qwen2.5:3b` | 8+ GB RAM, complex prompts |
+| Mode         | Model          | Best For                   |
+| ------------ | -------------- | -------------------------- |
+| **Fast**     | `qwen2.5:0.5b` | 4 GB RAM, quick edits      |
+| **Balanced** | `qwen2.5:1.5b` | 6 GB RAM, general use      |
+| **Quality**  | `qwen2.5:3b`   | 8+ GB RAM, complex prompts |
 
 Auto-selected on first run based on your RAM. Change anytime in Settings.
 
@@ -57,12 +57,12 @@ Auto-selected on first run based on your RAM. Change anytime in Settings.
 
 ## System Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| OS | Windows 10 1909+ | Windows 11 |
-| RAM | 4 GB | 8+ GB |
-| Disk | 3 GB free | 5 GB free |
-| CPU | x64 | Modern x64 |
+| Component | Minimum          | Recommended |
+| --------- | ---------------- | ----------- |
+| OS        | Windows 10 1909+ | Windows 11  |
+| RAM       | 4 GB             | 8+ GB       |
+| Disk      | 3 GB free        | 5 GB free   |
+| CPU       | x64              | Modern x64  |
 
 **No Ollama, Node.js, or Python pre-installed required** — everything bundles inside the installer.
 
@@ -78,6 +78,7 @@ Auto-selected on first run based on your RAM. Change anytime in Settings.
 ```
 
 **Tray menu** (right-click tray icon):
+
 - **Improve current prompt** — `Ctrl+Alt+P`
 - **Undo last insertion**
 - **Performance mode** — Fast / Balanced / Quality
@@ -153,12 +154,12 @@ PromptClarity.exe (Electron)
 
 ## System Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| OS | Windows 10 1909+ | Windows 11 |
-| RAM | 4 GB | 8+ GB |
-| Disk | 3 GB free | 5 GB free |
-| CPU | x64 | Modern x64 |
+| Component | Minimum          | Recommended |
+| --------- | ---------------- | ----------- |
+| OS        | Windows 10 1909+ | Windows 11  |
+| RAM       | 4 GB             | 8+ GB       |
+| Disk      | 3 GB free        | 5 GB free   |
+| CPU       | x64              | Modern x64  |
 
 ---
 
@@ -244,17 +245,18 @@ jobs:
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
+| Issue                     | Solution                                                               |
+| ------------------------- | ---------------------------------------------------------------------- |
 | **Shortcut doesn't work** | Close other PromptClarity instances in tray; check Settings → Shortcut |
-| **Model not downloading** | Check internet; retry in Settings → Model; verify disk space |
-| **Ollama won't start** | Check port 11434 free; check antivirus; check Diagnostics |
-| **Slow first run** | Enable "Keep models in memory" in Settings; wait for warm-up |
-| **"Prompt not detected"** | Select text or place cursor at end; try `Ctrl+A` then `Ctrl+Alt+P` |
+| **Model not downloading** | Check internet; retry in Settings → Model; verify disk space           |
+| **Ollama won't start**    | Check port 11434 free; check antivirus; check Diagnostics              |
+| **Slow first run**        | Enable "Keep models in memory" in Settings; wait for warm-up           |
+| **"Prompt not detected"** | Select text or place cursor at end; try `Ctrl+A` then `Ctrl+Alt+P`     |
 
 ### Diagnostics
 
 Open **Diagnostics** from tray menu or run:
+
 ```powershell
 npm run diagnostics
 ```

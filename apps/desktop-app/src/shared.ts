@@ -104,5 +104,9 @@ export interface DesktopBridge {
   getModels: () => Promise<{ models: string[] }>;
   redetectHardware: () => Promise<{ profile: { model: string; label: string; description: string } }>;
   getSystemInfo: () => Promise<{ totalRAM: number }>;
-  getSettings: () => Promise<{ telemetryEnabled?: boolean; ollamaAutoInstall?: boolean; selectedModel?: string }>;
+  getSettings: () => Promise<{
+    telemetryEnabled?: boolean;
+    ollamaAutoInstall?: boolean;
+    selectedModel?: string;
+  }>;
 }

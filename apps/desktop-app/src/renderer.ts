@@ -276,13 +276,13 @@ async function bindEvents(state: DesktopPopupState) {
     try {
       const { models } = await window.promptDesktop.getModels();
       if (modelSelect) {
-        modelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
+        modelSelect.innerHTML = models.map((m) => `<option value="${m}">${m}</option>`).join('');
         modelSelect.disabled = false;
-        
+
         // Set current selection
         const settings = await window.promptDesktop.getSettings();
         modelSelect.value = settings.selectedModel || '';
-        
+
         // Show hint
         const current = modelSelect.value;
         if (current && modelHint) {
@@ -325,7 +325,7 @@ async function bindEvents(state: DesktopPopupState) {
         if (modelHint) modelHint.textContent = profile.description;
         // Update dropdown if model exists
         if (modelSelect) {
-          const options = Array.from(modelSelect.options).map(o => o.value);
+          const options = Array.from(modelSelect.options).map((o) => o.value);
           if (options.includes(profile.model)) {
             modelSelect.value = profile.model;
           }
@@ -339,8 +339,10 @@ async function bindEvents(state: DesktopPopupState) {
   // Load settings on settings panel open
   if (state.status === 'settings') {
     const settings = await window.promptDesktop.getSettings();
-    document.querySelector<HTMLInputElement>('#setting-telemetry')!.checked = settings.telemetryEnabled ?? false;
-    document.querySelector<HTMLInputElement>('#setting-ollama-auto')!.checked = settings.ollamaAutoInstall !== false;
+    document.querySelector<HTMLInputElement>('#setting-telemetry')!.checked =
+      settings.telemetryEnabled ?? false;
+    document.querySelector<HTMLInputElement>('#setting-ollama-auto')!.checked =
+      settings.ollamaAutoInstall !== false;
     await loadModels();
   }
 

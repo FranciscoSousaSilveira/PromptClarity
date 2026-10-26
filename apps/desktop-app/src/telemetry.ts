@@ -1,7 +1,9 @@
 import { app } from 'electron';
 import { DesktopStore } from './desktopStore';
 import { join } from 'node:path';
-const desktopStore = new DesktopStore(join(app.getPath('appData'), 'PromptClarity Desktop', 'prompt-clarity.json'));
+const desktopStore = new DesktopStore(
+  join(app.getPath('appData'), 'PromptClarity Desktop', 'prompt-clarity.json')
+);
 
 interface TelemetryEvent {
   event: string;
@@ -92,8 +94,7 @@ function setupCrashHandler() {
     };
 
     // Use sendBeacon for reliability during crash
-    navigator.sendBeacon?.('https://telemetry.promptclarity.app/v1/crashes',
-      JSON.stringify(report));
+    navigator.sendBeacon?.('https://telemetry.promptclarity.app/v1/crashes', JSON.stringify(report));
   });
 
   process.on('unhandledRejection', (reason) => {

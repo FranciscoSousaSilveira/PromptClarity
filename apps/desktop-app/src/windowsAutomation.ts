@@ -39,7 +39,11 @@ export class WindowsAutomation {
     this.ensureStarted();
   }
 
-  async capture(sentinel: string, originalHandle: string, signal?: AbortSignal): Promise<WindowsCaptureResult> {
+  async capture(
+    sentinel: string,
+    originalHandle: string,
+    signal?: AbortSignal
+  ): Promise<WindowsCaptureResult> {
     const response = await this.request('capture', { sentinel, originalHandle }, signal);
     if (!response.result) throw new Error('Windows helper returned no capture result.');
     return response.result;
@@ -77,7 +81,11 @@ export class WindowsAutomation {
     );
   }
 
-  private request(command: string, extra: Record<string, unknown> = {}, signal?: AbortSignal): Promise<HelperResponse> {
+  private request(
+    command: string,
+    extra: Record<string, unknown> = {},
+    signal?: AbortSignal
+  ): Promise<HelperResponse> {
     this.ensureStarted();
     const id = ++this.sequence;
     return new Promise<HelperResponse>((resolve, reject) => {

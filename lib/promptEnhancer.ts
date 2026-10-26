@@ -83,7 +83,7 @@ function improveClarity(prompt: string): string {
 
   let improved = prompt;
   const replacementsMade: string[] = [];
-  
+
   for (const [vague, specific] of Object.entries(vagueReplacements)) {
     const regex = new RegExp(vague, 'gi');
     if (regex.test(improved)) {
@@ -186,7 +186,9 @@ function improveGoal(prompt: string): string {
     if (prompt.match(/data|analyze|examine/i)) {
       return 'Analyze the following: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)';
     } else if (prompt.match(/code|program|function|debug|fix/i)) {
-      return 'Create or improve code for: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)';
+      return (
+        'Create or improve code for: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)'
+      );
     } else if (prompt.match(/explain|describe|clarify/i)) {
       return 'Explain or describe: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)';
     } else if (prompt.match(/write|compose|draft/i)) {
