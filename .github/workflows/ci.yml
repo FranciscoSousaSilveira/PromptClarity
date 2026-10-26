@@ -23,9 +23,9 @@ jobs:
       - run: npm run build:chrome
       - run: npm run build:vscode
       - run: npm run desktop:typecheck
-      - run: npm audit --audit-level=high
-      - run: npm --prefix extension audit --audit-level=high
-      - run: npm --prefix apps/desktop-app audit --audit-level=high
+      - run: npm audit --audit-level=moderate
+      - run: npm --prefix extension audit --audit-level=moderate
+      - run: npm --prefix apps/desktop-app audit --audit-level=moderate
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
