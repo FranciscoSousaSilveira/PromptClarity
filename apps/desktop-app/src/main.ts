@@ -820,7 +820,7 @@ async function installOllamaSilently(): Promise<void> {
   const __dirname = dirname(fileURLToPath(import.meta.url));
 
   console.log('[desktop] Installing Ollama silently...');
-  
+
   // Get the latest Ollama installer URL from GitHub API
   const release = await fetchJson('https://api.github.com/repos/ollama/ollama/releases/latest');
   let asset = release.assets.find((a: any) => a.name === 'OllamaSetup.exe');
@@ -832,7 +832,7 @@ async function installOllamaSilently(): Promise<void> {
   }
 
   console.log(`[desktop] Downloading ${asset.name}...`);
-  
+
   const DEST_DIR = resolve(__dirname, '..', 'resources', 'ollama');
   const DEST_PATH = resolve(DEST_DIR, asset.name);
 
@@ -854,7 +854,7 @@ async function installOllamaSilently(): Promise<void> {
     const AdmZip = (await import('adm-zip')).default;
     const zip = new AdmZip(DEST_PATH);
     const zipEntries = zip.getEntries();
-    const ollamaEntry = zipEntries.find(e => e.entryName === 'ollama.exe');
+    const ollamaEntry = zipEntries.find((e) => e.entryName === 'ollama.exe');
     if (ollamaEntry) {
       zip.extractEntryTo(ollamaEntry, resolve(DEST_DIR, 'ollama.exe'), false, true);
       console.log('[desktop] Extracted ollama.exe');
@@ -878,12 +878,14 @@ async function installOllamaSilently(): Promise<void> {
 
 async function fetchJson(url: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    import('node:https').then(https => {
-      https.get(url, { headers: { 'User-Agent': 'PromptClarity/1.0' } }, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve(JSON.parse(data)));
-      }).on('error', reject);
+    import('node:https').then((https) => {
+      https
+        .get(url, { headers: { 'User-Agent': 'PromptClarity/1.0' } }, (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => resolve(JSON.parse(data)));
+        })
+        .on('error', reject);
     });
   });
 }
@@ -914,19 +916,19 @@ async function checkOllamaAndModel() {
     }
   } catch (error) {
     const settings = desktopStore.settings;
-    
+
     // Auto-install Ollama if enabled
     if (settings.ollamaAutoInstall !== false) {
-      tray?.displayBalloon({ 
-        title: 'PromptClarity', 
-        content: 'Ollama not found. Installing automatically...' 
+      tray?.displayBalloon({
+        title: 'PromptClarity',
+        content: 'Ollama not found. Installing automatically...'
       });
-      
+
       try {
         await installOllamaSilently();
-        tray?.displayBalloon({ 
-          title: 'PromptClarity', 
-          content: 'Ollama installed successfully. Downloading model...' 
+        tray?.displayBalloon({
+          title: 'PromptClarity',
+          content: 'Ollama installed successfully. Downloading model...'
         });
         return checkOllamaAndModel();
       } catch (installError) {
@@ -934,7 +936,7 @@ async function checkOllamaAndModel() {
         // Fall through to manual dialog
       }
     }
-    
+
     const { response } = await dialog.showMessageBox({
       type: 'warning',
       title: 'Ollama Not Detected',
