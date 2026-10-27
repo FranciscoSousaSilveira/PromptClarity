@@ -32,7 +32,7 @@
     "compression": "maximum",
     "files": [
       "dist/**/*",
-      "resources/**/*",
+      "resources/api/**/*",
       "package.json"
     ],
     "asarUnpack": [
