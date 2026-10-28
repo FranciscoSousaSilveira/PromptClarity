@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -46,6 +49,8 @@ jobs:
       - run: npm run package:chrome
       - run: npm run package:vscode
       - run: npm run package:desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: promptclarity-windows
