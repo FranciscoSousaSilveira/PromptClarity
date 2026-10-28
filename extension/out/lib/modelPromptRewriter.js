@@ -61,7 +61,7 @@ async function rewritePromptWithModel(request, options = {}) {
     // are loaded into memory. Subsequent requests are normally much faster.
     const timeoutMs = options.timeoutMs ?? 120000;
     const fetchImpl = options.fetchImpl || fetch;
-    const token = options.token || (typeof process !== 'undefined' ? process.env?.PROMPT_GRAMMARLY_TOKEN : undefined);
+    const token = options.token || (typeof process !== 'undefined' ? process.env?.PROMPT_CLARITY_TOKEN : undefined);
     const controller = new AbortController();
     const abortFromCaller = () => controller.abort();
     options.signal?.addEventListener('abort', abortFromCaller, { once: true });
@@ -80,7 +80,7 @@ async function rewritePromptWithModel(request, options = {}) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(token ? { 'X-Prompt-Grammarly-Token': token } : {})
+                ...(token ? { 'X-PromptClarity-Token': token } : {})
             },
             body: JSON.stringify({
                 prompt: request.prompt,

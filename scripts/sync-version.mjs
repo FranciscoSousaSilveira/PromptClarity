@@ -9,7 +9,7 @@ for (const file of [
 ]) {
   const value = JSON.parse(await readFile(file, 'utf8'));
   value.version = rootPackage.version;
-  if (value.name === 'prompt-enhancement') value.displayName = 'Prompt Grammarly';
+  if (value.name === 'prompt-enhancement') value.displayName = 'PromptClarity';
   const formatted = await format(JSON.stringify(value), {
     parser: file.endsWith('package.json') ? 'json-stringify' : 'json',
     filepath: file

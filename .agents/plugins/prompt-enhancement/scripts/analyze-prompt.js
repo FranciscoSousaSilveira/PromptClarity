@@ -15,11 +15,11 @@ const fs = require('fs');
 // Resolve project root dynamically by searching for a directory containing lib/promptAnalyzer.js
 let projectRoot = '';
 const possibleRoots = [
-  path.resolve(__dirname, '..', '..', '..', '..'), // if inside Grammarly-Prompts/.agents/
-  path.resolve(__dirname, '..', '..', '..', '..', 'Grammarly-Prompts'), // if inside workspace-root/.agents/
+  path.resolve(__dirname, '..', '..', '..', '..'), // if inside PromptClarity/.agents/
+  path.resolve(__dirname, '..', '..', '..', '..', 'PromptClarity'), // if inside workspace-root/.agents/
   path.resolve(__dirname, '..', '..'), // if running from scripts directly
   process.cwd(), // current working directory
-  path.join(process.cwd(), 'Grammarly-Prompts')
+  path.join(process.cwd(), 'PromptClarity')
 ];
 
 for (const root of possibleRoots) {

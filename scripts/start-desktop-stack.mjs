@@ -115,7 +115,7 @@ process.on('SIGTERM', () => {
 process.on('exit', cleanup);
 
 try {
-  console.log('\nPrompt Grammarly Desktop');
+  console.log('\nPromptClarity Desktop');
   console.log('-------------------------');
   await ensureOllama();
   await ensureLocalApi();

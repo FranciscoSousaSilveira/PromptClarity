@@ -7,7 +7,7 @@ export interface RewriteDiagnostics {
     lastValidationReason: string | null;
     fallbackUsed: boolean;
 }
-export interface PromptGrammarlyDiagnostics {
+export interface PromptClarityDiagnostics {
     api: {
         status: 'ok' | 'degraded' | 'error';
         url: string;

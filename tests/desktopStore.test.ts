@@ -15,8 +15,8 @@ afterEach(() => {
 
 describe('DesktopStore feedback persistence', () => {
   it('stores local feedback entries on disk', () => {
-    tempDir = mkdtempSync(join(tmpdir(), 'prompt-grammarly-store-'));
-    const storePath = join(tempDir, 'prompt-grammarly.json');
+    tempDir = mkdtempSync(join(tmpdir(), 'promptclarity-store-'));
+    const storePath = join(tempDir, 'promptclarity.json');
     const store = new DesktopStore(storePath);
 
     store.addFeedback({

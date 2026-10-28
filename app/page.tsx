@@ -232,7 +232,7 @@ export default function HomePage() {
       <section className="hero panel">
         <div className="hero-copy">
           <p className="eyebrow">Public MVP demo</p>
-          <h1>Prompt Grammarly</h1>
+          <h1>PromptClarity</h1>
           <p className="hero-description">
             Analyze a rough prompt, see what is missing, and rewrite it into a stronger version before you
             send it to an LLM.

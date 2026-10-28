@@ -6,7 +6,7 @@ import packageJson from '../package.json' with { type: 'json' };
 
 const outputDirectory = resolve('release');
 await mkdir(outputDirectory, { recursive: true });
-const outputPath = resolve(outputDirectory, `prompt-grammarly-chrome-${packageJson.version}.zip`);
+const outputPath = resolve(outputDirectory, `promptclarity-chrome-${packageJson.version}.zip`);
 const output = createWriteStream(outputPath);
 const archive = new ZipArchive({ zlib: { level: 9 } });
 const completion = new Promise((resolveCompletion, reject) => {

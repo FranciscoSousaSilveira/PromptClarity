@@ -1,4 +1,4 @@
-# Prompt Grammarly for Chrome
+# PromptClarity for Chrome
 
 The extension reviews prompt drafts directly inside supported AI chat apps. It corrects spelling, grammar, punctuation, and clarity without adding new instructions or content.
 

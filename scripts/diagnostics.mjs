@@ -6,7 +6,7 @@ function value(input) {
   return input === null || input === undefined ? 'not available' : String(input);
 }
 
-console.log('Prompt Grammarly diagnostics');
+console.log('PromptClarity diagnostics');
 console.log('Local-only metadata; prompt contents and environment variables are not included.');
 console.log(`Platform: ${os.platform()} ${os.arch()}`);
 console.log(`Node: ${process.version}`);

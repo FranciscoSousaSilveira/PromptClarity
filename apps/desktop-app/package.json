@@ -56,7 +56,7 @@
     "publish": {
       "provider": "github",
       "owner": "FranciscoSousaSilveira",
-      "repo": "Grammarly-Prompts"
+      "repo": "PromptClarity"
     }
   }
 }

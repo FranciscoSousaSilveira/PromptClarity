@@ -14,7 +14,7 @@ function responseHeaders(origin?: string) {
     'content-type': 'application/json; charset=utf-8',
     'access-control-allow-origin': allowed ? origin || 'http://127.0.0.1:3000' : 'null',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
-    'access-control-allow-headers': 'Content-Type, X-Prompt-Grammarly-Token',
+    'access-control-allow-headers': 'Content-Type, X-PromptClarity-Token',
     vary: 'Origin'
   };
 }

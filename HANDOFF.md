@@ -2,7 +2,7 @@
 
 ## Mission Accomplished
 
-You requested a Grammarly-like prompt enhancement system for VS Code that:
+You requested a AI-powered prompt enhancement system for VS Code that:
 
 - ✅ Detects when users write prompts in VS Code Chat
 - ✅ Shows an improved version in a popup

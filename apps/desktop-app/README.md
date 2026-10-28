@@ -1,6 +1,6 @@
-# Prompt Grammarly Desktop
+# PromptClarity Desktop
 
-Windows desktop companion for the existing Prompt Grammarly browser extension. It improves selected text in VS Code, Notepad, terminals, browsers, and other desktop applications using the same local API and Ollama model.
+Windows desktop companion for the existing PromptClarity browser extension. It improves selected text in VS Code, Notepad, terminals, browsers, and other desktop applications using the same local API and Ollama model.
 
 No cloud service is used. Selected prompts are sent only to `http://127.0.0.1:3000/api/rewrite`.
 
@@ -33,7 +33,7 @@ npm run desktop
 
 This checks Ollama, starts the local API when necessary, preloads the selected model, builds Electron, and leaves the helper in the Windows tray. The packaged application includes an embedded local bridge.
 
-If a previous test version is already running, quit **Prompt Grammarly Desktop** from the Windows tray before running the command.
+If a previous test version is already running, quit **PromptClarity Desktop** from the Windows tray before running the command.
 
 ### Quick test
 
@@ -74,6 +74,6 @@ npm run desktop:dev
 - **No text selected:** select text before pressing `Ctrl+Alt+P`. Some terminal applications use a different selection/copy mode.
 - **Shortcut does nothing:** another application may already use `Ctrl+Alt+P`. The tray app displays a Windows notification when registration fails.
 - **Insert does not return to an elevated application:** run the desktop helper with the same Windows privilege level as the target app.
-- **Old process is still running:** quit Prompt Grammarly Desktop from its tray menu before starting it again.
+- **Old process is still running:** quit PromptClarity Desktop from its tray menu before starting it again.
 
 The Chrome extension remains independent and continues to use its existing build and installation process.

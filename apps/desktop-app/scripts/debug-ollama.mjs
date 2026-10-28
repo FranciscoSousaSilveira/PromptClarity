@@ -3,7 +3,7 @@ import https from 'node:https';
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     https
-      .get(url, { headers: { 'User-Agent': 'PromptGrammarly/1.0' } }, (res) => {
+      .get(url, { headers: { 'User-Agent': 'PromptClarity/1.0' } }, (res) => {
         let data = '';
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => resolve(JSON.parse(data)));

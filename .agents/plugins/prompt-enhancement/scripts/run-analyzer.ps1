@@ -30,7 +30,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Try to find the project root dynamically
 $possibleRoots = @(
     (Join-Path $scriptDir "..\..\..\.."),
-    (Join-Path $scriptDir "..\..\..\..\Grammarly-Prompts")
+    (Join-Path $scriptDir "..\..\..\..\PromptClarity")
 )
 
 $projectRoot = $null

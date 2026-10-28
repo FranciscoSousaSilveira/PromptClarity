@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Detect, analyze, and improve AI prompts with confidence scoring, multi-category quality analysis, and structured rewriting",
   "author": {
-    "name": "Grammarly Prompts"
+    "name": "PromptClarity"
   },
   "license": "MIT",
   "keywords": [

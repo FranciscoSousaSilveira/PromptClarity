@@ -1,6 +1,6 @@
 {
   "name": "prompt-enhancement",
-  "displayName": "Prompt Grammarly",
+  "displayName": "PromptClarity",
   "description": "AI-powered prompt enhancement popup for VS Code Chat - detects prompts and suggests improvements",
   "version": "0.2.0",
   "engines": {
@@ -16,9 +16,9 @@
   "main": "./out/extension/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Prompt Grammarly",
+      "title": "PromptClarity",
       "properties": {
-        "promptGrammarly.performanceMode": {
+        "promptClarity.performanceMode": {
           "type": "string",
           "enum": [
             "fast",
@@ -28,12 +28,12 @@
           "default": "fast",
           "description": "Controls the trade-off between speed and rewrite quality."
         },
-        "promptGrammarly.keepModelsWarm": {
+        "promptClarity.keepModelsWarm": {
           "type": "boolean",
           "default": true,
           "description": "Keeps local Ollama models in memory between rewrites."
         },
-        "promptGrammarly.intervention": {
+        "promptClarity.intervention": {
           "type": "string",
           "enum": [
             "strict",
@@ -43,7 +43,7 @@
           "default": "normal",
           "description": "Controls how much wording may change while preserving intent, facts, language and uncertainty."
         },
-        "promptGrammarly.language": {
+        "promptClarity.language": {
           "type": "string",
           "enum": [
             "auto",
@@ -58,17 +58,17 @@
     "commands": [
       {
         "command": "prompt-enhancement.togglePopup",
-        "title": "Prompt Grammarly: Enhance Prompt",
+        "title": "PromptClarity: Enhance Prompt",
         "description": "Analyze selected text and show an improved version in a popup"
       },
       {
         "command": "prompt-enhancement.analyzeAndCopy",
-        "title": "Prompt Grammarly: Analyze & Copy",
+        "title": "PromptClarity: Analyze & Copy",
         "description": "Analyze the last text and copy the improved version"
       },
       {
         "command": "prompt-enhancement.showDiagnostics",
-        "title": "Prompt Grammarly: Show Diagnostics",
+        "title": "PromptClarity: Show Diagnostics",
         "description": "Show local API, Ollama and last rewrite diagnostics without prompt contents"
       }
     ],
@@ -102,15 +102,15 @@
     "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
   },
-  "publisher": "grammarly-prompts",
+  "publisher": "promptclarity",
   "repository": {
     "type": "git",
-    "url": "https://github.com/grammarlydev/grammarly-prompts"
+    "url": "https://github.com/FranciscoSousaSilveira/PromptClarity"
   },
   "bugs": {
-    "url": "https://github.com/grammarlydev/grammarly-prompts/issues"
+    "url": "https://github.com/FranciscoSousaSilveira/PromptClarity/issues"
   },
-  "homepage": "https://github.com/grammarlydev/grammarly-prompts",
+  "homepage": "https://github.com/FranciscoSousaSilveira/PromptClarity",
   "keywords": [
     "prompt",
     "ai",

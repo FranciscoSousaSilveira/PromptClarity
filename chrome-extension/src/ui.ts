@@ -307,7 +307,7 @@ export class PromptEnhancerUI {
             </svg>
           </div>
           <div>
-            <div class="popup-title">Prompt Grammarly <span class="popup-version">v${this.escapeHtml(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')}</span></div>
+            <div class="popup-title">PromptClarity <span class="popup-version">v${this.escapeHtml(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev')}</span></div>
             <div class="popup-subtitle">${subtitle}</div>
           </div>
         </div>

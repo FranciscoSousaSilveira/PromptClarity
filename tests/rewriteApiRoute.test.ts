@@ -44,11 +44,11 @@ async function responseBody(response: Response): Promise<RewriteResult> {
 describe('POST /api/rewrite', () => {
   beforeEach(() => {
     rewriteMock.mockReset();
-    delete process.env.PROMPT_GRAMMARLY_TOKEN;
+    delete process.env.PROMPT_CLARITY_TOKEN;
   });
 
   afterEach(() => {
-    delete process.env.PROMPT_GRAMMARLY_TOKEN;
+    delete process.env.PROMPT_CLARITY_TOKEN;
   });
 
   it('returns the normalized shape for a valid rewrite', async () => {
@@ -202,7 +202,7 @@ describe('POST /api/rewrite', () => {
   });
 
   it('returns a normalized unauthorized response while preserving the original', async () => {
-    process.env.PROMPT_GRAMMARLY_TOKEN = 'expected-local-token';
+    process.env.PROMPT_CLARITY_TOKEN = 'expected-local-token';
     const response = await POST(request({ text: 'explica este erro' }));
     const body = await responseBody(response);
 

@@ -16,7 +16,7 @@ function freeBytes(path) {
 }
 
 function selectWorkingRoot() {
-  const override = process.env.PROMPT_GRAMMARLY_BUILD_TEMP;
+  const override = process.env.PROMPT_CLARITY_BUILD_TEMP;
   if (override) return resolve(override);
 
   const candidates =
@@ -42,7 +42,7 @@ function run(command, args, cwd, environment = process.env) {
 }
 
 const workingRoot = selectWorkingRoot();
-const workingDirectory = join(workingRoot, `PromptGrammarlyBuild-${process.pid}`);
+const workingDirectory = join(workingRoot, `PromptClarityBuild-${process.pid}`);
 const temporaryOutput = join(workingDirectory, 'release');
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error('Run desktop packaging through npm run package:desktop.');

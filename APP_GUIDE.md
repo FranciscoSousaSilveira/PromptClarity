@@ -212,7 +212,7 @@ See also `PRIVACY.md` and `SECURITY.md`.
 
 ## New in 0.2.0 (PromptClarity)
 
-- **Rebranded** from Prompt Grammarly to PromptClarity
+- **Rebranded** from PromptClarity to PromptClarity
 - **Standalone installer** — no prerequisites required
 - **Bundled Ollama** — auto-starts with the app
 - **Auto model selection** based on detected RAM

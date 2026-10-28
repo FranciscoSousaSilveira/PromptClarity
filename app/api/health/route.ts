@@ -16,7 +16,7 @@ function corsHeaders(request?: NextRequest) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Prompt-Grammarly-Token',
+    'Access-Control-Allow-Headers': 'Content-Type, X-PromptClarity-Token',
     'Access-Control-Max-Age': '86400',
     'Cache-Control': 'no-store',
     Vary: 'Origin'

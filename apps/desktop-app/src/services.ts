@@ -143,7 +143,7 @@ export class ServiceManager {
   }
 }
 
-// Factory function to create the default services for Prompt Grammarly
+// Factory function to create the default services for PromptClarity
 export function createDefaultServices(): ServiceManager {
   const manager = new ServiceManager();
 

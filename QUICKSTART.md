@@ -17,7 +17,7 @@ This guide walks you through setting up and testing the prompt enhancement MVP i
 ### 1. Install Dependencies
 
 ```bash
-cd path/to/grammarly-prompts-worktree
+cd path/to/promptclarity-worktree
 npm install
 ```
 

@@ -26,7 +26,7 @@ function corsHeaders(request?: NextRequest) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Prompt-Grammarly-Token',
+    'Access-Control-Allow-Headers': 'Content-Type, X-PromptClarity-Token',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin'
   };
@@ -37,8 +37,8 @@ function json(body: unknown, status = 200, request?: NextRequest) {
 }
 
 function isAuthorized(request: NextRequest): boolean {
-  const expectedToken = process.env.PROMPT_GRAMMARLY_TOKEN;
-  return !expectedToken || request.headers.get('x-prompt-grammarly-token') === expectedToken;
+  const expectedToken = process.env.PROMPT_CLARITY_TOKEN;
+  return !expectedToken || request.headers.get('x-promptclarity-token') === expectedToken;
 }
 
 async function warmLocalModel(model: string, keepWarm: boolean): Promise<boolean> {

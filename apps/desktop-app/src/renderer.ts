@@ -31,7 +31,7 @@ function shell(content: string, subtitle: string) {
         <div class="brand">
           <span class="brand-icon" aria-hidden="true">✦</span>
           <span>
-            <strong>Prompt Grammarly</strong>
+            <strong>PromptClarity</strong>
             <small>${escapeHtml(subtitle)}</small>
           </span>
         </div>

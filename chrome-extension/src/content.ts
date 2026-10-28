@@ -31,7 +31,7 @@ async function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> 
   } catch (error) {
     const expectedRuntimeFailure = extensionContextLifecycle.noteRuntimeError(error);
     if (!expectedRuntimeFailure) {
-      console.warn('[Prompt Grammarly] Could not read extension settings.', error);
+      console.warn('[PromptClarity] Could not read extension settings.', error);
     }
     return {};
   }
@@ -51,7 +51,7 @@ async function safeStorageSet(values: Record<string, unknown>): Promise<boolean>
   } catch (error) {
     const expectedRuntimeFailure = extensionContextLifecycle.noteRuntimeError(error);
     if (!expectedRuntimeFailure) {
-      console.warn('[Prompt Grammarly] Could not save extension settings.', error);
+      console.warn('[PromptClarity] Could not save extension settings.', error);
     }
     return false;
   }
@@ -548,7 +548,7 @@ class PromptEnhancerExtension {
     this.rememberGeneratedPrompt(modelResult.rewrittenPrompt);
     const rewriteDiagnostics = createRewriteDiagnostics(modelResult);
     const diagnosticHint = describeRewriteDiagnostic(rewriteDiagnostics.lastValidationReason);
-    void safeStorageSet({ promptGrammarlyDiagnostics: rewriteDiagnostics });
+    void safeStorageSet({ promptClarityDiagnostics: rewriteDiagnostics });
     this.currentResultContext = {
       element: this.activeElement,
       originalSignature: this.textSignature(capturedText),

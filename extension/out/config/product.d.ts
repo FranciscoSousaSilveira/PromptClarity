@@ -1,6 +1,6 @@
 export declare const PRODUCT: {
-    readonly name: "Prompt Grammarly";
-    readonly desktopName: "Prompt Grammarly Desktop";
+    readonly name: "PromptClarity";
+    readonly desktopName: "PromptClarity Desktop";
     readonly version: "0.2.0";
     readonly apiUrl: "http://127.0.0.1:3000/api/rewrite";
     readonly defaultShortcut: "CommandOrControl+Alt+P";

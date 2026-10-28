@@ -6,7 +6,7 @@ const manrope = Manrope({ subsets: ['latin'], variable: '--font-body' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-display' });
 
 export const metadata: Metadata = {
-  title: 'Prompt Grammarly',
+  title: 'PromptClarity',
   description: 'Analyze and rewrite prompts with a deterministic, demo-safe prompt quality engine.'
 };
 

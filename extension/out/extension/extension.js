@@ -56,7 +56,7 @@ let debounceTimer;
 let lastRewriteDiagnostics = { ...diagnostics_1.EMPTY_REWRITE_DIAGNOSTICS };
 function activate(context) {
     console.log('Prompt Enhancement extension activated');
-    const diagnosticsOutput = vscode.window.createOutputChannel('Prompt Grammarly Diagnostics');
+    const diagnosticsOutput = vscode.window.createOutputChannel('PromptClarity Diagnostics');
     // Command: Manual popup toggle
     const togglePopup = vscode.commands.registerCommand('prompt-enhancement.togglePopup', async () => {
         const editor = vscode.window.activeTextEditor;
@@ -87,13 +87,13 @@ function activate(context) {
         }
     });
     const showDiagnostics = vscode.commands.registerCommand('prompt-enhancement.showDiagnostics', async () => {
-        const configuration = vscode.workspace.getConfiguration('promptGrammarly');
+        const configuration = vscode.workspace.getConfiguration('promptClarity');
         const mode = configuration.get('performanceMode', 'fast');
         const configuredIntervention = configuration.get('intervention', product_1.DEFAULT_REWRITE_INTERVENTION);
         const intervention = (0, product_1.isRewriteIntervention)(configuredIntervention)
             ? configuredIntervention
             : product_1.DEFAULT_REWRITE_INTERVENTION;
-        const feedback = context.workspaceState.get('promptGrammarly.tooMuchFeedback');
+        const feedback = context.workspaceState.get('promptClarity.tooMuchFeedback');
         const keepModelsWarm = configuration.get('keepModelsWarm', true);
         const diagnostics = await (0, diagnostics_1.collectLocalDiagnostics)({
             mode,
@@ -105,7 +105,7 @@ function activate(context) {
             rewrite: lastRewriteDiagnostics
         });
         diagnosticsOutput.clear();
-        diagnosticsOutput.appendLine('Prompt Grammarly diagnostics');
+        diagnosticsOutput.appendLine('PromptClarity diagnostics');
         diagnosticsOutput.appendLine('Local-only metadata; prompt contents are never included.');
         for (const line of (0, diagnostics_1.formatDiagnosticsReport)(diagnostics))
             diagnosticsOutput.appendLine(line);
@@ -132,7 +132,7 @@ async function analyzeWithLocalModel(text) {
     const result = (0, promptIntegration_1.analyzeForPopup)({ text, useCase: 'general' });
     if (!result.analysis || !result.improvedPrompt)
         return result;
-    const configuration = vscode.workspace.getConfiguration('promptGrammarly');
+    const configuration = vscode.workspace.getConfiguration('promptClarity');
     const performanceMode = configuration.get('performanceMode', 'fast');
     const configuredIntervention = configuration.get('intervention', product_1.DEFAULT_REWRITE_INTERVENTION);
     const intervention = (0, product_1.isRewriteIntervention)(configuredIntervention)
@@ -287,9 +287,9 @@ async function recordVsCodeTooMuchFeedback(context, original, result) {
         timestamp: new Date().toISOString(),
         reason: 'user_too_much'
     });
-    const existing = context.workspaceState.get('promptGrammarly.tooMuchFeedback');
+    const existing = context.workspaceState.get('promptClarity.tooMuchFeedback');
     const feedback = Array.isArray(existing) ? existing : [];
-    await context.workspaceState.update('promptGrammarly.tooMuchFeedback', [entry, ...feedback].slice(0, 50));
+    await context.workspaceState.update('promptClarity.tooMuchFeedback', [entry, ...feedback].slice(0, 50));
     return true;
 }
 /**

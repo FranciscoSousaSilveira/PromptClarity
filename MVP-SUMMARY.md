@@ -1,4 +1,4 @@
-# Prompt Grammarly v0.2.0 MVP Implementation Summary
+# PromptClarity v0.2.0 MVP Implementation Summary
 
 ## What Was Built
 

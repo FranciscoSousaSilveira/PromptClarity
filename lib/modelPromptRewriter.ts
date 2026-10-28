@@ -103,7 +103,7 @@ export async function rewritePromptWithModel(
   const timeoutMs = options.timeoutMs ?? 120_000;
   const fetchImpl = options.fetchImpl || fetch;
   const token =
-    options.token || (typeof process !== 'undefined' ? process.env?.PROMPT_GRAMMARLY_TOKEN : undefined);
+    options.token || (typeof process !== 'undefined' ? process.env?.PROMPT_CLARITY_TOKEN : undefined);
   const controller = new AbortController();
   const abortFromCaller = () => controller.abort();
   options.signal?.addEventListener('abort', abortFromCaller, { once: true });
@@ -123,7 +123,7 @@ export async function rewritePromptWithModel(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'X-Prompt-Grammarly-Token': token } : {})
+        ...(token ? { 'X-PromptClarity-Token': token } : {})
       },
       body: JSON.stringify({
         prompt: request.prompt,

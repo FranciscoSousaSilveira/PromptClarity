@@ -6,7 +6,7 @@ Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-public static class PromptGrammarlyNative {
+public static class PromptClarityNative {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -31,7 +31,7 @@ function Send-Response($Id, $Ok, $Result = $null, $ErrorMessage = $null) {
 function Invoke-Capture($Sentinel = '', $OriginalHandle) {
     $rawHandle = [string]$OriginalHandle
     if ([string]::IsNullOrWhiteSpace($rawHandle)) {
-        $targetHandle = [PromptGrammarlyNative]::GetForegroundWindow()
+        $targetHandle = [PromptClarityNative]::GetForegroundWindow()
     } elseif ($rawHandle -match '^\d+$') {
         $targetHandle = [IntPtr]::new([Int64]::Parse($rawHandle))
     } else {
@@ -41,15 +41,15 @@ function Invoke-Capture($Sentinel = '', $OriginalHandle) {
         throw "Could not identify the target window."
     }
     $processId = [uint32]0
-    [PromptGrammarlyNative]::GetWindowThreadProcessId($targetHandle, [ref]$processId) | Out-Null
+    [PromptClarityNative]::GetWindowThreadProcessId($targetHandle, [ref]$processId) | Out-Null
     $processName = ""
     try { $processName = (Get-Process -Id $processId).ProcessName } catch {}
 
     # Confirm Focus
-    $beforeFocus = [PromptGrammarlyNative]::GetForegroundWindow()
-    [PromptGrammarlyNative]::SetForegroundWindow($targetHandle) | Out-Null
+    $beforeFocus = [PromptClarityNative]::GetForegroundWindow()
+    [PromptClarityNative]::SetForegroundWindow($targetHandle) | Out-Null
     Start-Sleep -Milliseconds 150
-    $afterFocus = [PromptGrammarlyNative]::GetForegroundWindow()
+    $afterFocus = [PromptClarityNative]::GetForegroundWindow()
     $focusConfirmed = ($afterFocus -eq $targetHandle)
     
     Send-Log "Target: $processName ($targetHandle). FocusConfirmed: $focusConfirmed"
