@@ -1,6 +1,6 @@
 import type { UseCase } from '../../types/prompt';
 import type { PopupContent } from '../../lib/promptIntegration';
-import type { PerformanceMode } from '../../config/product';
+import type { PerformanceMode, RewriteIntervention } from '../../config/product';
 import { describeRewritePresentation } from '../../lib/popupState';
 
 declare const __APP_VERSION__: string;
@@ -25,6 +25,7 @@ export class PromptEnhancerUI {
   private onUseCaseChange: (useCase: UseCase) => void = () => {};
   private onAutoEnhanceChange: (enabled: boolean) => void = () => {};
   private onPerformanceModeChange: (mode: PerformanceMode) => void = () => {};
+  private onInterventionChange: (intervention: RewriteIntervention) => void = () => {};
   private onCopy: (text: string) => void = () => {};
   private onInsert: (text: string) => void = () => {};
   private onUndo: () => void = () => {};
@@ -39,6 +40,7 @@ export class PromptEnhancerUI {
       onUseCaseChange: (useCase: UseCase) => void;
       onAutoEnhanceChange: (enabled: boolean) => void;
       onPerformanceModeChange: (mode: PerformanceMode) => void;
+      onInterventionChange?: (intervention: RewriteIntervention) => void;
       onCopy: (text: string) => void;
       onInsert: (text: string) => void;
       onUndo: () => void;
@@ -49,6 +51,9 @@ export class PromptEnhancerUI {
     this.onUseCaseChange = callbacks.onUseCaseChange;
     this.onAutoEnhanceChange = callbacks.onAutoEnhanceChange;
     this.onPerformanceModeChange = callbacks.onPerformanceModeChange;
+    if (callbacks.onInterventionChange) {
+      this.onInterventionChange = callbacks.onInterventionChange;
+    }
     this.onCopy = callbacks.onCopy;
     this.onInsert = callbacks.onInsert;
     this.onUndo = callbacks.onUndo;
@@ -191,11 +196,12 @@ export class PromptEnhancerUI {
     content: PopupContent,
     currentUseCase: UseCase,
     autoEnhanceEnabled: boolean,
-    performanceMode: PerformanceMode
+    performanceMode: PerformanceMode,
+    intervention: RewriteIntervention = 'enhanced'
   ) {
     if (!this.popup || !this.bubble) return;
 
-    this.renderPopupContent(content, currentUseCase, autoEnhanceEnabled, performanceMode);
+    this.renderPopupContent(content, currentUseCase, autoEnhanceEnabled, performanceMode, intervention);
 
     this.positionPopup();
     this.popup.classList.add('visible');
@@ -242,6 +248,29 @@ export class PromptEnhancerUI {
 
     this.popup.style.top = `${top}px`;
     this.popup.style.left = `${left}px`;
+
+    // Anchor transform origin directly to the center of the bubble
+    const originX = Math.round(bubbleLeft + 16 - left);
+    const originY = Math.round(bubbleTop + 16 - top);
+    this.popup.style.transformOrigin = `${originX}px ${originY}px`;
+  }
+
+  public collapseToBubble(notify = true) {
+    if (!this.popup) return;
+    this.popup.classList.remove('visible');
+    this.popup.classList.add('collapsing');
+    this.bubble?.setAttribute('aria-expanded', 'false');
+
+    window.setTimeout(() => {
+      this.bubble?.classList.add('received');
+    }, 80);
+
+    window.setTimeout(() => {
+      this.popup?.classList.remove('collapsing');
+      this.bubble?.classList.remove('received');
+    }, 450);
+
+    if (notify) this.onClose();
   }
 
   public hidePopup(notify = true) {
@@ -263,12 +292,14 @@ export class PromptEnhancerUI {
     content: PopupContent,
     currentUseCase: UseCase,
     autoEnhanceEnabled: boolean,
-    performanceMode: PerformanceMode
+    performanceMode: PerformanceMode,
+    intervention: RewriteIntervention = 'enhanced'
   ) {
     if (!this.popup) return;
 
     const originalText = content.originalText || '';
     const rewrittenText = content.improvedPrompt || content.copyableText || originalText;
+    const effectiveIntervention = content.intervention || intervention;
     const presentation =
       content.rewriteStatus && content.rewriteStatus !== 'loading'
         ? describeRewritePresentation({
@@ -284,7 +315,7 @@ export class PromptEnhancerUI {
                     ? 'model'
                     : 'local_fallback',
             mode: performanceMode,
-            intervention: content.intervention,
+            intervention: effectiveIntervention,
             validationReason: content.validationReason,
             error: content.modelError || null
           })
@@ -540,6 +571,17 @@ export class PromptEnhancerUI {
                 </select>
               </div>
             </div>
+            <div class="use-case-section">
+              <div class="section-label">Intervention Mode</div>
+              <div class="use-case-select-wrapper">
+                <select class="use-case-select" id="pe-intervention" aria-label="Intervention mode">
+                  <option value="enhanced" ${effectiveIntervention === 'enhanced' ? 'selected' : ''}>🚀 Enhanced (Prompt Optimization)</option>
+                  <option value="polished" ${effectiveIntervention === 'polished' ? 'selected' : ''}>✍️ Polished (Fluency)</option>
+                  <option value="normal" ${effectiveIntervention === 'normal' ? 'selected' : ''}>📝 Normal (Conservative)</option>
+                  <option value="strict" ${effectiveIntervention === 'strict' ? 'selected' : ''}>🔍 Strict (Grammar & Typos Only)</option>
+                </select>
+              </div>
+            </div>
             ${this.renderAutoEnhanceControl(autoEnhanceEnabled)}
           </div>
         </details>
@@ -601,6 +643,11 @@ export class PromptEnhancerUI {
     const performanceMode = this.popup.querySelector('#pe-performance-mode') as HTMLSelectElement | null;
     performanceMode?.addEventListener('change', () => {
       this.onPerformanceModeChange(performanceMode.value as PerformanceMode);
+    });
+
+    const interventionSelect = this.popup.querySelector('#pe-intervention') as HTMLSelectElement | null;
+    interventionSelect?.addEventListener('change', () => {
+      this.onInterventionChange(interventionSelect.value as RewriteIntervention);
     });
 
     // Copy Button
@@ -719,6 +766,7 @@ export class PromptEnhancerUI {
   }
 
   private formatIntervention(intervention: string): string {
+    if (intervention === 'enhanced') return 'Enhanced';
     if (intervention === 'strict') return 'Strict intervention';
     if (intervention === 'polished') return 'Polished intervention';
     return 'Normal intervention';

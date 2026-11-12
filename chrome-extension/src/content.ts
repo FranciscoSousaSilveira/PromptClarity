@@ -2,7 +2,7 @@ import { analyzeForPopup, shouldShowHint, type PopupContent } from '../../lib/pr
 import { analyzePrompt } from '../../lib/promptAnalyzer';
 import { DEFAULT_REWRITE_ENDPOINT, rewritePromptWithModel } from '../../lib/modelPromptRewriter';
 import type { UseCase } from '../../types/prompt';
-import type { PerformanceMode } from '../../config/product';
+import { isRewriteIntervention, type PerformanceMode, type RewriteIntervention } from '../../config/product';
 import { PromptEnhancerUI } from './ui';
 import { findAdapterComposer, getSiteAdapter } from './siteAdapters';
 import { buildTooMuchFeedbackEntry, type TooMuchFeedbackEntry } from '../../lib/popupState';
@@ -61,6 +61,7 @@ class PromptEnhancerExtension {
   private ui = new PromptEnhancerUI();
   private activeElement: HTMLTextAreaElement | HTMLInputElement | HTMLElement | null = null;
   private currentUseCase: UseCase = 'general';
+  private currentIntervention: RewriteIntervention = 'enhanced';
   private autoEnhanceEnabled = true;
   private performanceMode: PerformanceMode = 'fast';
   private resizeObserver: ResizeObserver | null = null;
@@ -81,7 +82,7 @@ class PromptEnhancerExtension {
     rewrittenSignature: string;
   } | null = null;
 
-  private static readonly AUTO_ANALYZE_DELAY = 900;
+  private static readonly AUTO_ANALYZE_DELAY = 2000;
 
   constructor() {}
 
@@ -90,7 +91,12 @@ class PromptEnhancerExtension {
 
     // Load saved use case from storage if available
     if (isExtensionContextAvailable()) {
-      const data = await safeStorageGet(['defaultUseCase', 'autoEnhanceEnabled', 'performanceMode']);
+      const data = await safeStorageGet([
+        'defaultUseCase',
+        'autoEnhanceEnabled',
+        'performanceMode',
+        'intervention'
+      ]);
       if (data.defaultUseCase) {
         this.currentUseCase = data.defaultUseCase as UseCase;
       }
@@ -104,6 +110,9 @@ class PromptEnhancerExtension {
       ) {
         this.performanceMode = data.performanceMode;
       }
+      if (isRewriteIntervention(data.intervention)) {
+        this.currentIntervention = data.intervention;
+      }
     }
 
     // Initialize UI
@@ -112,6 +121,7 @@ class PromptEnhancerExtension {
       onUseCaseChange: (useCase) => this.handleUseCaseChange(useCase),
       onAutoEnhanceChange: (enabled) => this.handleAutoEnhanceChange(enabled),
       onPerformanceModeChange: (mode) => this.handlePerformanceModeChange(mode),
+      onInterventionChange: (intervention) => this.handleInterventionChange(intervention),
       onCopy: (text) => this.handleCopy(text),
       onInsert: (text) => this.handleInsert(text),
       onUndo: () => this.handleUndo(),
@@ -264,6 +274,13 @@ class PromptEnhancerExtension {
     void this.runAnalysis(true);
   }
 
+  private handleInterventionChange(intervention: RewriteIntervention) {
+    this.currentIntervention = intervention;
+    void safeStorageSet({ intervention });
+    this.dismissedSignature = '';
+    void this.runAnalysis(true);
+  }
+
   private handleCopy(text: string) {
     this.rememberGeneratedPrompt(text);
     this.saveHistory(text);
@@ -349,17 +366,7 @@ class PromptEnhancerExtension {
     }
 
     this.ui.setPulse(false);
-    this.ui.keepPopupOpen();
-    window.requestAnimationFrame(() => {
-      if (
-        this.lastInsertion?.element === el &&
-        el.isConnected &&
-        this.textSignature(this.getInputText(el)) === this.textSignature(text)
-      ) {
-        this.ui.keepPopupOpen();
-        this.ui.updatePopupPosition();
-      }
-    });
+    this.ui.collapseToBubble(false);
     this.currentResultContext = null;
     this.saveHistory(text);
   }
@@ -512,7 +519,8 @@ class PromptEnhancerExtension {
       { ...content, rewriteSource: 'rules', rewriteStatus: 'loading' },
       this.currentUseCase,
       this.autoEnhanceEnabled,
-      this.performanceMode
+      this.performanceMode,
+      this.currentIntervention
     );
 
     this.modelAbortController?.abort();
@@ -525,7 +533,8 @@ class PromptEnhancerExtension {
         fallbackPrompt: content.improvedPrompt,
         hasPriorConversation: this.hasPriorUserMessages(),
         preferSpeed: this.performanceMode === 'fast',
-        performanceMode: this.performanceMode
+        performanceMode: this.performanceMode,
+        intervention: this.currentIntervention
       },
       { signal: modelAbortController.signal }
     );
@@ -620,7 +629,8 @@ class PromptEnhancerExtension {
       },
       this.currentUseCase,
       this.autoEnhanceEnabled,
-      this.performanceMode
+      this.performanceMode,
+      this.currentIntervention
     );
   }
 

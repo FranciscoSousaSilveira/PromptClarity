@@ -8,6 +8,8 @@ exports.DEFAULT_SETTINGS = {
     keepModelsWarm: true,
     shortcut: 'CommandOrControl+Alt+P',
     historyEnabled: false,
-    historyLimit: 20
+    historyLimit: 20,
+    telemetryEnabled: false,
+    ollamaAutoInstall: true
 };
 //# sourceMappingURL=settings.js.map

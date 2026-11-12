@@ -159,7 +159,7 @@ function improveGoal(prompt) {
             return 'Analyze the following: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)';
         }
         else if (prompt.match(/code|program|function|debug|fix/i)) {
-            return 'Create or improve code for: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)';
+            return ('Create or improve code for: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)');
         }
         else if (prompt.match(/explain|describe|clarify/i)) {
             return 'Explain or describe: ' + prompt + ' (Goal improved: Added explicit action verb for clarity)';

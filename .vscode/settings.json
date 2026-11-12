@@ -1,5 +1,6 @@
 {
   "chat.tools.terminal.autoApprove": {
     "id": true
-  }
+  },
+  "cmake.sourceDirectory": "C:/Users/fpass/Projects/GrammaryPrompts/Grammarly-Prompts/node_modules/bare-fs"
 }

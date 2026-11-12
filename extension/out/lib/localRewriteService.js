@@ -50,12 +50,36 @@ function buildModelSystemPrompt(isPortuguese, mode, intervention, safetyRetry) {
             ? 'Intervenção estrita: corrige apenas erros superficiais evidentes e preserva ao máximo as palavras e a estrutura originais; evita reformular.'
             : intervention === 'polished'
                 ? 'Intervenção polida: melhora a fluidez e torna a formulação mais natural, mas preserva rigorosamente intenção, factos, idioma, nível de detalhe e marcadores de incerteza. Nunca transformes incerteza em certeza: mantém ou reformula com segurança expressões como “acho”, “talvez”, “pode”, “parece”, “provavelmente” e semelhantes.'
-                : 'Intervenção normal: melhora a clareza de forma conservadora, preservando a intenção e o nível de detalhe.'
+                : intervention === 'enhanced'
+                    ? 'Intervenção melhorada: atua como especialista em engenharia de prompts. Transforma pedidos vagos e genéricos em prompts claros, estruturados, com especificações acionáveis, tom e formato adequados para um modelo de IA, mantendo o objetivo central do utilizador.'
+                    : 'Intervenção normal: melhora a clareza de forma conservadora, preservando a intenção e o nível de detalhe.'
         : intervention === 'strict'
             ? 'Strict intervention: correct only obvious surface errors and preserve the original words and structure as much as possible; avoid rephrasing.'
             : intervention === 'polished'
                 ? 'Polished intervention: improve fluency and make the wording smoother, while strictly preserving intent, facts, language, detail level, and uncertainty markers. Never turn uncertainty into certainty: keep or safely rephrase markers such as “I think”, “maybe”, “may”, “might”, “seems”, “probably”, and similar wording.'
-                : 'Normal intervention: improve clarity conservatively while preserving intent and detail level.';
+                : intervention === 'enhanced'
+                    ? 'Enhanced intervention: act as an expert prompt engineer. Transform vague, generic requests into clear, well-structured, actionable prompts with key criteria, tone, and format for an AI assistant, while preserving the user core intent.'
+                    : 'Normal intervention: improve clarity conservatively while preserving intent and detail level.';
+    if (intervention === 'enhanced') {
+        return (isPortuguese
+            ? [
+                'És um especialista em engenharia de prompts para IA. A tua única tarefa é reescrever o texto do utilizador transformando-o num prompt perfeito, claro e detalhado para uma IA.',
+                'O teu output TEM de ser um comando ou instrução direta pronta a ser colada num chat de IA (ex: começando com "Cria...", "Elabora...", "Desenvolve...", "Explica...").',
+                'Transforma expressões vagas (como "faz bem", "boa apresentação", "ajuda-me") em critérios concretos de qualidade, tom persuasivo/profissional, estrutura e público-alvo.',
+                'Mantém o mesmo objetivo principal, o mesmo idioma (Português) e o contexto.',
+                'NUNCA respondas ao utilizador, NUNCA faças perguntas ("Como posso ajudar?", "Entendo que..."), NUNCA uses preâmbulos ou Markdown excessivo.',
+                'Devolve APENAS o texto do prompt otimizado final, sem aspas nem explicações.'
+            ]
+            : [
+                'You are an expert prompt engineer. Your job is to rewrite and optimize user prompts to be clear, specific, well-structured, and highly effective for an AI assistant.',
+                'Your output MUST be a direct prompt command ready to be pasted into an AI assistant (e.g. starting with "Create...", "Draft...", "Design...", "Explain...", "Develop...").',
+                'Transform vague or generic requests (such as "make it good", "help me with this", "create a presentation") into actionable, high-quality prompts with concrete criteria, compelling structure, tone, and target audience.',
+                'Preserve the core user goal and output in the same language.',
+                'NEVER speak conversationally (do not say "I understand that you want...", "How can I help you?"). Do NOT answer the prompt or write introductory text.',
+                'Return ONLY the enhanced prompt text without quotes or explanations.'
+            ])
+            .join(' ');
+    }
     return (isPortuguese
         ? [
             'A tua única tarefa é corrigir o texto; não respondas ao conteúdo.',
@@ -88,8 +112,14 @@ async function rewriteWithLocalOllama(input) {
     const profile = product_1.MODEL_PROFILES[input.mode];
     const selectedModel = getSelectedLocalModel(input.mode);
     const isShortPrompt = input.prompt.length <= 240;
-    const maxOutputTokens = Math.min(profile.maxOutputTokens, isShortPrompt ? 64 : input.prompt.length < 500 ? 144 : input.prompt.length < 1500 ? 240 : 320);
+    const isEnhanced = input.intervention === 'enhanced';
+    const maxOutputTokens = isEnhanced
+        ? Math.max(256, profile.maxOutputTokens)
+        : Math.min(profile.maxOutputTokens, isShortPrompt ? 64 : input.prompt.length < 500 ? 144 : input.prompt.length < 1500 ? 240 : 320);
     const isPortuguese = isPortugueseText(input.prompt);
+    const userInstruction = isEnhanced
+        ? `${isPortuguese ? 'Prompt a otimizar' : 'Prompt to optimize'}: ${input.prompt}`
+        : `${isPortuguese ? 'Corrige apenas este texto' : 'Copy-edit only this text'}:\n${input.prompt}`;
     const response = await fetch(`${OLLAMA_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,7 +128,7 @@ async function rewriteWithLocalOllama(input) {
             stream: false,
             keep_alive: input.keepModelsWarm ? -1 : 0,
             options: {
-                temperature: input.safetyRetry ? Math.min(0.05, profile.temperature) : profile.temperature,
+                temperature: input.safetyRetry ? Math.min(0.05, profile.temperature) : isEnhanced ? 0.3 : profile.temperature,
                 top_p: 0.9,
                 num_ctx: profile.contextTokens,
                 num_predict: maxOutputTokens
@@ -110,7 +140,7 @@ async function rewriteWithLocalOllama(input) {
                 },
                 {
                     role: 'user',
-                    content: `${isPortuguese ? 'Corrige apenas este texto' : 'Copy-edit only this text'}:\n${input.prompt}`
+                    content: userInstruction
                 }
             ]
         }),

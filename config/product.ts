@@ -21,12 +21,12 @@ export const SUPPORTED_CHAT_ORIGINS = [
 ] as const;
 
 export type PerformanceMode = 'fast' | 'balanced' | 'quality';
-export type RewriteIntervention = 'strict' | 'normal' | 'polished';
+export type RewriteIntervention = 'strict' | 'normal' | 'polished' | 'enhanced';
 
 export const DEFAULT_REWRITE_INTERVENTION: RewriteIntervention = 'normal';
 
 export function isRewriteIntervention(value: unknown): value is RewriteIntervention {
-  return value === 'strict' || value === 'normal' || value === 'polished';
+  return value === 'strict' || value === 'normal' || value === 'polished' || value === 'enhanced';
 }
 
 export interface ModelProfile {

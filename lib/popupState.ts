@@ -52,9 +52,15 @@ function normalizeValidationReason(reason: string | null | undefined): string | 
   return normalized.length > 0 ? normalized : null;
 }
 
-function describeValidationReason(status: RewriteStatus, reason: string | null): string | null {
+function describeValidationReason(
+  status: RewriteStatus,
+  reason: string | null,
+  intervention?: RewriteIntervention
+): string | null {
   if (status === 'no_change') return 'No changes were needed';
-  if (status === 'changed') return 'Conservative local correction applied';
+  if (status === 'changed') {
+    return intervention === 'enhanced' ? 'AI prompt optimization applied' : 'Conservative local correction applied';
+  }
   if (status === 'fallback') {
     return reason ? `Conservative fallback used · ${reason}` : 'Conservative fallback used';
   }
@@ -81,24 +87,27 @@ export function describeRewritePresentation(input: RewritePresentationInput): Re
       showCheckmark: true,
       feedbackSource: 'checkmark',
       intervention,
-      validationReasonText: describeValidationReason(input.status, validationReason)
+      validationReasonText: describeValidationReason(input.status, validationReason, intervention)
     };
   }
 
   if (input.status === 'changed') {
+    const isEnhanced = intervention === 'enhanced';
     return {
       kind: 'changed',
-      title: 'Corrected prompt',
-      subtitle: 'Conservative local correction ready',
-      message: 'The corrected prompt keeps the original intent and wording as close as possible.',
+      title: isEnhanced ? 'Enhanced prompt' : 'Corrected prompt',
+      subtitle: isEnhanced ? 'AI-optimized prompt ready' : 'Conservative local correction ready',
+      message: isEnhanced
+        ? 'The prompt was enhanced for clarity, structure, and effectiveness.'
+        : 'The corrected prompt keeps the original intent and wording as close as possible.',
       originalLabel: 'Original',
-      rewrittenLabel: 'Corrected',
+      rewrittenLabel: isEnhanced ? 'Enhanced' : 'Corrected',
       showComparison: true,
       showInsert: true,
       showCheckmark: false,
       feedbackSource: input.source === 'model' ? 'model' : 'local_fallback',
       intervention,
-      validationReasonText: describeValidationReason(input.status, validationReason)
+      validationReasonText: describeValidationReason(input.status, validationReason, intervention)
     };
   }
 

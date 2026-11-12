@@ -80,7 +80,7 @@ const ENGLISH_LANGUAGE_WORDS = new Set([
     'with',
     'you'
 ]);
-const DIRECTIVE_START = /^(?:ajuda|clarifica|corrige|cria|define|diz|encontra|escreve|explica|faz|identifica|indica|lista|melhora|mostra|analisa|compara|responde|revê|sugere|verifica|help|clarify|correct|create|define|tell|find|write|explain|make|identify|state|list|improve|show|analyze|compare|answer|review|suggest|check)\b/i;
+const DIRECTIVE_START = /^(?:ajuda|ajude|clarifica|clarifique|corrige|corrija|cria|crie|define|defina|desenvolve|desenvolva|descreve|descreva|diz|diga|elabora|elabore|esboce|esboça|escreve|escreva|estrutura|estruture|explica|explique|faz|faça|fornece|forneça|gera|gere|identifica|identifique|indica|indique|lista|liste|melhora|melhore|mostra|mostre|analisa|analise|compara|compare|planeia|planeje|produz|produza|responde|responda|revê|reveja|sugere|sugira|verifica|verifique|help|clarify|correct|create|define|develop|design|draft|outline|build|generate|compose|formulate|provide|tell|find|write|explain|make|identify|state|list|improve|show|analyze|compare|answer|review|suggest|check)\b/i;
 const QUESTION_START = /^(?:o que|quem|qual|quais|quando|onde|como|por que|porque é que|podes|pode|podias|what|who|which|when|where|how|why|can you|could you|would you)\b/i;
 const ASSISTANT_PREFACE = /(?:(?:^|[\n.!?:;]\s*)(?:claro|sure)(?=[\s,.:;!?]|$)|(?:aqui est[aá]|posso ajudar|a resposta [eé]|here is|here are|i can help|the answer is)(?=[\s,.:;!?]|$))/i;
 const REFUSAL = /\b(?:n[aã]o posso|n[aã]o consigo|desculpa|lamento|i cannot|i can't|i am unable|i[’']m sorry|i am sorry|sorry)\b/i;
@@ -345,11 +345,11 @@ function validateModelRewrite(original, rewritten, intervention = 'normal') {
     }
     const originalHasMarkdown = MARKDOWN_PATTERNS.some((pattern) => pattern.test(original));
     const rewriteHasMarkdown = MARKDOWN_PATTERNS.some((pattern) => pattern.test(rewritten));
-    if (!originalHasMarkdown && rewriteHasMarkdown)
+    if (intervention !== 'enhanced' && !originalHasMarkdown && rewriteHasMarkdown)
         return result(false, 'markdown_injection');
-    if (!LIST_PATTERN.test(original) && LIST_PATTERN.test(rewritten))
+    if (intervention !== 'enhanced' && !LIST_PATTERN.test(original) && LIST_PATTERN.test(rewritten))
         return result(false, 'added_structure');
-    if (!SECTION_PATTERN.test(original) && SECTION_PATTERN.test(rewritten)) {
+    if (intervention !== 'enhanced' && !SECTION_PATTERN.test(original) && SECTION_PATTERN.test(rewritten)) {
         return result(false, 'added_structure');
     }
     const originalIsPrompt = QUESTION_START.test(trimmedOriginal) ||
@@ -383,23 +383,25 @@ function validateModelRewrite(original, rewritten, intervention = 'normal') {
         return result(false, 'factual_meaning_changed');
     if (looksTruncated(original, rewritten))
         return result(false, 'truncated_output');
-    if (hasIntroducedConcept(original, rewritten, TOOL_CONCEPTS)) {
-        return result(false, 'introduced_tool');
-    }
-    if (hasIntroducedConcept(original, rewritten, EXPANSION_CONCEPTS)) {
-        return result(false, 'semantic_expansion');
-    }
-    if (EXPANSION_PHRASES.some((pattern) => hasIntroducedPhrase(original, rewritten, pattern))) {
-        return result(false, 'semantic_expansion');
-    }
-    if (trimmedRewrite.length > Math.max(3, trimmedOriginal.length * maxGrowthRatio(trimmedOriginal.length))) {
-        return result(false, 'excessive_length_growth');
-    }
-    if (countTaskVerbs(rewritten) > countTaskVerbs(original)) {
-        return result(false, 'semantic_expansion');
-    }
-    if (!isFaithfulToOriginal(original, rewritten, intervention)) {
-        return result(false, 'unfaithful_rewrite');
+    if (intervention !== 'enhanced') {
+        if (hasIntroducedConcept(original, rewritten, TOOL_CONCEPTS)) {
+            return result(false, 'introduced_tool');
+        }
+        if (hasIntroducedConcept(original, rewritten, EXPANSION_CONCEPTS)) {
+            return result(false, 'semantic_expansion');
+        }
+        if (EXPANSION_PHRASES.some((pattern) => hasIntroducedPhrase(original, rewritten, pattern))) {
+            return result(false, 'semantic_expansion');
+        }
+        if (trimmedRewrite.length > Math.max(3, trimmedOriginal.length * maxGrowthRatio(trimmedOriginal.length))) {
+            return result(false, 'excessive_length_growth');
+        }
+        if (countTaskVerbs(rewritten) > countTaskVerbs(original)) {
+            return result(false, 'semantic_expansion');
+        }
+        if (!isFaithfulToOriginal(original, rewritten, intervention)) {
+            return result(false, 'unfaithful_rewrite');
+        }
     }
     return result(true, 'model_output_valid');
 }

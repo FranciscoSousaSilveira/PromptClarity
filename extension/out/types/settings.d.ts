@@ -7,6 +7,10 @@ export interface AppSettings {
     shortcut: string;
     historyEnabled: boolean;
     historyLimit: number;
+    selectedModel?: string;
+    hardwareDetected?: boolean;
+    telemetryEnabled?: boolean;
+    ollamaAutoInstall?: boolean;
 }
 export declare const DEFAULT_SETTINGS: AppSettings;
 //# sourceMappingURL=settings.d.ts.map

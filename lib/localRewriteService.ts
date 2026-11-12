@@ -60,12 +60,39 @@ export function buildModelSystemPrompt(
       ? 'Intervenção estrita: corrige apenas erros superficiais evidentes e preserva ao máximo as palavras e a estrutura originais; evita reformular.'
       : intervention === 'polished'
         ? 'Intervenção polida: melhora a fluidez e torna a formulação mais natural, mas preserva rigorosamente intenção, factos, idioma, nível de detalhe e marcadores de incerteza. Nunca transformes incerteza em certeza: mantém ou reformula com segurança expressões como “acho”, “talvez”, “pode”, “parece”, “provavelmente” e semelhantes.'
-        : 'Intervenção normal: melhora a clareza de forma conservadora, preservando a intenção e o nível de detalhe.'
+        : intervention === 'enhanced'
+          ? 'Intervenção melhorada: atua como especialista em engenharia de prompts. Transforma pedidos vagos e genéricos em prompts claros, estruturados, com especificações acionáveis, tom e formato adequados para um modelo de IA, mantendo o objetivo central do utilizador.'
+          : 'Intervenção normal: melhora a clareza de forma conservadora, preservando a intenção e o nível de detalhe.'
     : intervention === 'strict'
       ? 'Strict intervention: correct only obvious surface errors and preserve the original words and structure as much as possible; avoid rephrasing.'
       : intervention === 'polished'
         ? 'Polished intervention: improve fluency and make the wording smoother, while strictly preserving intent, facts, language, detail level, and uncertainty markers. Never turn uncertainty into certainty: keep or safely rephrase markers such as “I think”, “maybe”, “may”, “might”, “seems”, “probably”, and similar wording.'
-        : 'Normal intervention: improve clarity conservatively while preserving intent and detail level.';
+        : intervention === 'enhanced'
+          ? 'Enhanced intervention: act as an expert prompt engineer. Transform vague, generic requests into clear, well-structured, actionable prompts with key criteria, tone, and format for an AI assistant, while preserving the user core intent.'
+          : 'Normal intervention: improve clarity conservatively while preserving intent and detail level.';
+
+  if (intervention === 'enhanced') {
+    return (
+      isPortuguese
+        ? [
+            'És um especialista em engenharia de prompts para IA. A tua tarefa é otimizar prompts para serem claros, estruturados e eficazes para um assistente de IA.',
+            'Regra crítica de modalidade da intenção:',
+            '1. Se o utilizador pede uma EXPLICAÇÃO, TUTORIAL ou GUIA ("explica", "como posso", "ensina-me", "explica como"), o prompt DEVE pedir uma explicação detalhada (ex: "Explica passo a passo como construir...", "Fornece um guia com boas práticas para..."). NUNCA transformes um pedido de explicação num comando de criação direta.',
+            '2. Se o utilizador pede para CRIAR ou GERAR diretamente ("cria", "faz uma apresentação", "escreve código", "desenvolve"), aí sim usa comandos de criação direta ("Cria...", "Desenvolve...").',
+            '3. Transforma superlativos ou expressões vagas ("melhor de sempre", "faz bem feito") em padrões técnicos e profissionais concretos (estrutura de dados, formatação, validação, fórmulas).',
+            'Mantém o mesmo objetivo principal e idioma. NUNCA respondas ao utilizador e NUNCA uses preâmbulos como "Aqui está:". Devolve APENAS o texto do prompt otimizado final, sem aspas.'
+          ]
+        : [
+            'You are an expert prompt engineer. Your job is to rewrite and optimize user prompts to be clear, specific, well-structured, and highly effective for an AI assistant.',
+            'Critical intent preservation rules:',
+            '1. EXPLANATION / HOW-TO INTENT: If the user asks for an explanation, tutorial, or how to do something ("explain", "how can I", "how do I", "teach me", "walk me through"), the enhanced prompt MUST remain an explanation/guide request (e.g., "Explain step-by-step how to build...", "Provide a comprehensive guide with best practices for..."). NEVER turn an explanation/learning request into a creation/generation command.',
+            '2. CREATION / GENERATION INTENT: Only if the user asks to directly create or generate something ("create", "make a presentation", "write code", "build"), use direct creation commands ("Create...", "Draft...", "Design...").',
+            '3. Enrich vague superlatives or quality expressions (such as "the best in existence", "make it good") into concrete technical criteria (data structure, formatting standards, efficient formulas, key sections).',
+            'Preserve the core user goal and output in the same language. NEVER speak conversationally (no "Here is your prompt:"). Return ONLY the enhanced prompt text without quotes or explanations.'
+          ]
+    )
+      .join(' ');
+  }
   return (
     isPortuguese
       ? [
@@ -101,11 +128,17 @@ async function rewriteWithLocalOllama(input: ModelRewriteInput) {
   const profile = MODEL_PROFILES[input.mode];
   const selectedModel = getSelectedLocalModel(input.mode);
   const isShortPrompt = input.prompt.length <= 240;
-  const maxOutputTokens = Math.min(
-    profile.maxOutputTokens,
-    isShortPrompt ? 64 : input.prompt.length < 500 ? 144 : input.prompt.length < 1_500 ? 240 : 320
-  );
+  const isEnhanced = input.intervention === 'enhanced';
+  const maxOutputTokens = isEnhanced
+    ? Math.max(256, profile.maxOutputTokens)
+    : Math.min(
+        profile.maxOutputTokens,
+        isShortPrompt ? 64 : input.prompt.length < 500 ? 144 : input.prompt.length < 1_500 ? 240 : 320
+      );
   const isPortuguese = isPortugueseText(input.prompt);
+  const userInstruction = isEnhanced
+    ? `${isPortuguese ? 'Prompt a otimizar' : 'Prompt to optimize'}: ${input.prompt}`
+    : `${isPortuguese ? 'Corrige apenas este texto' : 'Copy-edit only this text'}:\n${input.prompt}`;
   const response = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -114,7 +147,7 @@ async function rewriteWithLocalOllama(input: ModelRewriteInput) {
       stream: false,
       keep_alive: input.keepModelsWarm ? -1 : 0,
       options: {
-        temperature: input.safetyRetry ? Math.min(0.05, profile.temperature) : profile.temperature,
+        temperature: input.safetyRetry ? Math.min(0.05, profile.temperature) : isEnhanced ? 0.3 : profile.temperature,
         top_p: 0.9,
         num_ctx: profile.contextTokens,
         num_predict: maxOutputTokens
@@ -126,7 +159,7 @@ async function rewriteWithLocalOllama(input: ModelRewriteInput) {
         },
         {
           role: 'user',
-          content: `${isPortuguese ? 'Corrige apenas este texto' : 'Copy-edit only this text'}:\n${input.prompt}`
+          content: userInstruction
         }
       ]
     }),
